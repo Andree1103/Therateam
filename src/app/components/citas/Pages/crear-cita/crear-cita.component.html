@@ -1,0 +1,152 @@
+<div class="crear-cita-container">
+  <div class="form-card">
+    <div class="form-header">
+      <h1>Nueva Cita</h1>
+      <button class="btn-close" (click)="cancelar()">✕</button>
+    </div>
+
+    <div *ngIf="errorMessage" class="alert alert-error">
+      {{ errorMessage }}
+    </div>
+
+    <div *ngIf="successMessage" class="alert alert-success">
+      {{ successMessage }}
+    </div>
+
+    <form (ngSubmit)="onSubmit()" #citaForm="ngForm">
+      <!-- Paciente -->
+      <div class="form-group">
+        <label for="paciente_id">Paciente *</label>
+        <select 
+          id="paciente_id"
+          [(ngModel)]="cita.paciente_id" 
+          name="paciente_id"
+          class="form-control"
+          required>
+          <option value="">Seleccione un paciente</option>
+          <option *ngFor="let paciente of pacientes" [value]="paciente.id">
+            {{ paciente.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Terapeuta -->
+      <div class="form-group">
+        <label for="terapeuta_id">Terapeuta *</label>
+        <select 
+          id="terapeuta_id"
+          [(ngModel)]="cita.terapeuta_id" 
+          name="terapeuta_id"
+          class="form-control"
+          required>
+          <option value="">Seleccione un terapeuta</option>
+          <option *ngFor="let terapeuta of terapeutas" [value]="terapeuta.id">
+            {{ terapeuta.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Tipo de Terapia -->
+      <div class="form-group">
+        <label for="tipo_terapia_id">Tipo de Terapia *</label>
+        <select 
+          id="tipo_terapia_id"
+          [(ngModel)]="cita.tipo_terapia_id" 
+          name="tipo_terapia_id"
+          class="form-control"
+          (change)="onTipoTerapiaChange()"
+          required>
+          <option value="">Seleccione un tipo de terapia</option>
+          <option *ngFor="let terapia of tiposTerapia" [value]="terapia.id">
+            {{ terapia.nombre }} ({{ terapia.duracion }} min)
+          </option>
+        </select>
+      </div>
+
+      <!-- Fecha y Hora -->
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fecha">Fecha *</label>
+          <input 
+            type="date" 
+            id="fecha"
+            [(ngModel)]="cita.fecha_inicio" 
+            name="fecha"
+            class="form-control"
+            [min]="fechaMinima"
+            (change)="onFechaHoraChange()"
+            required>
+        </div>
+
+        <div class="form-group">
+          <label for="hora">Hora *</label>
+          <select 
+            id="hora"
+            [(ngModel)]="cita.fecha_inicio" 
+            name="hora"
+            class="form-control"
+            (change)="onFechaHoraChange()"
+            required>
+            <option value="">Seleccione hora</option>
+            <option *ngFor="let hora of horasDisponibles" [value]="hora">
+              {{ hora }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Duración (automática) -->
+      <div class="form-group">
+        <label>Duración</label>
+        <div class="duracion-info">
+          <span class="badge">{{ cita.duracion_minutos }} minutos</span>
+          <small class="text-muted">(Calculada automáticamente según el tipo de terapia)</small>
+        </div>
+      </div>
+
+      <!-- Modalidad -->
+      <div class="form-group">
+        <label for="modalidad">Modalidad *</label>
+        <div class="modalidad-options">
+          <label *ngFor="let modalidad of modalidades" class="radio-label">
+            <input 
+              type="radio" 
+              [value]="modalidad"
+              [(ngModel)]="cita.modalidad" 
+              name="modalidad"
+              required>
+            <span class="radio-text">
+              <span class="icon">
+                {{ modalidad === 'PRESENCIAL' ? '🏥' : modalidad === 'VIRTUAL' ? '💻' : '🏠' }}
+              </span>
+              {{ modalidad | titlecase }}
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notas Previas -->
+      <div class="form-group">
+        <label for="notas_previas">Notas Previas</label>
+        <textarea 
+          id="notas_previas"
+          [(ngModel)]="cita.notas_previas" 
+          name="notas_previas"
+          class="form-control"
+          rows="3"
+          placeholder="Ingrese notas o instrucciones previas a la cita..."></textarea>
+      </div>
+
+      <!-- Botones -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelar()">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="loading">
+          <span *ngIf="loading" class="spinner-small"></span>
+          <span *ngIf="!loading">Crear Cita</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

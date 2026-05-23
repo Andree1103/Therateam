@@ -1,0 +1,198 @@
+<div class="detalle-container">
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Cargando detalles de la cita...</p>
+  </div>
+
+  <div *ngIf="!loading && cita" class="detalle-card">
+    <!-- Header -->
+    <div class="detalle-header" [class]="getEstadoClass(cita.estado)">
+      <div class="header-content">
+        <h1>Detalle de Cita</h1>
+        <div class="estado-badge">{{ cita.estado | titlecase }}</div>
+      </div>
+      <button class="btn-back" (click)="volver()">← Volver</button>
+    </div>
+
+    <!-- Contenido -->
+    <div class="detalle-body">
+      <!-- Info Principal -->
+      <div class="info-section">
+        <h2>Información de la Cita</h2>
+        
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Fecha:</span>
+            <span class="value">{{ cita.fecha_inicio | date:'EEEE, d \'de\' MMMM \'de\' yyyy' }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="label">Hora:</span>
+            <span class="value">{{ cita.fecha_inicio | date:'HH:mm' }} - {{ cita.fecha_fin | date:'HH:mm' }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="label">Duración:</span>
+            <span class="value">{{ cita.duracion_minutos }} minutos</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="label">Modalidad:</span>
+            <span class="value">
+              <span class="icon">{{ getModalidadIcon(cita.modalidad) }}</span>
+              {{ cita.modalidad | titlecase }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paciente -->
+      <div class="info-section">
+        <h2>Paciente</h2>
+        <div class="info-card">
+          <div class="info-item">
+            <span class="label">Nombre:</span>
+            <span class="value">{{ cita.paciente_nombre }} {{ cita.paciente_apellido }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terapeuta -->
+      <div class="info-section">
+        <h2>Terapeuta</h2>
+        <div class="info-card">
+          <div class="info-item">
+            <span class="label">Nombre:</span>
+            <span class="value">{{ cita.terapeuta_nombre }} {{ cita.terapeuta_apellido }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terapia -->
+      <div class="info-section">
+        <h2>Terapia</h2>
+        <div class="info-card">
+          <div class="info-item">
+            <span class="label">Tipo de Terapia:</span>
+            <span class="value">{{ cita.tipo_terapia_nombre }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Especialidad:</span>
+            <span class="value">{{ cita.especialidad_nombre }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notas -->
+      <div *ngIf="cita.notas_previas" class="info-section">
+        <h2>Notas Previas</h2>
+        <div class="info-card">
+          <p class="notas">{{ cita.notas_previas }}</p>
+        </div>
+      </div>
+
+      <div *ngIf="cita.notas_post" class="info-section">
+        <h2>Notas Posteriores</h2>
+        <div class="info-card">
+          <p class="notas">{{ cita.notas_post }}</p>
+        </div>
+      </div>
+
+      <!-- Link Videollamada -->
+      <div *ngIf="cita.link_videollamada" class="info-section">
+        <h2>Videollamada</h2>
+        <div class="info-card">
+          <a [href]="cita.link_videollamada" target="_blank" class="link-video">
+            🔗 Unirse a la videollamada
+          </a>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="acciones-section">
+        <h2>Acciones</h2>
+        <div class="acciones-buttons">
+          <button 
+            *ngIf="cita.estado === 'PROGRAMADA' || cita.estado === 'PENDIENTE'"
+            class="btn btn-confirm" 
+            (click)="confirmarCita()">
+            ✓ Confirmar Cita
+          </button>
+          
+          <button 
+            *ngIf="cita.estado !== 'CANCELADA_PACIENTE' && cita.estado !== 'CANCELADA_CLINICA' && cita.estado !== 'ASISTIDA'"
+            class="btn btn-reschedule" 
+            (click)="abrirModalReprogramar()">
+            📅 Reprogramar
+          </button>
+          
+          <button 
+            *ngIf="cita.estado !== 'CANCELADA_PACIENTE' && cita.estado !== 'CANCELADA_CLINICA' && cita.estado !== 'ASISTIDA'"
+            class="btn btn-cancel" 
+            (click)="abrirModalCancelar()">
+            ✕ Cancelar Cita
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Reprogramar -->
+  <div *ngIf="showReprogramarModal" class="modal-overlay" (click)="cerrarModalReprogramar()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Reprogramar Cita</h2>
+        <button class="modal-close" (click)="cerrarModalReprogramar()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nueva Fecha</label>
+          <input type="date" class="form-control" [(ngModel)]="reprogramarData.nueva_fecha_inicio">
+        </div>
+        <div class="form-group">
+          <label>Nueva Hora</label>
+          <select class="form-control" [(ngModel)]="reprogramarData.nueva_fecha_inicio">
+            <option *ngFor="let hora of horasDisponibles" [value]="hora">
+              {{ hora }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motivo de Reprogramación *</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="reprogramarData.motivo" 
+                    placeholder="Ingrese el motivo de la reprogramación..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cerrarModalReprogramar()">Cancelar</button>
+        <button class="btn btn-primary" (click)="guardarReprogramacion()" 
+                [disabled]="!reprogramarData.motivo">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cancelar -->
+  <div *ngIf="showCancelarModal" class="modal-overlay" (click)="cerrarModalCancelar()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Cancelar Cita</h2>
+        <button class="modal-close" (click)="cerrarModalCancelar()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          ⚠️ ¿Está seguro que desea cancelar esta cita?
+        </div>
+        <div class="form-group">
+          <label>Motivo de Cancelación *</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="motivoCancelacion" 
+                    placeholder="Ingrese el motivo de la cancelación..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cerrarModalCancelar()">No, Volver</button>
+        <button class="btn btn-danger" (click)="confirmarCancelacion()" 
+                [disabled]="!motivoCancelacion">Sí, Cancelar Cita</button>
+      </div>
+    </div>
+  </div>
+</div>

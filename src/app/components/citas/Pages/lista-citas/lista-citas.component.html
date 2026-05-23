@@ -1,0 +1,243 @@
+<div class="agenda-container">
+
+  <!-- ── TOP BAR ─────────────────────────────────────────────────────────── -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Agenda de Citas</h1>
+      <span class="subtitle">Vista Semanal</span>
+    </div>
+    <div class="topbar-right">
+      <div class="vista-tabs">
+        <button class="vtab" [class.act]="vista==='semana'" (click)="vista='semana'">Semana</button>
+        <button class="vtab" [class.act]="vista==='libre'"  (click)="vista='libre'">Horarios libres</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTROLES ────────────────────────────────────────────────────────── -->
+  <div class="controls-bar">
+    <button class="nb" (click)="navSemana(-1)">&#8249;</button>
+    <span class="wlbl">{{ weekLabel }}</span>
+    <button class="nb" (click)="navSemana(1)">&#8250;</button>
+    <button class="btn-hoy" (click)="irHoy()">Hoy</button>
+    <div class="sep"></div>
+    <label class="ctrl-lbl">Terapeuta:</label>
+    <select [(ngModel)]="filtroTerapeuta">
+      <option value="">Todos</option>
+      <option *ngFor="let t of terapeutas" [value]="t">{{ t }}</option>
+    </select>
+    <button class="btn-nueva ml-auto" (click)="abrirNueva()">+ Nueva cita</button>
+  </div>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
+  <div class="main-layout" *ngIf="!loading">
+
+    <!-- SIDEBAR: terapeutas + slots libres -->
+    <div class="sidebar">
+      <div class="sidebar-hdr">Terapeutas</div>
+      <div
+        *ngFor="let t of terapeutas"
+        class="ter-item"
+        [class.sel]="filtroTerapeuta === t"
+        (click)="filtroTerapeuta = filtroTerapeuta === t ? '' : t"
+      >
+        <div class="ter-ini">{{ t.slice(0,2).toUpperCase() }}</div>
+        <div class="ter-info">
+          <p>{{ t }}</p>
+          <span>{{ getLibresTerapeuta(t) }} slots libres</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="cal-scroll">
+      <table class="agenda-table">
+        <thead>
+          <tr>
+            <th class="th-hora">Hora</th>
+            <th
+              *ngFor="let dia of diasSemana; let di = index"
+              class="th-dia"
+              [class.hoy-th]="esHoy(dia.fecha)"
+            >
+              <span class="dn">{{ dia.nombre }}</span>
+              <span class="dd" [class.hoy-dd]="esHoy(dia.fecha)">{{ dia.fecha | date:'d' }}</span>
+              <span class="dm">{{ dia.fecha | date:'MMM' }}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of slots" [class.hora-mark]="s.m === 0" [class.sub-mark]="s.m !== 0">
+            <td class="td-hora">{{ s.lbl }}</td>
+            <td
+              *ngFor="let dia of diasSemana; let di = index"
+              class="td-dia"
+              [class.hoy-col]="esHoy(dia.fecha)"
+              (click)="abrirSlot(di, s)"
+            >
+              <ng-container *ngFor="let c of getCitasSlot(di, s.h, s.m)">
+                <div
+                  class="chip"
+                  [class.azul]="getEstadoClass(c) === 'azul'"
+                  [class.verde]="getEstadoClass(c) === 'verde'"
+                  [class.rojo]="getEstadoClass(c) === 'rojo'"
+                  (click)="abrirEditar(c, $event)"
+                >
+                  <div class="chip-top">
+                    <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
+                    <span class="chip-badge">{{ c.tipo_terapia_nombre }}</span>
+                  </div>
+                  <div class="chip-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
+                  <div class="chip-bot">
+                    <span class="chip-tipo">{{ c.duracion_minutos }}min</span>
+                    <span class="chip-hora">{{ s.lbl }}</span>
+                  </div>
+                </div>
+              </ng-container>
+              <div
+                *ngIf="getCitasSlot(di, s.h, s.m).length === 0"
+                class="slot-libre"
+              >
+                <span>+ Agregar</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Cargando agenda...</p>
+  </div>
+
+  <!-- ── LEYENDA ───────────────────────────────────────────────────────────── -->
+  <div class="leyenda">
+    <div class="li"><div class="ldot azul"></div> Agendado</div>
+    <div class="li"><div class="ldot verde"></div> Asistió</div>
+    <div class="li"><div class="ldot rojo"></div> No asistió</div>
+    <span class="regla-info">
+      Convencional: hasta 2 pac/slot (45–60 min) &nbsp;·&nbsp;
+      Personalizado: 1 pac / 40 min &nbsp;·&nbsp;
+      Kids: 1 pac / 40 min
+    </span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL NUEVA / EDITAR CITA
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+
+      <div class="modal-hdr">
+        <h2>{{ citaEditando ? 'Editar cita' : 'Nueva cita' }}</h2>
+        <button class="modal-close" (click)="cerrarModal()">&#10005;</button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Selector de modo (Regular / Kids) -->
+        <div class="modo-tabs">
+          <button
+            class="modo-btn"
+            [class.act]="modoFormulario === 'regular'"
+            (click)="cambiarModo('regular')"
+          >Regular / Adulto</button>
+          <button
+            class="modo-btn"
+            [class.act]="modoFormulario === 'kids'"
+            (click)="cambiarModo('kids')"
+          >Kids</button>
+        </div>
+
+        <!-- Banner Kids -->
+        <div class="kids-banner" *ngIf="modoFormulario === 'kids'">
+          Modo Kids: duración fija 40 min · 1 paciente por slot
+        </div>
+
+        <!-- Paciente -->
+        <div class="frow">
+          <label>Paciente</label>
+          <input [(ngModel)]="fPac" placeholder="Nombre completo">
+        </div>
+
+        <div class="frow-2">
+          <!-- Terapeuta -->
+          <div class="frow">
+            <label>Terapeuta</label>
+            <select [(ngModel)]="fTer">
+              <option *ngFor="let t of terapeutas" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+
+          <!-- Tipo de terapia -->
+          <div class="frow">
+            <label>Tipo de terapia</label>
+            <select [(ngModel)]="fTipo" (change)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
+              <option *ngIf="modoFormulario === 'kids'" value="kids">Kids (40 min)</option>
+              <ng-container *ngIf="modoFormulario !== 'kids'">
+                <option value="conv">Convencional</option>
+                <option value="pers">Personalizado (40 min)</option>
+              </ng-container>
+            </select>
+          </div>
+        </div>
+
+        <div class="frow-2">
+          <!-- Día -->
+          <div class="frow">
+            <label>Día</label>
+            <select [(ngModel)]="fDia">
+              <option *ngFor="let d of diasSemana; let i = index" [value]="i">
+                {{ d.nombre }} {{ d.fecha | date:'d MMM' }}
+              </option>
+            </select>
+          </div>
+          <!-- Hora inicio -->
+          <div class="frow">
+            <label>Hora inicio</label>
+            <select [(ngModel)]="fH">
+              <option *ngFor="let s of slots" [value]="s.h">{{ s.lbl }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Duración (solo convencional) -->
+        <div class="frow" *ngIf="fTipo === 'conv'">
+          <label>Duración</label>
+          <select [(ngModel)]="fDur">
+            <option [value]="40">40 min</option>
+            <option [value]="45">45 min</option>
+            <option [value]="50">50 min</option>
+            <option [value]="60">60 min (1 hora)</option>
+          </select>
+        </div>
+
+        <!-- Info de reglas -->
+        <div class="dur-info">{{ getDurInfo() }}</div>
+
+        <!-- Estado -->
+        <div class="frow" style="margin-top: 8px">
+          <label>Estado</label>
+          <select [(ngModel)]="fEst">
+            <option *ngFor="let e of ESTADOS" [value]="e.v">{{ e.lbl }}</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button
+          *ngIf="citaEditando"
+          class="btn-eliminar"
+          (click)="eliminarCita()"
+        >Eliminar</button>
+        <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
+        <button class="btn-save" (click)="guardarCita()">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
