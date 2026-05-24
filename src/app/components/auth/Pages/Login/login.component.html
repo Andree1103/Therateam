@@ -1,17 +1,26 @@
 <div class="login-container">
   <div class="login-card">
+
     <div class="login-header">
-      <h1>TheraTeam</h1>
+      <div class="login-brand">
+        <div class="login-brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </div>
+        <span class="login-brand-name">Thera Team</span>
+      </div>
       <p>Sistema de Gestión de Citas</p>
     </div>
 
     <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+
       <div class="form-group">
         <label for="email">Email</label>
-        <input 
-          type="email" 
+        <input
+          type="email"
           id="email"
-          [(ngModel)]="email" 
+          [(ngModel)]="email"
           name="email"
           class="form-control"
           placeholder="admin&#64;therateam.com"
@@ -20,10 +29,10 @@
 
       <div class="form-group">
         <label for="password">Contraseña</label>
-        <input 
-          type="password" 
+        <input
+          type="password"
           id="password"
-          [(ngModel)]="password" 
+          [(ngModel)]="password"
           name="password"
           class="form-control"
           placeholder="••••••"
@@ -34,13 +43,14 @@
         {{ errorMessage }}
       </div>
 
-      <button 
-        type="submit" 
+      <button
+        type="submit"
         class="btn btn-primary btn-block"
         [disabled]="loading">
         <span *ngIf="loading" class="spinner"></span>
         <span *ngIf="!loading">Iniciar Sesión</span>
       </button>
+
     </form>
 
     <div class="login-footer">
@@ -50,5 +60,6 @@
         Terapeuta: terapeuta&#64;therateam.com / terapeuta123
       </p>
     </div>
+
   </div>
 </div>

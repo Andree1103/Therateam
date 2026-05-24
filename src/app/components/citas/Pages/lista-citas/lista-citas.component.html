@@ -4,7 +4,7 @@
   <div class="topbar">
     <div class="topbar-left">
       <h1>Agenda de Citas</h1>
-      <span class="subtitle">Vista Semanal</span>
+      <span class="subtitle">{{ vista === 'semana' ? 'Vista Semanal' : 'Horarios Libres' }}</span>
     </div>
     <div class="topbar-right">
       <div class="vista-tabs">
@@ -29,10 +29,12 @@
     <button class="btn-nueva ml-auto" (click)="abrirNueva()">+ Nueva cita</button>
   </div>
 
-  <!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
-  <div class="main-layout" *ngIf="!loading">
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       VISTA SEMANA
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="main-layout" *ngIf="!loading && vista === 'semana'">
 
-    <!-- SIDEBAR: terapeutas + slots libres -->
+    <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-hdr">Terapeutas</div>
       <div
@@ -107,6 +109,110 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       VISTA LIBRE
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="libre-view" *ngIf="!loading && vista === 'libre'">
+
+    <!-- Config duraciones -->
+    <div class="config-card">
+      <div class="config-hdr" (click)="configVisible = !configVisible">
+        <span class="config-title">Configurar duración base por tipo de terapia</span>
+        <span class="config-toggle">{{ configVisible ? '▲' : '▼' }}</span>
+      </div>
+      <div class="config-body" *ngIf="configVisible">
+        <table class="config-table">
+          <thead>
+            <tr><th>Tipo</th><th>Duración base</th><th>Máx. pacientes</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of tiposTerapia">
+              <td class="tipo-nom">{{ t.nombre }}</td>
+              <td>
+                <select [(ngModel)]="t.duracion_minutos" (ngModelChange)="onDuracionTipoChange(t)" class="dur-sel">
+                  <option [value]="35">35 min</option>
+                  <option [value]="40">40 min</option>
+                  <option [value]="45">45 min</option>
+                  <option [value]="50">50 min</option>
+                  <option [value]="60">60 min (1h)</option>
+                </select>
+              </td>
+              <td class="max-pac">{{ t.max_pacientes }} pac.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="config-nota">
+          Conv.: la duración base es el mínimo; al agendar se puede elegir 45–60 min.<br>
+          Pers. y Kids: duración fija según la base configurada.
+        </p>
+      </div>
+    </div>
+
+    <!-- Resumen semanal -->
+    <div class="resumen-card">
+      <div class="resumen-title">Slots libres esta semana · Haz clic en un terapeuta para ver detalle</div>
+      <div class="resumen-scroll">
+        <table class="resumen-table">
+          <thead>
+            <tr>
+              <th>Terapeuta</th>
+              <th *ngFor="let d of diasSemana" [class.hoy-col-r]="esHoy(d.fecha)">
+                {{ d.nombre.slice(0,3) }}<br><small>{{ d.fecha | date:'d' }}</small>
+              </th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let r of getResumenLibres()"
+              (click)="filtroTerapeuta = filtroTerapeuta === r.terapeuta ? '' : r.terapeuta"
+              [class.sel-row]="filtroTerapeuta === r.terapeuta"
+            >
+              <td class="ter-cell-r">
+                <div class="ter-ini-r">{{ r.terapeuta.slice(0,2).toUpperCase() }}</div>
+                {{ r.terapeuta }}
+              </td>
+              <td *ngFor="let n of r.dias" class="cnt-cell" [class.celd-libre]="n > 0" [class.celd-lleno]="n === 0">
+                {{ n }}
+              </td>
+              <td class="total-r">{{ r.total }}</td>
+            </tr>
+            <tr *ngIf="getResumenLibres().length === 0">
+              <td [colSpan]="9" class="no-data">Sin terapeutas registrados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detalle por terapeuta -->
+    <div class="detalle-card" *ngIf="filtroTerapeuta">
+      <div class="det-hdr">
+        Slots libres de <strong>{{ filtroTerapeuta }}</strong>
+        <button class="det-close" (click)="filtroTerapeuta = ''">&#10005;</button>
+      </div>
+      <div class="det-dias">
+        <div class="det-dia" *ngFor="let dia of diasSemana; let di = index">
+          <div class="det-dia-nom" [class.hoy-det]="esHoy(dia.fecha)">
+            {{ dia.nombre }}<br>
+            <small>{{ dia.fecha | date:'d MMM' }}</small>
+          </div>
+          <ng-container *ngIf="getSlotLibresDia(filtroTerapeuta, di).length > 0; else sinCupo">
+            <div *ngFor="let sl of getSlotLibresDia(filtroTerapeuta, di)" class="det-slot">
+              {{ sl.slot.lbl }}
+              <span class="det-cap">{{ sl.libre }} cupo{{ sl.libre !== 1 ? 's' : '' }}</span>
+            </div>
+          </ng-container>
+          <ng-template #sinCupo>
+            <div class="det-vacio">Completo</div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LOADING -->
   <div *ngIf="loading" class="loading-state">
     <div class="spinner"></div>
     <p>Cargando agenda...</p>
@@ -118,7 +224,7 @@
     <div class="li"><div class="ldot verde"></div> Asistió</div>
     <div class="li"><div class="ldot rojo"></div> No asistió</div>
     <span class="regla-info">
-      Convencional: hasta 2 pac/slot (45–60 min) &nbsp;·&nbsp;
+      Conv.: hasta 2 pac/slot (45–60 min) &nbsp;·&nbsp;
       Personalizado: 1 pac / 40 min &nbsp;·&nbsp;
       Kids: 1 pac / 40 min
     </span>
@@ -137,29 +243,63 @@
 
       <div class="modal-body">
 
-        <!-- Selector de modo (Regular / Kids) -->
+        <!-- Selector de modo -->
         <div class="modo-tabs">
-          <button
-            class="modo-btn"
-            [class.act]="modoFormulario === 'regular'"
-            (click)="cambiarModo('regular')"
-          >Regular / Adulto</button>
-          <button
-            class="modo-btn"
-            [class.act]="modoFormulario === 'kids'"
-            (click)="cambiarModo('kids')"
-          >Kids</button>
+          <button class="modo-btn" [class.act]="modoFormulario === 'regular'" (click)="cambiarModo('regular')">Regular / Adulto</button>
+          <button class="modo-btn" [class.act]="modoFormulario === 'kids'"    (click)="cambiarModo('kids')">Kids</button>
         </div>
 
         <!-- Banner Kids -->
         <div class="kids-banner" *ngIf="modoFormulario === 'kids'">
-          Modo Kids: duración fija 40 min · 1 paciente por slot
+          Modo Kids: duración fija {{ getTipo('kids').duracion_minutos }} min · 1 paciente por slot
         </div>
 
-        <!-- Paciente -->
-        <div class="frow">
-          <label>Paciente</label>
-          <input [(ngModel)]="fPac" placeholder="Nombre completo">
+        <!-- Paciente 1 -->
+        <div class="pac-section">
+          <div class="pac-title">{{ fTipo === 'conv' ? 'Paciente 1' : 'Paciente' }}</div>
+          <div class="frow">
+            <label>Nombre completo</label>
+            <input [(ngModel)]="fPac" placeholder="Nombre completo">
+          </div>
+          <div class="frow-2">
+            <div class="frow">
+              <label>DNI</label>
+              <input [(ngModel)]="fPacDni" placeholder="Ej: 12345678">
+            </div>
+            <div class="frow">
+              <label>Teléfono</label>
+              <input [(ngModel)]="fPacTel" placeholder="Ej: 999 888 777">
+            </div>
+          </div>
+          <div class="frow">
+            <label>Correo <span class="opc-tag">(opcional)</span></label>
+            <input [(ngModel)]="fPacCorreo" placeholder="correo@ejemplo.com" type="email">
+          </div>
+        </div>
+
+        <!-- Paciente 2 (solo convencional, solo nueva cita) -->
+        <div class="pac-section pac-2" *ngIf="fTipo === 'conv' && !citaEditando">
+          <div class="pac-title">Paciente 2 <span class="opc-tag">(opcional)</span></div>
+          <div class="frow">
+            <label>Nombre completo</label>
+            <input [(ngModel)]="fPac2" placeholder="Dejar vacío si no aplica">
+          </div>
+          <ng-container *ngIf="fPac2.trim()">
+            <div class="frow-2">
+              <div class="frow">
+                <label>DNI</label>
+                <input [(ngModel)]="fPac2Dni" placeholder="Ej: 12345678">
+              </div>
+              <div class="frow">
+                <label>Teléfono</label>
+                <input [(ngModel)]="fPac2Tel" placeholder="Ej: 999 888 777">
+              </div>
+            </div>
+            <div class="frow">
+              <label>Correo <span class="opc-tag">(opcional)</span></label>
+              <input [(ngModel)]="fPac2Correo" placeholder="correo@ejemplo.com" type="email">
+            </div>
+          </ng-container>
         </div>
 
         <div class="frow-2">
@@ -174,12 +314,15 @@
           <!-- Tipo de terapia -->
           <div class="frow">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="fTipo" (change)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
-              <option *ngIf="modoFormulario === 'kids'" value="kids">Kids (40 min)</option>
+            <select [(ngModel)]="fTipo" (ngModelChange)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
               <ng-container *ngIf="modoFormulario !== 'kids'">
-                <option value="conv">Convencional</option>
-                <option value="pers">Personalizado (40 min)</option>
+                <option *ngFor="let t of regularTipos" [value]="t.id">
+                  {{ t.nombre }} ({{ t.id === 'conv' ? fDur : t.duracion_minutos }}min)
+                </option>
               </ng-container>
+              <option *ngIf="modoFormulario === 'kids'" [value]="'kids'">
+                Kids ({{ getTipo('kids').duracion_minutos }}min)
+              </option>
             </select>
           </div>
         </div>
@@ -197,8 +340,8 @@
           <!-- Hora inicio -->
           <div class="frow">
             <label>Hora inicio</label>
-            <select [(ngModel)]="fH">
-              <option *ngFor="let s of slots" [value]="s.h">{{ s.lbl }}</option>
+            <select [ngModel]="getSlotLbl()" (ngModelChange)="onSlotChange($event)">
+              <option *ngFor="let s of slots" [value]="s.lbl">{{ s.lbl }}</option>
             </select>
           </div>
         </div>
@@ -214,11 +357,17 @@
           </select>
         </div>
 
-        <!-- Info de reglas -->
+        <!-- Info reglas -->
         <div class="dur-info">{{ getDurInfo() }}</div>
 
+        <!-- Observación -->
+        <div class="frow" style="margin-top:8px">
+          <label>Observación <span class="opc-tag">(opcional)</span></label>
+          <textarea [(ngModel)]="fObs" placeholder="Notas u observaciones de la cita..." class="obs-ta"></textarea>
+        </div>
+
         <!-- Estado -->
-        <div class="frow" style="margin-top: 8px">
+        <div class="frow">
           <label>Estado</label>
           <select [(ngModel)]="fEst">
             <option *ngFor="let e of ESTADOS" [value]="e.v">{{ e.lbl }}</option>
@@ -228,13 +377,9 @@
       </div>
 
       <div class="modal-footer">
-        <button
-          *ngIf="citaEditando"
-          class="btn-eliminar"
-          (click)="eliminarCita()"
-        >Eliminar</button>
+        <button *ngIf="citaEditando" class="btn-eliminar" (click)="eliminarCita()">Eliminar</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
-        <button class="btn-save" (click)="guardarCita()">Guardar</button>
+        <button class="btn-save"   (click)="guardarCita()">Guardar</button>
       </div>
 
     </div>

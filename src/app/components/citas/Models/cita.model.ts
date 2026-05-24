@@ -1,3 +1,10 @@
+export interface TipoTerapia {
+  id: string;
+  nombre: string;
+  duracion_minutos: number;
+  max_pacientes: number;
+}
+
 export interface Cita {
   id: string;
   sesion_id: number;
@@ -16,13 +23,18 @@ export interface Cita {
   recordatorio_enviado: boolean;
   created_at: Date;
   updated_at: Date;
-  
+
   paciente_nombre?: string;
   paciente_apellido?: string;
+  paciente_dni?: string;
+  paciente_telefono?: string;
+  paciente_correo?: string;
   terapeuta_nombre?: string;
   terapeuta_apellido?: string;
   tipo_terapia_nombre?: string;
+  tipo_terapia_key?: string;
   especialidad_nombre?: string;
+  observacion?: string;
 }
 
 export interface CrearCitaRequest {
@@ -35,6 +47,21 @@ export interface CrearCitaRequest {
   duracion_minutos: number;
   modalidad: string;
   notas_previas?: string;
+}
+
+export interface CrearCitaLocalRequest {
+  paciente_nombre: string;
+  paciente_apellido: string;
+  paciente_dni?: string;
+  paciente_telefono?: string;
+  paciente_correo?: string;
+  terapeuta_nombre: string;
+  tipo_key: string;
+  tipo_nombre: string;
+  fecha_inicio: Date;
+  duracion_minutos: number;
+  estado_color: 'azul' | 'verde' | 'rojo';
+  observacion?: string;
 }
 
 export interface ReprogramarCitaRequest {
