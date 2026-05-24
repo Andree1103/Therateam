@@ -6,6 +6,8 @@ import { Cita, CrearCitaLocalRequest, CrearCitaRequest, ReprogramarCitaRequest, 
 @Injectable({ providedIn: 'root' })
 export class CitaService {
 
+  private readonly STORAGE_KEY = 'therateam_citas';
+
   private tiposTerapia: TipoTerapia[] = [
     { id: 'conv', nombre: 'Convencional', duracion_minutos: 45, max_pacientes: 2 },
     { id: 'pers', nombre: 'Personalizado', duracion_minutos: 40, max_pacientes: 1 },
@@ -13,7 +15,7 @@ export class CitaService {
   ];
 
   private nextId = 20;
-  private citasMock: Cita[] = this.buildMock();
+  private citasMock: Cita[] = this.loadFromStorage();
 
   private lunesSemana(): Date {
     const hoy = new Date();
@@ -106,6 +108,39 @@ export class CitaService {
     ];
   }
 
+  private loadFromStorage(): Cita[] {
+    try {
+      const raw = sessionStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        const parsed: Cita[] = JSON.parse(raw);
+        const dateFields: (keyof Cita)[] = ['fecha_inicio', 'fecha_fin', 'created_at', 'updated_at'];
+        const citas = parsed.map(c => {
+          const revived: any = { ...c };
+          for (const f of dateFields) {
+            if (revived[f]) revived[f] = new Date(revived[f]);
+          }
+          return revived as Cita;
+        });
+        const maxId = citas.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0);
+        if (maxId >= this.nextId) this.nextId = maxId + 1;
+        return citas;
+      }
+    } catch { /* sessionStorage no disponible o datos corruptos */ }
+    const initial = this.buildMock();
+    this.saveToStorageWith(initial);
+    return initial;
+  }
+
+  private saveToStorage(): void {
+    this.saveToStorageWith(this.citasMock);
+  }
+
+  private saveToStorageWith(citas: Cita[]): void {
+    try {
+      sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(citas));
+    } catch { /* cuota excedida u otro error */ }
+  }
+
   getTiposTerapia(): TipoTerapia[] {
     return this.tiposTerapia;
   }
@@ -161,6 +196,7 @@ export class CitaService {
       observacion: req.observacion,
     };
     this.citasMock.push(cita);
+    this.saveToStorage();
     return of(cita).pipe(delay(200));
   }
 
@@ -186,12 +222,13 @@ export class CitaService {
       observacion: req.observacion,
       updated_at: new Date(),
     };
+    this.saveToStorage();
     return of(this.citasMock[idx]).pipe(delay(200));
   }
 
   eliminarCitaLocal(id: string): Observable<void> {
     const idx = this.citasMock.findIndex(c => c.id === id);
-    if (idx !== -1) this.citasMock.splice(idx, 1);
+    if (idx !== -1) { this.citasMock.splice(idx, 1); this.saveToStorage(); }
     return of(void 0).pipe(delay(200));
   }
 
