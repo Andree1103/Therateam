@@ -1,0 +1,62 @@
+import { CatalogItem } from '../../../core/models/catalog.model';
+
+export interface UsuarioBasico {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+}
+
+export interface Terapeuta {
+  id?: number;
+  usuario?: UsuarioBasico;
+  tipoTerapeuta?: CatalogItem;
+  cmp?: string;
+  telefono?: string;
+  fotoUrl?: string;
+  horarioDescripcion?: string;
+  activo?: boolean;
+  especialidades?: CatalogItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TerapeutaForm {
+  modo: 'existente' | 'nuevo';
+  // modo = existente
+  usuarioId: number | null;
+  // modo = nuevo (o edición)
+  nombre: string;
+  apellido: string;
+  email: string;
+  password: string;
+  sedeId: number | null;
+  // datos del terapeuta
+  tipoTerapeutaId: number | null;
+  cmp: string;
+  telefono: string;
+  horarioDescripcion: string;
+  activo: boolean;
+  especialidadIds: number[];
+}
+
+export interface TerapeutaCompletoRequest {
+  modo: 'existente' | 'nuevo';
+  usuarioId?: number;
+  nombre?: string;
+  apellido?: string;
+  email?: string;
+  password?: string;
+  sedeId?: number | null;
+  tipoTerapeutaId?: number | null;
+  cmp?: string;
+  telefono?: string;
+  horarioDescripcion?: string;
+  activo: boolean;
+  especialidadIds: number[];
+}
+
+export function terapeutaNombre(t: Terapeuta): string {
+  if (!t.usuario) return `Terapeuta #${t.id}`;
+  return `${t.usuario.nombre} ${t.usuario.apellido}`.trim();
+}

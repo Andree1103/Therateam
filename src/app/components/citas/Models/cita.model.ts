@@ -71,3 +71,34 @@ export interface ReprogramarCitaRequest {
   nueva_duracion?: number;
   motivo: string;
 }
+
+/** Shape exacta que devuelve el backend Spring Boot (snake_case) */
+export interface CitaApiDTO {
+  id: number | string;
+  sesion_id?: number;
+  terapeuta_id?: string | number;
+  paciente_id?: string | number;
+  tipo_terapia_id?: number;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  duracion_minutos?: number;
+  modalidad: string;
+  estado: string;
+  motivo_cancelacion?: string;
+  notas_previas?: string;
+  notas_post?: string;
+  link_videollamada?: string;
+  recordatorio_enviado?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  paciente_nombre?: string;
+  paciente_apellido?: string;
+  paciente_dni?: string;
+  paciente_telefono?: string;
+  paciente_correo?: string;
+  terapeuta_nombre?: string;
+  terapeuta_apellido?: string;
+  tipo_terapia_nombre?: string;
+  tipo_terapia_key?: string;
+  observacion?: string;
+}

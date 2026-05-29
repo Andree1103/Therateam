@@ -105,9 +105,23 @@ export class ListaCitasComponent implements OnInit {
 
   cargarCitas(): void {
     this.loading = true;
+    console.log('[Citas] Cargando citas desde la API...');
     this.citaService.getCitas().subscribe({
-      next: citas => { this.citas = citas; this.loading = false; },
-      error: err  => { console.error(err); this.loading = false; }
+      next: citas => {
+        console.log('[Citas] Respuesta recibida:', citas);
+        console.log('[Citas] Total:', citas.length);
+        if (citas.length > 0) {
+          console.log('[Citas] Primera cita:', citas[0]);
+          console.log('[Citas] fecha_inicio:', citas[0].fecha_inicio, '| tipo:', typeof citas[0].fecha_inicio);
+        }
+        this.citas = citas;
+        this.loading = false;
+      },
+      error: err  => {
+        console.error('[Citas] Error al cargar:', err);
+        console.error('[Citas] Status:', err.status, '| URL:', err.url);
+        this.loading = false;
+      }
     });
   }
 

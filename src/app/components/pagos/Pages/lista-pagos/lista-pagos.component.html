@@ -1,0 +1,190 @@
+<div class="page">
+
+  <!-- ── HEADER ────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Pagos</h1>
+      <p>{{ total }} pago{{ total !== 1 ? 's' : '' }} · Total: S/ {{ totalMonto | number:'1.2-2' }}</p>
+    </div>
+    <button class="btn-primary" (click)="abrirNuevo()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Registrar pago
+    </button>
+  </div>
+
+  <!-- ── BODY ──────────────────────────────────────────────────────────── -->
+  <div class="page-body">
+
+    <div class="filters-bar">
+      <div class="search-wrap">
+        <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-inp" [(ngModel)]="busqueda" (ngModelChange)="filtrar()" placeholder="Buscar por paciente, referencia o método...">
+      </div>
+    </div>
+
+    <div class="card">
+
+      <div class="state-box" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Cargando pagos...</p>
+      </div>
+
+      <div class="state-box" *ngIf="!loading && filtrados.length === 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="40" height="40"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <p>No se encontraron pagos</p>
+        <button class="btn-secondary" (click)="abrirNuevo()">+ Registrar el primero</button>
+      </div>
+
+      <table class="data-table" *ngIf="!loading && filtrados.length > 0">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Paciente</th>
+            <th>Tratamiento</th>
+            <th>Método</th>
+            <th>Monto</th>
+            <th>Referencia</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filtrados">
+            <td class="text-muted small">{{ (p.fechaPago || p.createdAt) | date:'d MMM yyyy HH:mm' }}</td>
+            <td>
+              <div class="entity-name">{{ p.paciente?.nombre }} {{ p.paciente?.apellido }}</div>
+            </td>
+            <td class="text-muted">{{ p.tratamiento?.nombre || '—' }}</td>
+            <td>
+              <span class="metodo-badge" *ngIf="p.metodo">{{ p.metodo.nombre }}</span>
+              <span *ngIf="!p.metodo">—</span>
+            </td>
+            <td>
+              <span class="monto">S/ {{ p.montoRecibido | number:'1.2-2' }}</span>
+            </td>
+            <td class="text-muted small">{{ p.referencia || '—' }}</td>
+            <td>
+              <div class="actions">
+                <button class="btn-icon btn-icon-danger" (click)="abrirEliminar(p)" title="Eliminar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+  <!-- ── MODAL REGISTRAR PAGO ──────────────────────────────────────────── -->
+  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+
+      <div class="modal-hdr">
+        <h2>Registrar pago</h2>
+        <button class="modal-close" (click)="cerrarModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
+
+        <div class="frow">
+          <label>Paciente *</label>
+          <select [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacienteRef="ngModel"
+                  [class.err-input]="pacienteRef.invalid && pacienteRef.touched"
+                  (ngModelChange)="onPacienteChange()">
+            <option [ngValue]="null">Seleccionar paciente...</option>
+            <option *ngFor="let p of pacientes" [ngValue]="p.id">{{ pacienteNombre(p) }}</option>
+          </select>
+          <span class="err-msg" *ngIf="pacienteRef.invalid && pacienteRef.touched">Requerido</span>
+        </div>
+
+        <div class="frow">
+          <label>Tratamiento *</label>
+          <select [(ngModel)]="formData.tratamientoId" name="tratamientoId" required #tratRef="ngModel"
+                  [class.err-input]="tratRef.invalid && tratRef.touched"
+                  [disabled]="!formData.pacienteId || cargandoTratamientos">
+            <option [ngValue]="null">
+              {{ cargandoTratamientos ? 'Cargando...' : (formData.pacienteId ? 'Seleccionar tratamiento...' : 'Selecciona un paciente primero') }}
+            </option>
+            <option *ngFor="let t of tratamientos" [ngValue]="t.id">
+              {{ t.nombre }} · S/ {{ t.precioPorSesion | number:'1.2-2' }}/sesión
+            </option>
+          </select>
+          <span class="err-msg" *ngIf="tratRef.invalid && tratRef.touched">Requerido</span>
+        </div>
+
+        <div class="frow-2">
+          <div class="frow">
+            <label>Monto recibido (S/) *</label>
+            <input [(ngModel)]="formData.montoRecibido" name="montoRecibido" type="number"
+                   min="0.01" step="0.01" required #montoRef="ngModel"
+                   [class.err-input]="montoRef.invalid && montoRef.touched"
+                   placeholder="0.00">
+            <span class="err-msg" *ngIf="montoRef.invalid && montoRef.touched">Monto requerido y mayor a 0</span>
+          </div>
+          <div class="frow">
+            <label>Método de pago *</label>
+            <select [(ngModel)]="formData.metodoId" name="metodoId" required #metodoRef="ngModel"
+                    [class.err-input]="metodoRef.invalid && metodoRef.touched">
+              <option [ngValue]="null">Seleccionar...</option>
+              <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+            </select>
+            <span class="err-msg" *ngIf="metodoRef.invalid && metodoRef.touched">Requerido</span>
+          </div>
+        </div>
+
+        <div class="frow-2">
+          <div class="frow">
+            <label>Fecha de pago</label>
+            <input [(ngModel)]="formData.fechaPago" name="fechaPago" type="datetime-local">
+          </div>
+          <div class="frow">
+            <label>Referencia / N° operación</label>
+            <input [(ngModel)]="formData.referencia" name="referencia" placeholder="Ej: OP-123456">
+          </div>
+        </div>
+
+        <div class="frow">
+          <label>Notas</label>
+          <textarea [(ngModel)]="formData.notas" name="notas" rows="2" placeholder="Observaciones del pago..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn-primary" [disabled]="guardando || form.invalid">
+            {{ guardando ? 'Registrando...' : 'Registrar pago' }}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL CONFIRMAR ELIMINAR ──────────────────────────────────────── -->
+  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-hdr">
+        <h2>Eliminar pago</h2>
+        <button class="modal-close" (click)="cerrarEliminar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-msg">
+          ¿Eliminar el pago de <strong>S/ {{ pagoAEliminar?.montoRecibido | number:'1.2-2' }}</strong>
+          de <strong>{{ pagoAEliminar?.paciente?.nombre }} {{ pagoAEliminar?.paciente?.apellido }}</strong>?
+          Esta acción no se puede deshacer.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
+        <button class="btn-danger" (click)="eliminar()" [disabled]="eliminando">
+          {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
