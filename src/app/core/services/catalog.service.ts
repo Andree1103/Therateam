@@ -8,27 +8,20 @@ import { CatalogItem, Sede } from '../models/catalog.model';
 export class CatalogService {
   constructor(private api: ApiService) {}
 
-  getSedes(): Observable<Sede[]> {
-    return this.api.get<Sede[]>('/api/sedes').pipe(catchError(() => of([])));
+  private get<T>(path: string): Observable<T[]> {
+    return this.api.get<T[]>(path).pipe(catchError(() => of([] as T[])));
   }
 
-  getOrigenes(): Observable<CatalogItem[]> {
-    return this.api.get<CatalogItem[]>('/api/cat-origenes').pipe(catchError(() => of([])));
-  }
-
-  getMetodosPago(): Observable<CatalogItem[]> {
-    return this.api.get<CatalogItem[]>('/api/cat/metodos-pago').pipe(catchError(() => of([])));
-  }
-
-  getTiposTerapeuta(): Observable<CatalogItem[]> {
-    return this.api.get<CatalogItem[]>('/api/cat-tipos-terapeuta').pipe(catchError(() => of([])));
-  }
-
-  getEspecialidades(): Observable<CatalogItem[]> {
-    return this.api.get<CatalogItem[]>('/api/cat/especialidades').pipe(catchError(() => of([])));
-  }
-
-  getRoles(): Observable<CatalogItem[]> {
-    return this.api.get<CatalogItem[]>('/api/cat/roles').pipe(catchError(() => of([])));
-  }
+  getSedes(): Observable<Sede[]>               { return this.get<Sede>('/api/sedes'); }
+  getOrigenes(): Observable<CatalogItem[]>      { return this.get<CatalogItem>('/api/cat-origenes'); }
+  getEspecialidades(): Observable<CatalogItem[]>{ return this.get<CatalogItem>('/api/cat-especialidades'); }
+  getTiposTerapeuta(): Observable<CatalogItem[]>{ return this.get<CatalogItem>('/api/cat-tipos-terapeuta'); }
+  getMetodosPago(): Observable<CatalogItem[]>   { return this.get<CatalogItem>('/api/cat-metodos-pago'); }
+  getModalidades(): Observable<CatalogItem[]>   { return this.get<CatalogItem>('/api/cat-modalidades'); }
+  getMonedas(): Observable<CatalogItem[]>       { return this.get<CatalogItem>('/api/cat-monedas'); }
+  getRoles(): Observable<CatalogItem[]>         { return this.get<CatalogItem>('/api/cat-roles'); }
+  getEstadosCita(): Observable<CatalogItem[]>   { return this.get<CatalogItem>('/api/cat-estados-cita'); }
+  getEstadosSesion(): Observable<CatalogItem[]> { return this.get<CatalogItem>('/api/cat-estados-sesion'); }
+  getEstadosTratamiento(): Observable<CatalogItem[]> { return this.get<CatalogItem>('/api/cat-estados-tratamiento'); }
+  getTiposTerapia(): Observable<CatalogItem[]>  { return this.get<CatalogItem>('/api/tipos-terapia'); }
 }

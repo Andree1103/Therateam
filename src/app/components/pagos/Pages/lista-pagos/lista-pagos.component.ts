@@ -3,6 +3,7 @@ import { NgForm } from '@angular/forms';
 import { PagoService } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import { Pago, PagoForm, TratamientoBasico } from '../../Models/pago.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
@@ -41,7 +42,8 @@ export class ListaPagosComponent implements OnInit {
   constructor(
     private pagoService: PagoService,
     private pacienteService: PacienteService,
-    private catalogService: CatalogService
+    private catalogService: CatalogService,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -101,8 +103,11 @@ export class ListaPagosComponent implements OnInit {
       fechaPago:  f.fechaPago   || undefined,
     };
     this.pagoService.create(body).subscribe({
-      next: () => { this.cerrarModal(); this.cargar(); this.guardando = false; },
-      error: ()  => { this.guardando = false; }
+      next: () => {
+        this.toast.success('Pago registrado correctamente');
+        this.cerrarModal(); this.cargar(); this.guardando = false;
+      },
+      error: () => { this.toast.error('Error al registrar el pago'); this.guardando = false; }
     });
   }
 
@@ -117,8 +122,11 @@ export class ListaPagosComponent implements OnInit {
     if (!this.pagoAEliminar?.id) return;
     this.eliminando = true;
     this.pagoService.delete(this.pagoAEliminar.id).subscribe({
-      next: () => { this.cerrarEliminar(); this.cargar(); this.eliminando = false; },
-      error: ()  => { this.eliminando = false; }
+      next: () => {
+        this.toast.success('Pago eliminado correctamente');
+        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+      },
+      error: () => { this.toast.error('Error al eliminar el pago'); this.eliminando = false; }
     });
   }
 

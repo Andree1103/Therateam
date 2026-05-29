@@ -4,6 +4,10 @@ export interface CatalogItem {
   nombre: string;
   activo?: boolean;
   colorHex?: string;
+  codigo?: string;
+  simbolo?: string;
+  duracionMinutos?: number;
+  maxPacientes?: number;
 }
 
 export interface Sede {

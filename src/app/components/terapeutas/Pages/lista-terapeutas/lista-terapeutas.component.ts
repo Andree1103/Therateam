@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { TerapeutaService } from '../../Services/terapeuta.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import {
   Terapeuta, TerapeutaForm, TerapeutaCompletoRequest,
   terapeutaNombre, UsuarioBasico
@@ -42,7 +43,8 @@ export class ListaTerapeutasComponent implements OnInit {
 
   constructor(
     private terapeutaService: TerapeutaService,
-    private catalogService: CatalogService
+    private catalogService: CatalogService,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -114,8 +116,11 @@ export class ListaTerapeutasComponent implements OnInit {
       ? this.terapeutaService.updateCompleto(this.editando.id!, body)
       : this.terapeutaService.createCompleto(body);
     op$.subscribe({
-      next: () => { this.cerrarModal(); this.cargar(); this.guardando = false; },
-      error: ()  => { this.guardando = false; }
+      next: () => {
+        this.toast.success(this.editando ? 'Terapeuta actualizado correctamente' : 'Terapeuta creado correctamente');
+        this.cerrarModal(); this.cargar(); this.guardando = false;
+      },
+      error: () => { this.toast.error('Error al guardar el terapeuta'); this.guardando = false; }
     });
   }
 
@@ -140,8 +145,11 @@ export class ListaTerapeutasComponent implements OnInit {
     if (!this.terapeutaAEliminar?.id) return;
     this.eliminando = true;
     this.terapeutaService.delete(this.terapeutaAEliminar.id).subscribe({
-      next: () => { this.cerrarEliminar(); this.cargar(); this.eliminando = false; },
-      error: ()  => { this.eliminando = false; }
+      next: () => {
+        this.toast.success('Terapeuta eliminado correctamente');
+        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+      },
+      error: () => { this.toast.error('Error al eliminar el terapeuta'); this.eliminando = false; }
     });
   }
 

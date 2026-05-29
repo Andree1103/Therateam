@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { PacienteService } from '../../Services/paciente.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import { Paciente, PacienteForm } from '../../Models/paciente.model';
 import { CatalogItem, Sede } from '../../../../core/models/catalog.model';
 
@@ -36,7 +37,8 @@ export class ListaPacientesComponent implements OnInit {
 
   constructor(
     private pacienteService: PacienteService,
-    private catalogService: CatalogService
+    private catalogService: CatalogService,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -106,8 +108,11 @@ export class ListaPacientesComponent implements OnInit {
       ? this.pacienteService.update(this.editando.id!, body)
       : this.pacienteService.create(body);
     op$.subscribe({
-      next: () => { this.cerrarModal(); this.cargar(); this.guardando = false; },
-      error: ()  => { this.guardando = false; }
+      next: () => {
+        this.toast.success(this.editando ? 'Paciente actualizado correctamente' : 'Paciente creado correctamente');
+        this.cerrarModal(); this.cargar(); this.guardando = false;
+      },
+      error: () => { this.toast.error('Error al guardar el paciente'); this.guardando = false; }
     });
   }
 
@@ -122,8 +127,11 @@ export class ListaPacientesComponent implements OnInit {
     if (!this.pacienteAEliminar?.id) return;
     this.eliminando = true;
     this.pacienteService.delete(this.pacienteAEliminar.id).subscribe({
-      next: () => { this.cerrarEliminar(); this.cargar(); this.eliminando = false; },
-      error: ()  => { this.eliminando = false; }
+      next: () => {
+        this.toast.success('Paciente eliminado correctamente');
+        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+      },
+      error: () => { this.toast.error('Error al eliminar el paciente'); this.eliminando = false; }
     });
   }
 
