@@ -24,44 +24,28 @@
     <label class="ctrl-lbl">Terapeuta:</label>
     <select [(ngModel)]="filtroTerapeuta">
       <option value="">Todos</option>
-      <option *ngFor="let t of terapeutas" [value]="t">{{ t }}</option>
+      <option *ngFor="let t of terapeutasNombres" [value]="t">{{ t }}</option>
     </select>
     <button class="btn-nueva ml-auto" (click)="abrirNueva()">+ Nueva cita</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       VISTA SEMANA
-  ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══ VISTA SEMANA ═══════════════════════════════════════════════════════ -->
   <div class="main-layout" *ngIf="!loading && vista === 'semana'">
-
-    <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-hdr">Terapeutas</div>
-      <div
-        *ngFor="let t of terapeutas"
-        class="ter-item"
-        [class.sel]="filtroTerapeuta === t"
-        (click)="filtroTerapeuta = filtroTerapeuta === t ? '' : t"
-      >
+      <div *ngFor="let t of terapeutasNombres" class="ter-item"
+           [class.sel]="filtroTerapeuta === t"
+           (click)="filtroTerapeuta = filtroTerapeuta === t ? '' : t">
         <div class="ter-ini">{{ t.slice(0,2).toUpperCase() }}</div>
-        <div class="ter-info">
-          <p>{{ t }}</p>
-          <span>{{ getLibresTerapeuta(t) }} slots libres</span>
-        </div>
+        <div class="ter-info"><p>{{ t }}</p><span>{{ getLibresTerapeuta(t) }} slots libres</span></div>
       </div>
     </div>
-
-    <!-- CALENDARIO -->
     <div class="cal-scroll">
       <table class="agenda-table">
         <thead>
           <tr>
             <th class="th-hora">Hora</th>
-            <th
-              *ngFor="let dia of diasSemana; let di = index"
-              class="th-dia"
-              [class.hoy-th]="esHoy(dia.fecha)"
-            >
+            <th *ngFor="let dia of diasSemana" class="th-dia" [class.hoy-th]="esHoy(dia.fecha)">
               <span class="dn">{{ dia.nombre }}</span>
               <span class="dd" [class.hoy-dd]="esHoy(dia.fecha)">{{ dia.fecha | date:'d' }}</span>
               <span class="dm">{{ dia.fecha | date:'MMM' }}</span>
@@ -71,20 +55,10 @@
         <tbody>
           <tr *ngFor="let s of slots" [class.hora-mark]="s.m === 0" [class.sub-mark]="s.m !== 0">
             <td class="td-hora">{{ s.lbl }}</td>
-            <td
-              *ngFor="let dia of diasSemana; let di = index"
-              class="td-dia"
-              [class.hoy-col]="esHoy(dia.fecha)"
-              (click)="abrirSlot(di, s)"
-            >
+            <td *ngFor="let dia of diasSemana; let di = index" class="td-dia"
+                [class.hoy-col]="esHoy(dia.fecha)" (click)="abrirSlot(di, s)">
               <ng-container *ngFor="let c of getCitasSlot(di, s.h, s.m)">
-                <div
-                  class="chip"
-                  [class.azul]="getEstadoClass(c) === 'azul'"
-                  [class.verde]="getEstadoClass(c) === 'verde'"
-                  [class.rojo]="getEstadoClass(c) === 'rojo'"
-                  (click)="abrirEditar(c, $event)"
-                >
+                <div class="chip" [ngStyle]="getChipStyle(c)" (click)="abrirEditar(c, $event)">
                   <div class="chip-top">
                     <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
                     <span class="chip-badge">{{ c.tipo_terapia_nombre }}</span>
@@ -96,12 +70,7 @@
                   </div>
                 </div>
               </ng-container>
-              <div
-                *ngIf="getCitasSlot(di, s.h, s.m).length === 0"
-                class="slot-libre"
-              >
-                <span>+ Agregar</span>
-              </div>
+              <div *ngIf="getCitasSlot(di, s.h, s.m).length === 0" class="slot-libre"><span>+ Agregar</span></div>
             </td>
           </tr>
         </tbody>
@@ -109,12 +78,8 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       VISTA LIBRE
-  ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══ VISTA LIBRE ════════════════════════════════════════════════════════ -->
   <div class="libre-view" *ngIf="!loading && vista === 'libre'">
-
-    <!-- Config duraciones -->
     <div class="config-card">
       <div class="config-hdr" (click)="configVisible = !configVisible">
         <span class="config-title">Configurar duración base por tipo de terapia</span>
@@ -122,18 +87,14 @@
       </div>
       <div class="config-body" *ngIf="configVisible">
         <table class="config-table">
-          <thead>
-            <tr><th>Tipo</th><th>Duración base</th><th>Máx. pacientes</th></tr>
-          </thead>
+          <thead><tr><th>Tipo</th><th>Duración base</th><th>Máx. pacientes</th></tr></thead>
           <tbody>
             <tr *ngFor="let t of tiposTerapia">
               <td class="tipo-nom">{{ t.nombre }}</td>
               <td>
                 <select [(ngModel)]="t.duracion_minutos" (ngModelChange)="onDuracionTipoChange(t)" class="dur-sel">
-                  <option [value]="35">35 min</option>
-                  <option [value]="40">40 min</option>
-                  <option [value]="45">45 min</option>
-                  <option [value]="50">50 min</option>
+                  <option [value]="35">35 min</option><option [value]="40">40 min</option>
+                  <option [value]="45">45 min</option><option [value]="50">50 min</option>
                   <option [value]="60">60 min (1h)</option>
                 </select>
               </td>
@@ -141,16 +102,10 @@
             </tr>
           </tbody>
         </table>
-        <p class="config-nota">
-          Conv.: la duración base es el mínimo; al agendar se puede elegir 45–60 min.<br>
-          Pers. y Kids: duración fija según la base configurada.
-        </p>
       </div>
     </div>
-
-    <!-- Resumen semanal -->
     <div class="resumen-card">
-      <div class="resumen-title">Slots libres esta semana · Haz clic en un terapeuta para ver detalle</div>
+      <div class="resumen-title">Slots libres esta semana</div>
       <div class="resumen-scroll">
         <table class="resumen-table">
           <thead>
@@ -163,71 +118,56 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let r of getResumenLibres()"
-              (click)="filtroTerapeuta = filtroTerapeuta === r.terapeuta ? '' : r.terapeuta"
-              [class.sel-row]="filtroTerapeuta === r.terapeuta"
-            >
+            <tr *ngFor="let r of getResumenLibres()"
+                (click)="filtroTerapeuta = filtroTerapeuta === r.terapeuta ? '' : r.terapeuta"
+                [class.sel-row]="filtroTerapeuta === r.terapeuta">
               <td class="ter-cell-r">
-                <div class="ter-ini-r">{{ r.terapeuta.slice(0,2).toUpperCase() }}</div>
-                {{ r.terapeuta }}
+                <div class="ter-ini-r">{{ r.terapeuta.slice(0,2).toUpperCase() }}</div>{{ r.terapeuta }}
               </td>
-              <td *ngFor="let n of r.dias" class="cnt-cell" [class.celd-libre]="n > 0" [class.celd-lleno]="n === 0">
-                {{ n }}
-              </td>
+              <td *ngFor="let n of r.dias" class="cnt-cell" [class.celd-libre]="n > 0" [class.celd-lleno]="n === 0">{{ n }}</td>
               <td class="total-r">{{ r.total }}</td>
             </tr>
-            <tr *ngIf="getResumenLibres().length === 0">
-              <td [colSpan]="9" class="no-data">Sin terapeutas registrados</td>
-            </tr>
+            <tr *ngIf="getResumenLibres().length === 0"><td [colSpan]="9" class="no-data">Sin terapeutas registrados</td></tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- Detalle por terapeuta -->
     <div class="detalle-card" *ngIf="filtroTerapeuta">
-      <div class="det-hdr">
-        Slots libres de <strong>{{ filtroTerapeuta }}</strong>
+      <div class="det-hdr">Slots libres de <strong>{{ filtroTerapeuta }}</strong>
         <button class="det-close" (click)="filtroTerapeuta = ''">&#10005;</button>
       </div>
       <div class="det-dias">
         <div class="det-dia" *ngFor="let dia of diasSemana; let di = index">
           <div class="det-dia-nom" [class.hoy-det]="esHoy(dia.fecha)">
-            {{ dia.nombre }}<br>
-            <small>{{ dia.fecha | date:'d MMM' }}</small>
+            {{ dia.nombre }}<br><small>{{ dia.fecha | date:'d MMM' }}</small>
           </div>
           <ng-container *ngIf="getSlotLibresDia(filtroTerapeuta, di).length > 0; else sinCupo">
             <div *ngFor="let sl of getSlotLibresDia(filtroTerapeuta, di)" class="det-slot">
-              {{ sl.slot.lbl }}
-              <span class="det-cap">{{ sl.libre }} cupo{{ sl.libre !== 1 ? 's' : '' }}</span>
+              {{ sl.slot.lbl }}<span class="det-cap">{{ sl.libre }} cupo{{ sl.libre !== 1 ? 's' : '' }}</span>
             </div>
           </ng-container>
-          <ng-template #sinCupo>
-            <div class="det-vacio">Completo</div>
-          </ng-template>
+          <ng-template #sinCupo><div class="det-vacio">Completo</div></ng-template>
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- LOADING -->
   <div *ngIf="loading" class="loading-state">
-    <div class="spinner"></div>
-    <p>Cargando agenda...</p>
+    <div class="spinner"></div><p>Cargando agenda...</p>
   </div>
 
-  <!-- ── LEYENDA ───────────────────────────────────────────────────────────── -->
+  <!-- ── LEYENDA ──────────────────────────────────────────────────────────── -->
   <div class="leyenda">
-    <div class="li"><div class="ldot azul"></div> Agendado</div>
-    <div class="li"><div class="ldot verde"></div> Asistió</div>
-    <div class="li"><div class="ldot rojo"></div> No asistió</div>
-    <span class="regla-info">
-      Conv.: hasta 2 pac/slot (45–60 min) &nbsp;·&nbsp;
-      Personalizado: 1 pac / 40 min &nbsp;·&nbsp;
-      Kids: 1 pac / 40 min
-    </span>
+    <ng-container *ngIf="estadosCita.length > 0; else leyendaDefault">
+      <div class="li" *ngFor="let e of estadosCita">
+        <div class="ldot" [style.background]="e.colorHex"></div>{{ e.nombre }}
+      </div>
+    </ng-container>
+    <ng-template #leyendaDefault>
+      <div class="li"><div class="ldot azul"></div> Agendado</div>
+      <div class="li"><div class="ldot verde"></div> Asistió</div>
+      <div class="li"><div class="ldot rojo"></div> No asistió</div>
+    </ng-template>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
@@ -243,101 +183,234 @@
 
       <div class="modal-body">
 
-        <!-- Selector de modo -->
-        <div class="modo-tabs">
+        <!-- Tabs Regular / Kids -->
+        <div class="modo-tabs" *ngIf="!citaEditando">
           <button class="modo-btn" [class.act]="modoFormulario === 'regular'" (click)="cambiarModo('regular')">Regular / Adulto</button>
-          <button class="modo-btn" [class.act]="modoFormulario === 'kids'"    (click)="cambiarModo('kids')">Kids</button>
+          <button class="modo-btn" [class.act]="modoFormulario === 'kids'"    (click)="cambiarModo('kids')" [disabled]="!tipoKids">Kids</button>
+        </div>
+        <div class="kids-banner" *ngIf="modoFormulario === 'kids' && tipoKids">
+          Modo Kids: duración fija {{ tipoKids.duracion_minutos }} min · 1 paciente por slot
         </div>
 
-        <!-- Banner Kids -->
-        <div class="kids-banner" *ngIf="modoFormulario === 'kids'">
-          Modo Kids: duración fija {{ getTipo('kids').duracion_minutos }} min · 1 paciente por slot
-        </div>
-
-        <!-- Paciente 1 -->
-        <div class="pac-section">
-          <div class="pac-title">{{ fTipo === 'conv' ? 'Paciente 1' : 'Paciente' }}</div>
-          <div class="frow">
-            <label>Nombre completo</label>
-            <input [(ngModel)]="fPac" placeholder="Nombre completo">
-          </div>
-          <div class="frow-2">
-            <div class="frow">
-              <label>DNI</label>
-              <input [(ngModel)]="fPacDni" placeholder="Ej: 12345678">
+        <!-- ── PACIENTE 1 ─────────────────────────────────────────── -->
+        <div class="pac-card">
+          <!-- Header colapsable -->
+          <div class="pac-card-hdr" (click)="togglePac(pac1)">
+            <div class="pac-hdr-left">
+              <span class="pac-card-title">{{ esMultipaciente ? 'Paciente 1' : 'Paciente' }}</span>
+              <span class="pac-summary" *ngIf="pac1.colapsado">{{ pac1Resumen }}</span>
             </div>
-            <div class="frow">
-              <label>Teléfono</label>
-              <input [(ngModel)]="fPacTel" placeholder="Ej: 999 888 777">
+            <div class="pac-hdr-right">
+              <span class="pac-modo-badge pac-encontrado-badge" *ngIf="pac1.modo === 'encontrado' && !pac1.colapsado">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                Encontrado
+              </span>
+              <span class="pac-modo-badge pac-nuevo-badge" *ngIf="pac1.modo === 'nuevo' && !pac1.colapsado">Nuevo</span>
+              <svg class="pac-chevron" [class.open]="!pac1.colapsado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </div>
-          <div class="frow">
-            <label>Correo <span class="opc-tag">(opcional)</span></label>
-            <input [(ngModel)]="fPacCorreo" placeholder="correo@ejemplo.com" type="email">
-          </div>
-        </div>
 
-        <!-- Paciente 2 (solo convencional, solo nueva cita) -->
-        <div class="pac-section pac-2" *ngIf="fTipo === 'conv' && !citaEditando">
-          <div class="pac-title">Paciente 2 <span class="opc-tag">(opcional)</span></div>
-          <div class="frow">
-            <label>Nombre completo</label>
-            <input [(ngModel)]="fPac2" placeholder="Dejar vacío si no aplica">
-          </div>
-          <ng-container *ngIf="fPac2.trim()">
-            <div class="frow-2">
+          <!-- Body expandido -->
+          <div class="pac-card-body" *ngIf="!pac1.colapsado">
+
+            <!-- Modo BUSCAR -->
+            <ng-container *ngIf="pac1.modo === 'buscar'">
+              <div class="dni-search-row">
+                <div class="frow" style="flex:1;margin:0">
+                  <label>DNI del paciente</label>
+                  <input [(ngModel)]="pac1.dni" placeholder="Ej: 12345678"
+                         (keyup.enter)="buscarDni(pac1)" maxlength="12">
+                </div>
+                <button class="btn-buscar" (click)="buscarDni(pac1)" [disabled]="pac1.buscando">
+                  <span *ngIf="pac1.buscando" class="mini-spin"></span>
+                  <span *ngIf="!pac1.buscando">Buscar</span>
+                </button>
+              </div>
+              <p class="pac-hint">Busca por DNI para vincular un paciente existente o ingresar uno nuevo.</p>
+            </ng-container>
+
+            <!-- Modo ENCONTRADO -->
+            <ng-container *ngIf="pac1.modo === 'encontrado'">
+              <div class="pac-encontrado-row">
+                <div class="pac-enc-info">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                  <div>
+                    <span class="pac-enc-nombre">{{ pac1.nombre }} {{ pac1.apellido }}</span>
+                    <span class="pac-enc-sub">DNI: {{ pac1.dni }}{{ pac1.telefono ? ' · ' + pac1.telefono : '' }}</span>
+                  </div>
+                </div>
+                <button class="btn-link" (click)="cambiarPaciente(pac1)">Cambiar</button>
+              </div>
+            </ng-container>
+
+            <!-- Modo NUEVO -->
+            <ng-container *ngIf="pac1.modo === 'nuevo'">
+              <div class="pac-no-encontrado">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                DNI <strong>{{ pac1.dni }}</strong> no encontrado — completa los datos para crear al paciente.
+                <button class="btn-link" (click)="cambiarPaciente(pac1)" style="margin-left:8px">Buscar otro</button>
+              </div>
+              <!-- campos DNI editable si es nuevo -->
               <div class="frow">
                 <label>DNI</label>
-                <input [(ngModel)]="fPac2Dni" placeholder="Ej: 12345678">
+                <input [(ngModel)]="pac1.dni" placeholder="12345678" maxlength="12">
               </div>
-              <div class="frow">
-                <label>Teléfono</label>
-                <input [(ngModel)]="fPac2Tel" placeholder="Ej: 999 888 777">
+            </ng-container>
+
+            <!-- Campos comunes (nombre, apellido, tel, correo) si no es modo buscar -->
+            <ng-container *ngIf="pac1.modo !== 'buscar'">
+              <div class="frow-2">
+                <div class="frow">
+                  <label>Nombre *</label>
+                  <input [(ngModel)]="pac1.nombre" placeholder="Nombre"
+                         [class.readonly-field]="pac1.modo === 'encontrado'">
+                </div>
+                <div class="frow">
+                  <label>Apellido *</label>
+                  <input [(ngModel)]="pac1.apellido" placeholder="Apellido"
+                         [class.readonly-field]="pac1.modo === 'encontrado'">
+                </div>
               </div>
-            </div>
-            <div class="frow">
-              <label>Correo <span class="opc-tag">(opcional)</span></label>
-              <input [(ngModel)]="fPac2Correo" placeholder="correo@ejemplo.com" type="email">
-            </div>
-          </ng-container>
+              <div class="frow-2">
+                <div class="frow">
+                  <label>Teléfono</label>
+                  <input [(ngModel)]="pac1.telefono" placeholder="999 000 111">
+                </div>
+                <div class="frow">
+                  <label>Correo <span class="opc-tag">(opcional)</span></label>
+                  <input [(ngModel)]="pac1.correo" placeholder="email@ejemplo.com" type="email">
+                </div>
+              </div>
+            </ng-container>
+
+          </div>
         </div>
 
-        <div class="frow-2">
-          <!-- Terapeuta -->
+        <!-- ── PACIENTE 2 (solo multipaciente, solo nueva cita) ─────── -->
+        <ng-container *ngIf="esMultipaciente && !citaEditando">
+          <div class="pac2-toggle" *ngIf="!pac2habilitado" (click)="pac2habilitado = true; pac2.colapsado = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Agregar segundo paciente (opcional)
+          </div>
+
+          <div class="pac-card pac-card-2" *ngIf="pac2habilitado">
+            <div class="pac-card-hdr" (click)="togglePac(pac2)">
+              <div class="pac-hdr-left">
+                <span class="pac-card-title">Paciente 2</span>
+                <span class="pac-summary" *ngIf="pac2.colapsado">{{ pac2Resumen }}</span>
+              </div>
+              <div class="pac-hdr-right">
+                <button class="btn-link btn-link-danger" (click)="$event.stopPropagation(); pac2habilitado = false">Quitar</button>
+                <svg class="pac-chevron" [class.open]="!pac2.colapsado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+            <div class="pac-card-body" *ngIf="!pac2.colapsado">
+
+              <ng-container *ngIf="pac2.modo === 'buscar'">
+                <div class="dni-search-row">
+                  <div class="frow" style="flex:1;margin:0">
+                    <label>DNI del paciente</label>
+                    <input [(ngModel)]="pac2.dni" placeholder="Ej: 12345678"
+                           (keyup.enter)="buscarDni(pac2)" maxlength="12">
+                  </div>
+                  <button class="btn-buscar" (click)="buscarDni(pac2)" [disabled]="pac2.buscando">
+                    <span *ngIf="pac2.buscando" class="mini-spin"></span>
+                    <span *ngIf="!pac2.buscando">Buscar</span>
+                  </button>
+                </div>
+                <p class="pac-hint">Puedes dejar vacío si solo hay un paciente en este slot.</p>
+              </ng-container>
+
+              <ng-container *ngIf="pac2.modo === 'encontrado'">
+                <div class="pac-encontrado-row">
+                  <div class="pac-enc-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                    <div>
+                      <span class="pac-enc-nombre">{{ pac2.nombre }} {{ pac2.apellido }}</span>
+                      <span class="pac-enc-sub">DNI: {{ pac2.dni }}{{ pac2.telefono ? ' · ' + pac2.telefono : '' }}</span>
+                    </div>
+                  </div>
+                  <button class="btn-link" (click)="cambiarPaciente(pac2)">Cambiar</button>
+                </div>
+              </ng-container>
+
+              <ng-container *ngIf="pac2.modo === 'nuevo'">
+                <div class="pac-no-encontrado">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  DNI <strong>{{ pac2.dni }}</strong> no encontrado — completa los datos.
+                  <button class="btn-link" (click)="cambiarPaciente(pac2)" style="margin-left:8px">Buscar otro</button>
+                </div>
+                <div class="frow"><label>DNI</label><input [(ngModel)]="pac2.dni" placeholder="12345678" maxlength="12"></div>
+              </ng-container>
+
+              <ng-container *ngIf="pac2.modo !== 'buscar'">
+                <div class="frow-2">
+                  <div class="frow"><label>Nombre *</label><input [(ngModel)]="pac2.nombre" placeholder="Nombre" [class.readonly-field]="pac2.modo === 'encontrado'"></div>
+                  <div class="frow"><label>Apellido *</label><input [(ngModel)]="pac2.apellido" placeholder="Apellido" [class.readonly-field]="pac2.modo === 'encontrado'"></div>
+                </div>
+                <div class="frow-2">
+                  <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac2.telefono" placeholder="999 000 111"></div>
+                  <div class="frow"><label>Correo</label><input [(ngModel)]="pac2.correo" placeholder="email@ejemplo.com" type="email"></div>
+                </div>
+              </ng-container>
+
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- ── DATOS DE LA CITA ──────────────────────────────────────── -->
+        <div class="frow-2" style="margin-top:4px">
           <div class="frow">
             <label>Terapeuta</label>
             <select [(ngModel)]="fTer">
-              <option *ngFor="let t of terapeutas" [value]="t">{{ t }}</option>
+              <option value="">— Seleccionar —</option>
+              <option *ngFor="let t of terapeutasNombres" [value]="t">{{ t }}</option>
             </select>
           </div>
-
-          <!-- Tipo de terapia -->
           <div class="frow">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="fTipo" (ngModelChange)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
+            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
               <ng-container *ngIf="modoFormulario !== 'kids'">
-                <option *ngFor="let t of regularTipos" [value]="t.id">
-                  {{ t.nombre }} ({{ t.id === 'conv' ? fDur : t.duracion_minutos }}min)
-                </option>
+                <option *ngFor="let t of tiposRegulares" [value]="t.id">{{ t.nombre }} ({{ t.duracion_minutos }}min)</option>
               </ng-container>
-              <option *ngIf="modoFormulario === 'kids'" [value]="'kids'">
-                Kids ({{ getTipo('kids').duracion_minutos }}min)
-              </option>
+              <option *ngIf="modoFormulario === 'kids' && tipoKids" [value]="tipoKids!.id">{{ tipoKids!.nombre }} ({{ tipoKids!.duracion_minutos }}min)</option>
             </select>
           </div>
         </div>
 
+        <!-- Modalidad -->
+        <div class="frow">
+          <label>Modalidad</label>
+          <div class="modalidad-opts">
+            <label *ngFor="let m of modalidades" class="modalidad-radio"
+                   [class.selected]="fModalidad === m.key">
+              <input type="radio" [(ngModel)]="fModalidad" [name]="'modalidad'" [value]="m.key" style="display:none">
+              <span class="mod-icon">
+                <ng-container *ngIf="m.key === 'PRESENCIAL'">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </ng-container>
+                <ng-container *ngIf="m.key === 'VIRTUAL'">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </ng-container>
+                <ng-container *ngIf="m.key === 'DOMICILIO'">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </ng-container>
+                <ng-container *ngIf="m.key !== 'PRESENCIAL' && m.key !== 'VIRTUAL' && m.key !== 'DOMICILIO'">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/></svg>
+                </ng-container>
+              </span>
+              {{ m.nombre }}
+            </label>
+          </div>
+        </div>
+
         <div class="frow-2">
-          <!-- Día -->
           <div class="frow">
             <label>Día</label>
             <select [(ngModel)]="fDia">
-              <option *ngFor="let d of diasSemana; let i = index" [value]="i">
-                {{ d.nombre }} {{ d.fecha | date:'d MMM' }}
-              </option>
+              <option *ngFor="let d of diasSemana; let i = index" [value]="i">{{ d.nombre }} {{ d.fecha | date:'d MMM' }}</option>
             </select>
           </div>
-          <!-- Hora inicio -->
           <div class="frow">
             <label>Hora inicio</label>
             <select [ngModel]="getSlotLbl()" (ngModelChange)="onSlotChange($event)">
@@ -346,32 +419,29 @@
           </div>
         </div>
 
-        <!-- Duración (solo convencional) -->
-        <div class="frow" *ngIf="fTipo === 'conv'">
+        <div class="frow" *ngIf="esMultipaciente">
           <label>Duración</label>
           <select [(ngModel)]="fDur">
-            <option [value]="40">40 min</option>
-            <option [value]="45">45 min</option>
-            <option [value]="50">50 min</option>
-            <option [value]="60">60 min (1 hora)</option>
+            <option [value]="40">40 min</option><option [value]="45">45 min</option>
+            <option [value]="50">50 min</option><option [value]="60">60 min (1 hora)</option>
           </select>
         </div>
 
-        <!-- Info reglas -->
         <div class="dur-info">{{ getDurInfo() }}</div>
 
-        <!-- Observación -->
         <div class="frow" style="margin-top:8px">
           <label>Observación <span class="opc-tag">(opcional)</span></label>
           <textarea [(ngModel)]="fObs" placeholder="Notas u observaciones de la cita..." class="obs-ta"></textarea>
         </div>
 
-        <!-- Estado -->
         <div class="frow">
           <label>Estado</label>
-          <select [(ngModel)]="fEst">
-            <option *ngFor="let e of ESTADOS" [value]="e.v">{{ e.lbl }}</option>
-          </select>
+          <div class="estado-select-wrapper">
+            <div class="estado-dot" [style.background]="getEstadoColor(fEstKey)"></div>
+            <select [(ngModel)]="fEstKey" class="estado-select">
+              <option *ngFor="let e of estadosCita" [value]="e.key">{{ e.nombre }}</option>
+            </select>
+          </div>
         </div>
 
       </div>
@@ -379,7 +449,9 @@
       <div class="modal-footer">
         <button *ngIf="citaEditando" class="btn-eliminar" (click)="eliminarCita()">Eliminar</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
-        <button class="btn-save"   (click)="guardarCita()">Guardar</button>
+        <button class="btn-save" (click)="guardarCita()" [disabled]="guardando">
+          {{ guardando ? 'Guardando...' : (citaEditando ? 'Actualizar' : 'Crear cita') }}
+        </button>
       </div>
 
     </div>

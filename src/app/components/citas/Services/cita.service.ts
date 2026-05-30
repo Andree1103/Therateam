@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
-import { Cita, CitaApiDTO, CrearCitaLocalRequest, CrearCitaRequest, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
+import { Observable, map, catchError, of } from 'rxjs';
+import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, PacienteResumen, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
 import { ApiService } from '../../../core/services/api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -8,22 +8,36 @@ export class CitaService {
 
   private readonly PATH = '/api/citas';
 
-  private tiposTerapia: TipoTerapia[] = [
-    { id: 'conv', nombre: 'Convencional', duracion_minutos: 45, max_pacientes: 2 },
-    { id: 'pers', nombre: 'Personalizado', duracion_minutos: 40, max_pacientes: 1 },
-    { id: 'kids', nombre: 'Kids',          duracion_minutos: 40, max_pacientes: 1 },
-  ];
-
   constructor(private api: ApiService) {}
 
-  // ── Catálogo local (hasta que exista GET /api/tipos-terapia) ───────────────
-  getTiposTerapia(): TipoTerapia[] {
-    return this.tiposTerapia;
+  // ── Buscar paciente por DNI ───────────────────────────────────────────────
+  buscarPorDni(dni: string): Observable<PacienteResumen | null> {
+    return this.api.get<PacienteResumen>('/api/pacientes/buscar', { dni }).pipe(
+      catchError(() => of(null))
+    );
   }
 
-  updateDuracionTipo(id: string, duracion: number): void {
-    const t = this.tiposTerapia.find(x => x.id === id);
-    if (t) t.duracion_minutos = duracion;
+  // ── Crear cita con paciente (atómico) ─────────────────────────────────────
+  crearConPaciente(req: CrearCitaConPacienteRequest): Observable<Cita[]> {
+    return this.api.post<CitaApiDTO[]>('/api/citas/con-paciente', req).pipe(
+      map(list => list.map(d => this.mapDTO(d)))
+    );
+  }
+
+  // ── Catálogo tipos de terapia desde BD ────────────────────────────────────
+  getTiposTerapiaFromApi(): Observable<TipoTerapia[]> {
+    return this.api.get<any[]>('/api/tipos-terapia').pipe(
+      map(list => list.map(t => ({
+        id:               (t.key || String(t.id)).toUpperCase(),
+        nombre:           t.nombre,
+        duracion_minutos: t.duracionMinutos ?? t.duracion_minutos ?? 45,
+        max_pacientes:    t.maxPacientes    ?? t.max_pacientes    ?? 1,
+      } as TipoTerapia))),
+      catchError(() => of([
+        { id: 'CONVENCIONAL', nombre: 'Convencional', duracion_minutos: 45, max_pacientes: 2 },
+        { id: 'KIDS',         nombre: 'Kids',          duracion_minutos: 45, max_pacientes: 1 },
+      ] as TipoTerapia[]))
+    );
   }
 
   // ── Listado ────────────────────────────────────────────────────────────────
@@ -49,8 +63,15 @@ export class CitaService {
   }
 
   // ── Actualizar ─────────────────────────────────────────────────────────────
-  actualizarCitaLocal(id: string, req: CrearCitaLocalRequest): Observable<Cita> {
-    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, this.buildBody(req)).pipe(map(d => this.mapDTO(d)));
+  actualizarCitaLocal(id: string, req: CrearCitaLocalRequest): Observable<void> {
+    return this.api.put<unknown>(`${this.PATH}/${id}`, this.buildBody(req)).pipe(
+      map(() => undefined as void),
+      catchError(err => {
+        // Si el HTTP status es 2xx, el UPDATE fue exitoso aunque el body sea malformado
+        if (err?.status >= 200 && err?.status < 300) return of(undefined as void);
+        throw err;
+      })
+    );
   }
 
   // ── Eliminar ───────────────────────────────────────────────────────────────
@@ -73,7 +94,7 @@ export class CitaService {
     }).pipe(map(d => this.mapDTO(d)));
   }
 
-  // ── Reprogramar cita (usado por detalle-cita component) ───────────────────
+  // ── Reprogramar cita ───────────────────────────────────────────────────────
   reprogramarCita(id: string, req: ReprogramarCitaRequest): Observable<Cita> {
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, {
       estado:              'REPROGRAMADA',
@@ -94,10 +115,6 @@ export class CitaService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  getEstadosCita(): string[] {
-    return ['PENDIENTE','PROGRAMADA','CONFIRMADA','EN_CURSO','ASISTIDA','NO_ASISTIO','REPROGRAMADA','CANCELADA_PACIENTE','CANCELADA_CLINICA'];
-  }
-
   getModalidades(): string[] {
     return ['PRESENCIAL', 'VIRTUAL', 'DOMICILIO'];
   }
@@ -105,24 +122,20 @@ export class CitaService {
   private buildBody(req: CrearCitaLocalRequest): Record<string, unknown> {
     const fin = new Date(req.fecha_inicio);
     fin.setMinutes(fin.getMinutes() + req.duracion_minutos);
-    const tipo = this.tiposTerapia.find(t => t.id === req.tipo_key);
-    return {
-      fecha_inicio:        req.fecha_inicio.toISOString(),
-      fecha_fin:           fin.toISOString(),
-      duracion_minutos:    req.duracion_minutos,
-      modalidad:           'PRESENCIAL',
-      estado:              this.colorAEstado(req.estado_color),
-      paciente_nombre:     req.paciente_nombre,
-      paciente_apellido:   req.paciente_apellido,
-      paciente_dni:        req.paciente_dni,
-      paciente_telefono:   req.paciente_telefono,
-      paciente_correo:     req.paciente_correo,
-      terapeuta_nombre:    req.terapeuta_nombre,
-      tipo_terapia_nombre: tipo?.nombre,
-      tipo_terapia_key:    req.tipo_key,
-      observacion:         req.observacion,
-      recordatorio_enviado: false,
+    // Campos camelCase — coinciden exactamente con los fields de la entidad Cita
+    const body: Record<string, unknown> = {
+      fechaInicio:         this.toLocalDateTime(req.fecha_inicio),
+      fechaFin:            this.toLocalDateTime(fin),
+      duracionMinutos:     req.duracion_minutos,
+      notasPrevias:        req.notas_previas ?? req.observacion ?? null,
+      recordatorioEnviado: req.recordatorio_enviado ?? false,
     };
+    // @ManyToOne — siempre como { id } para que Hibernate resuelva la FK
+    if (req.terapeuta_id)  body['terapeuta']  = { id: req.terapeuta_id };
+    if (req.sesion_id)     body['sesion']     = { id: req.sesion_id };
+    if (req.estado_id)     body['estado']     = { id: req.estado_id };
+    if (req.modalidad_id)  body['modalidad']  = { id: req.modalidad_id };
+    return body;
   }
 
   private mapDTO(dto: CitaApiDTO): Cita {
@@ -136,7 +149,7 @@ export class CitaService {
       fecha_fin:           dto.fecha_fin    ? new Date(dto.fecha_fin)    : new Date(0),
       duracion_minutos:    dto.duracion_minutos ?? 45,
       modalidad:           (dto.modalidad as Cita['modalidad']) ?? 'PRESENCIAL',
-      estado:              (dto.estado as Cita['estado']) ?? 'PROGRAMADA',
+      estado:              dto.estado ?? 'PROGRAMADA',
       motivo_cancelacion:  dto.motivo_cancelacion,
       notas_previas:       dto.notas_previas,
       notas_post:          dto.notas_post,
@@ -153,17 +166,16 @@ export class CitaService {
       terapeuta_apellido:  dto.terapeuta_apellido,
       tipo_terapia_nombre: dto.tipo_terapia_nombre,
       tipo_terapia_key:    dto.tipo_terapia_key,
-      observacion:         dto.observacion,
+      observacion:         dto.observacion ?? dto.notas_previas,
     };
-  }
-
-  private colorAEstado(color: 'azul' | 'verde' | 'rojo'): string {
-    if (color === 'verde') return 'ASISTIDA';
-    if (color === 'rojo')  return 'NO_ASISTIO';
-    return 'PROGRAMADA';
   }
 
   private toISOLocal(d: Date): string {
     return d.toISOString().slice(0, 19);
+  }
+
+  private toLocalDateTime(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 }

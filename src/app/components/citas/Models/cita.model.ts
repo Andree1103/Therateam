@@ -1,5 +1,5 @@
 export interface TipoTerapia {
-  id: string;
+  id: string;           // usa key del DB (ej: 'CONVENCIONAL', 'KIDS')
   nombre: string;
   duracion_minutos: number;
   max_pacientes: number;
@@ -15,7 +15,7 @@ export interface Cita {
   fecha_fin: Date;
   duracion_minutos: number;
   modalidad: 'PRESENCIAL' | 'VIRTUAL' | 'DOMICILIO';
-  estado: 'PENDIENTE' | 'PROGRAMADA' | 'CONFIRMADA' | 'EN_CURSO' | 'ASISTIDA' | 'NO_ASISTIO' | 'REPROGRAMADA' | 'CANCELADA_PACIENTE' | 'CANCELADA_CLINICA';
+  estado: string;
   motivo_cancelacion?: string;
   notas_previas?: string;
   notas_post?: string;
@@ -50,6 +50,19 @@ export interface CrearCitaRequest {
 }
 
 export interface CrearCitaLocalRequest {
+  // IDs para las FK @ManyToOne de la entidad Cita
+  terapeuta_id?: number;
+  sesion_id?: number;
+  estado_id?: number;
+  modalidad_id?: number;
+  // Campos de la cita
+  fecha_inicio: Date;
+  duracion_minutos: number;
+  notas_previas?: string;
+  recordatorio_enviado?: boolean;
+  // Helpers para el backend (citaDTO / lógica adicional)
+  estado_key: string;
+  modalidad_key: string;
   paciente_nombre: string;
   paciente_apellido: string;
   paciente_dni?: string;
@@ -58,10 +71,37 @@ export interface CrearCitaLocalRequest {
   terapeuta_nombre: string;
   tipo_key: string;
   tipo_nombre: string;
-  fecha_inicio: Date;
-  duracion_minutos: number;
-  estado_color: 'azul' | 'verde' | 'rojo';
   observacion?: string;
+}
+
+export interface PacienteEnCita {
+  id?: number;
+  dni: string;
+  nombre: string;
+  apellido: string;
+  telefono?: string;
+  correo?: string;
+}
+
+export interface CrearCitaConPacienteRequest {
+  paciente: PacienteEnCita;
+  paciente2?: PacienteEnCita | null;
+  terapeutaNombre: string;
+  tipoKey: string;
+  fechaInicio: string;
+  duracionMinutos: number;
+  estadoKey: string;
+  modalidadKey: string;
+  observacion?: string;
+}
+
+export interface PacienteResumen {
+  id: number;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono?: string;
+  correo?: string;
 }
 
 export interface ReprogramarCitaRequest {
