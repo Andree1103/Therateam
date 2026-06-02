@@ -3,6 +3,7 @@ import { Observable, map, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { Terapeuta, TerapeutaCompletoRequest, terapeutaNombre, UsuarioBasico } from '../Models/terapeuta.model';
+import { PageResponse } from '../../../core/models/page.model';
 
 @Injectable({ providedIn: 'root' })
 export class TerapeutaService {
@@ -11,7 +12,9 @@ export class TerapeutaService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Terapeuta[]> {
-    return this.api.get<Terapeuta[]>(this.PATH);
+    return this.api.get<PageResponse<Terapeuta> | Terapeuta[]>(this.PATH, { size: '1000' }).pipe(
+      map(r => Array.isArray(r) ? r : r.content)
+    );
   }
 
   getById(id: number): Observable<Terapeuta> {

@@ -5,6 +5,8 @@ import { CitaService } from '../../Services/cita.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
+import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
 import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, TipoTerapia } from '../../Models/cita.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
@@ -65,6 +67,13 @@ export class ListaCitasComponent implements OnInit {
   fDia = 0; fH = 8; fM = 0; fDur = 45;
   fObs = '';
 
+  // ── Atención Clínica ─────────────────────────────────────────────────────────
+  modalAtencion = false;
+  guardandoAtencion = false;
+  citaParaAtencion: Cita | null = null;
+  atencionNotas = '';
+  atencionMetricas: AtencionMetrica[] = [];
+
   readonly DIAS_NOM = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 
   constructor(
@@ -72,7 +81,8 @@ export class ListaCitasComponent implements OnInit {
     private terapeutaService: TerapeutaService,
     private catalogService: CatalogService,
     private toast: ToastService,
-    private router: Router
+    private router: Router,
+    private atencionService: AtencionClinicaService
   ) {}
 
   ngOnInit(): void {
@@ -470,6 +480,47 @@ export class ListaCitasComponent implements OnInit {
     this.citaService.eliminarCitaLocal(this.citaEditando.id).subscribe({
       next: () => { this.toast.success('Cita eliminada correctamente'); this.cerrarModal(); this.recargarSilencioso(); },
       error: () => { this.toast.error('Error al eliminar la cita') }
+    });
+  }
+
+  // ── Atención Clínica ──────────────────────────────────────────────────────────
+
+  abrirAtencion(cita: Cita, e: Event): void {
+    e.stopPropagation();
+    this.citaParaAtencion = cita;
+    this.atencionNotas    = cita.notas_previas ?? '';
+    this.atencionMetricas = METRICAS_DEFAULT.map(m => ({ ...m }));
+    this.modalAtencion    = true;
+  }
+
+  cerrarAtencion(): void {
+    this.modalAtencion     = false;
+    this.citaParaAtencion  = null;
+    this.atencionNotas     = '';
+    this.atencionMetricas  = [];
+  }
+
+  guardarAtencion(): void {
+    if (!this.citaParaAtencion) return;
+    this.guardandoAtencion = true;
+    const now = new Date().toISOString().slice(0, 19);
+    const payload = {
+      citaId:         Number(this.citaParaAtencion.id),
+      fechaInicioReal: now,
+      notasPost:      this.atencionNotas || undefined,
+      metricas:       this.atencionMetricas.filter(m => m.valor !== null),
+    };
+    this.atencionService.crear(payload).subscribe({
+      next: () => {
+        this.toast.success('Atención registrada correctamente');
+        this.cerrarAtencion();
+        this.recargarSilencioso();
+        this.guardandoAtencion = false;
+      },
+      error: () => {
+        this.toast.error('Error al registrar la atención');
+        this.guardandoAtencion = false;
+      }
     });
   }
 

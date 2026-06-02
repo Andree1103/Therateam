@@ -6,10 +6,16 @@ export interface Tratamiento {
   terapeuta?: { id: number; usuario?: { nombre: string; apellido: string; }; };
   tipoTerapia?: CatalogItem;
   estadoTratamiento?: CatalogItem;
+  nombre?: string;
   fechaInicio?: string;
   fechaFin?: string;
   sesionesTotal?: number;
+  sesionesAtendidas?: number;
+  sesionesPendientes?: number;
   precioPorSesion?: number;
+  montoTotal?: number;
+  totalCobrado?: number;
+  saldoAFavor?: number;
   notas?: string;
   activo?: boolean;
   createdAt?: string;
@@ -26,6 +32,26 @@ export interface TratamientoForm {
   precioPorSesion: number | null;
   notas: string;
   activo: boolean;
+}
+
+export interface CitaResumen {
+  id: number;
+  fechaInicio: string;
+  fechaFin?: string;
+  duracionMinutos?: number;
+  estado: { id: number; key: string; nombre: string; colorHex?: string; };
+  modalidad?: { key: string; nombre: string; };
+}
+
+export interface Sesion {
+  id: number;
+  numero: number;
+  estado: { id: number; key: string; nombre: string; colorHex?: string; };
+  citaActiva?: CitaResumen;
+}
+
+export interface TratamientoDetalle extends Tratamiento {
+  sesiones?: Sesion[];
 }
 
 export function tratamientoPaciente(t: Tratamiento): string {

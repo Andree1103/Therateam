@@ -1,0 +1,65 @@
+:host{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.page{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#f1f5f9;font-family:'DM Sans',system-ui,sans-serif}
+
+/* Header */
+.page-header{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+.btn-back{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;font-size:12px;color:#64748b;font-family:inherit;padding:0}
+.btn-back:hover{color:#0f172a}
+.perfil-hdr{display:flex;align-items:center;gap:16px}
+.avatar{width:52px;height:52px;border-radius:50%;background:#185FA5;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.perfil-info{flex:1}
+.perfil-info h1{font-size:18px;font-weight:700;color:#0f172a;margin:0}
+.perfil-info p{font-size:12px;color:#64748b;margin:2px 0 0}
+.perfil-stats{display:flex;gap:20px;flex-shrink:0}
+.pstat{display:flex;flex-direction:column;align-items:center;gap:1px}
+.pstat-val{font-size:18px;font-weight:700;color:#0f172a}
+.pstat-lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+.pstat--danger .pstat-val{color:#dc2626}
+
+/* Body */
+.page-body{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+
+/* Tabs */
+.tabs-bar{display:flex;gap:2px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;flex-shrink:0;align-self:flex-start}
+.tab-btn{padding:7px 16px;border:none;background:transparent;border-radius:8px;font-size:13px;font-weight:500;color:#64748b;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;transition:all .15s}
+.tab-btn.active{background:#fff;color:#0f172a;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tab-count{background:#e2e8f0;color:#64748b;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px}
+.tab-btn.active .tab-count{background:#185FA520;color:#185FA5}
+
+/* Tab panels */
+.tab-panel{display:flex;flex-direction:column;gap:12px}
+
+/* Datos grid */
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.info-field{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:4px}
+.info-field--full{grid-column:1/-1}
+.if-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8}
+.if-val{font-size:14px;color:#0f172a;font-weight:500}
+
+/* Tratamiento cards */
+.trat-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;cursor:pointer;transition:box-shadow .15s}
+.trat-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);border-color:#cbd5e1}
+.trat-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.trat-nombre{font-size:14px;font-weight:700;color:#0f172a;display:block}
+.trat-tipo{font-size:12px;color:#64748b}
+.estado-chip{display:inline-flex;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;flex-shrink:0}
+.trat-card-fin{display:flex;gap:16px;font-size:12px;color:#64748b}
+.txt-danger{color:#dc2626;font-weight:600}
+.txt-success{color:#16a34a;font-weight:600}
+.txt-link{color:#185FA5;font-weight:600;margin-left:auto}
+
+/* Tables */
+.data-table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}
+.data-table thead th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.data-table tbody td{padding:11px 16px;border-top:1px solid #f1f5f9;font-size:13px;color:#334155;vertical-align:middle}
+.data-table tbody tr:hover{background:#f8fafc}
+.chip-estado{display:inline-flex;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569}
+.txt-muted{color:#94a3b8}
+
+/* States */
+.state-box{padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#94a3b8;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+.state-box p{margin:0;font-size:14px}
+.spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:768px){.info-grid{grid-template-columns:1fr 1fr}.perfil-stats{display:none}.tabs-bar{flex-wrap:wrap}}

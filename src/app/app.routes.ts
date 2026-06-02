@@ -12,13 +12,14 @@ export const routes: Routes = [
     component: LayoutComponent,
     canActivate: [AuthGuard],
     children: [
+      { path: 'dashboard',       loadChildren: () => import('./components/dashboard/dashboard.module').then(m => m.DashboardModule) },
       { path: 'citas',           loadChildren: () => import('./components/citas/citas.module').then(m => m.CitasModule) },
       { path: 'pacientes',       loadChildren: () => import('./components/pacientes/pacientes.module').then(m => m.PacientesModule) },
       { path: 'terapeutas',      loadChildren: () => import('./components/terapeutas/terapeutas.module').then(m => m.TerapeutasModule) },
       { path: 'pagos',           loadChildren: () => import('./components/pagos/pagos.module').then(m => m.PagosModule) },
       { path: 'tratamientos',    loadChildren: () => import('./components/tratamientos/tratamientos.module').then(m => m.TratamientosModule) },
       { path: 'configuraciones', loadChildren: () => import('./components/configuraciones/configuraciones.module').then(m => m.ConfiguracionesModule) },
-      { path: '', redirectTo: 'citas', pathMatch: 'full' }
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },
   { path: '**', redirectTo: '/login' }

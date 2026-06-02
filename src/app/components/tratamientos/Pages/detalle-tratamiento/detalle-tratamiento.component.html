@@ -1,0 +1,226 @@
+<div class="page">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <div class="header-left">
+      <button class="btn-back" (click)="volver()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+        Tratamientos
+      </button>
+      <div class="header-title" *ngIf="tratamiento">
+        <h1>{{ tratamiento.nombre || ('Tratamiento #' + tratamiento.id) }}</h1>
+        <p>{{ pacienteNombre(tratamiento) }} &middot; {{ terapeutaNombre(tratamiento) }} &middot; {{ tratamiento.tipoTerapia?.nombre || '—' }}</p>
+      </div>
+    </div>
+    <div class="header-actions" *ngIf="tratamiento">
+      <span class="estado-badge"
+            [style.background]="estadoColor + '20'"
+            [style.color]="estadoColor"
+            [style.border]="'1px solid ' + estadoColor + '40'">
+        {{ tratamiento.estadoTratamiento?.nombre || '—' }}
+      </span>
+      <button class="btn-primary" (click)="abrirPago()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Registrar pago
+      </button>
+    </div>
+  </div>
+
+  <!-- ── LOADING ── -->
+  <div class="state-box" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Cargando tratamiento...</p>
+  </div>
+
+  <!-- ── BODY ── -->
+  <div class="page-body" *ngIf="!loading && tratamiento">
+
+    <!-- Stats financieros -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+        </div>
+        <div class="stat-val">{{ tratamiento.sesionesTotal ?? 0 }}</div>
+        <div class="stat-lbl">Sesiones totales</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="stat-val">{{ tratamiento.sesionesAtendidas ?? 0 }}</div>
+        <div class="stat-lbl">Atendidas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--slate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <div class="stat-val">S/ {{ (tratamiento.montoTotal ?? 0).toFixed(2) }}</div>
+        <div class="stat-lbl">Monto total</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="stat-val">S/ {{ (tratamiento.totalCobrado ?? 0).toFixed(2) }}</div>
+        <div class="stat-lbl">Total cobrado</div>
+      </div>
+
+      <div class="stat-card" [class.stat-card--danger]="deuda > 0">
+        <div class="stat-icon" [class.stat-icon--red]="deuda > 0" [class.stat-icon--green]="deuda === 0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="stat-val">S/ {{ deuda.toFixed(2) }}</div>
+        <div class="stat-lbl">Deuda pendiente</div>
+      </div>
+
+      <div class="stat-card" [class.stat-card--blue]="(tratamiento.saldoAFavor ?? 0) > 0">
+        <div class="stat-icon stat-icon--blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22V12"/><path d="m5 12 7-7 7 7"/></svg>
+        </div>
+        <div class="stat-val">S/ {{ (tratamiento.saldoAFavor ?? 0).toFixed(2) }}</div>
+        <div class="stat-lbl">Saldo a favor</div>
+      </div>
+    </div>
+
+    <!-- Barra de progreso -->
+    <div class="progress-card">
+      <div class="progress-top">
+        <span class="progress-label">Progreso del tratamiento</span>
+        <span class="progress-fraction">{{ tratamiento.sesionesAtendidas ?? 0 }} / {{ tratamiento.sesionesTotal ?? 0 }} sesiones</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" [style.width.%]="progreso"></div>
+      </div>
+      <div class="progress-pct">{{ progreso }}% completado · Inicio: {{ formatFechaCorta(tratamiento.fechaInicio) }}</div>
+    </div>
+
+    <!-- Notas -->
+    <div class="info-card" *ngIf="tratamiento.notas">
+      <div class="info-card-hdr">Notas del tratamiento</div>
+      <p class="info-card-txt">{{ tratamiento.notas }}</p>
+    </div>
+
+    <!-- Tabla de sesiones -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-hdr-left">
+          <h2>Sesiones</h2>
+          <span class="sessions-count">{{ sesiones.length }} sesión{{ sesiones.length !== 1 ? 'es' : '' }}</span>
+        </div>
+        <button class="btn-secondary btn-sm" (click)="irCitas()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Ver agenda
+        </button>
+      </div>
+
+      <div class="state-box" *ngIf="sesiones.length === 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="36" height="36"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <p>No hay sesiones registradas para este tratamiento</p>
+      </div>
+
+      <table class="data-table" *ngIf="sesiones.length > 0">
+        <thead>
+          <tr>
+            <th class="col-num">N°</th>
+            <th>Estado sesión</th>
+            <th>Fecha y hora</th>
+            <th>Duración</th>
+            <th>Estado cita</th>
+            <th>Modalidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of sesiones">
+            <td class="text-center col-num">
+              <span class="sesion-num">{{ s.numero }}</span>
+            </td>
+            <td>
+              <span class="chip"
+                    [style.background]="(s.estado.colorHex || '#94a3b8') + '20'"
+                    [style.color]="s.estado.colorHex || '#64748b'">
+                {{ s.estado.nombre }}
+              </span>
+            </td>
+            <td class="text-fecha">{{ s.citaActiva ? formatFecha(s.citaActiva.fechaInicio) : '—' }}</td>
+            <td>{{ s.citaActiva?.duracionMinutos ? (s.citaActiva!.duracionMinutos + ' min') : '—' }}</td>
+            <td>
+              <span class="chip"
+                    *ngIf="s.citaActiva"
+                    [style.background]="(s.citaActiva.estado.colorHex || '#94a3b8') + '20'"
+                    [style.color]="s.citaActiva.estado.colorHex || '#64748b'">
+                {{ s.citaActiva.estado.nombre }}
+              </span>
+              <span class="text-muted" *ngIf="!s.citaActiva">Sin agendar</span>
+            </td>
+            <td class="text-muted">{{ s.citaActiva?.modalidad?.nombre || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-body -->
+
+</div><!-- /page -->
+
+
+<!-- ── MODAL REGISTRAR PAGO ── -->
+<div class="modal-overlay" *ngIf="modalPago" (click)="cerrarPago()">
+  <div class="modal" (click)="$event.stopPropagation()">
+
+    <div class="modal-hdr">
+      <h2>Registrar pago</h2>
+      <button class="modal-close" (click)="cerrarPago()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="pago-resumen">
+        <div class="pago-res-item">
+          <span>Deuda pendiente</span>
+          <strong [class.danger]="deuda > 0">S/ {{ deuda.toFixed(2) }}</strong>
+        </div>
+        <div class="pago-res-item">
+          <span>Saldo a favor</span>
+          <strong>S/ {{ (tratamiento?.saldoAFavor ?? 0).toFixed(2) }}</strong>
+        </div>
+      </div>
+
+      <div class="frow-2">
+        <div class="frow">
+          <label>Monto recibido (S/) *</label>
+          <input type="number" min="0.01" step="0.01" [(ngModel)]="formPago.montoRecibido" placeholder="0.00">
+        </div>
+        <div class="frow">
+          <label>Método de pago *</label>
+          <select [(ngModel)]="formPago.metodoId">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="frow">
+        <label>Referencia / N° operación</label>
+        <input type="text" [(ngModel)]="formPago.referencia" placeholder="Ej: OP-12345">
+      </div>
+
+      <div class="frow">
+        <label>Notas</label>
+        <textarea [(ngModel)]="formPago.notas" rows="2" placeholder="Observaciones del pago..."></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cerrarPago()">Cancelar</button>
+      <button class="btn-primary" (click)="guardarPago()" [disabled]="guardandoPago">
+        {{ guardandoPago ? 'Registrando...' : 'Registrar pago' }}
+      </button>
+    </div>
+
+  </div>
+</div>

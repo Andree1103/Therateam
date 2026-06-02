@@ -1,0 +1,185 @@
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <button class="btn-back" (click)="volver()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+      Pacientes
+    </button>
+
+    <div class="perfil-hdr" *ngIf="paciente">
+      <div class="avatar">{{ iniciales }}</div>
+      <div class="perfil-info">
+        <h1>{{ paciente.nombre }} {{ paciente.apellido }}</h1>
+        <p>{{ paciente.dni ? 'DNI ' + paciente.dni : '' }}{{ paciente.telefono ? ' · ' + paciente.telefono : '' }}{{ paciente.correo ? ' · ' + paciente.correo : '' }}</p>
+      </div>
+      <div class="perfil-stats">
+        <div class="pstat">
+          <span class="pstat-val">{{ tratamientos.length }}</span>
+          <span class="pstat-lbl">Tratamientos</span>
+        </div>
+        <div class="pstat">
+          <span class="pstat-val">{{ citas.length }}</span>
+          <span class="pstat-lbl">Citas</span>
+        </div>
+        <div class="pstat" [class.pstat--danger]="deudaTotal > 0">
+          <span class="pstat-val">S/ {{ deudaTotal.toFixed(2) }}</span>
+          <span class="pstat-lbl">Deuda total</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="state-box" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Cargando perfil...</p>
+  </div>
+
+  <div class="page-body" *ngIf="!loading && paciente">
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <button class="tab-btn" [class.active]="tabActivo==='datos'"        (click)="tabActivo='datos'">Datos personales</button>
+      <button class="tab-btn" [class.active]="tabActivo==='tratamientos'" (click)="tabActivo='tratamientos'">
+        Tratamientos <span class="tab-count">{{ tratamientos.length }}</span>
+      </button>
+      <button class="tab-btn" [class.active]="tabActivo==='citas'"        (click)="tabActivo='citas'">
+        Citas <span class="tab-count">{{ citas.length }}</span>
+      </button>
+      <button class="tab-btn" [class.active]="tabActivo==='pagos'"        (click)="tabActivo='pagos'">
+        Pagos <span class="tab-count">{{ pagos.length }}</span>
+      </button>
+    </div>
+
+    <!-- TAB: DATOS PERSONALES -->
+    <div class="tab-panel" *ngIf="tabActivo === 'datos'">
+      <div class="info-grid">
+        <div class="info-field">
+          <span class="if-lbl">DNI</span>
+          <span class="if-val">{{ paciente.dni || '—' }}</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Teléfono</span>
+          <span class="if-val">{{ paciente.telefono || '—' }}</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Correo</span>
+          <span class="if-val">{{ paciente.correo || '—' }}</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Fecha de nacimiento</span>
+          <span class="if-val">{{ formatFecha(paciente.fechaNacimiento) }} ({{ edad }})</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Sede</span>
+          <span class="if-val">{{ paciente.sede?.nombre || '—' }}</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Origen</span>
+          <span class="if-val">{{ paciente.origen?.nombre || '—' }}</span>
+        </div>
+        <div class="info-field info-field--full" *ngIf="paciente.notas">
+          <span class="if-lbl">Notas</span>
+          <span class="if-val">{{ paciente.notas }}</span>
+        </div>
+        <div class="info-field">
+          <span class="if-lbl">Registrado</span>
+          <span class="if-val">{{ formatFecha(paciente.createdAt) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: TRATAMIENTOS -->
+    <div class="tab-panel" *ngIf="tabActivo === 'tratamientos'">
+      <div class="state-box" *ngIf="tratamientos.length === 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="36" height="36"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+        <p>Sin tratamientos registrados</p>
+      </div>
+      <div class="trat-card" *ngFor="let t of tratamientos" (click)="irTratamiento(t.id)">
+        <div class="trat-card-top">
+          <div class="trat-info">
+            <span class="trat-nombre">{{ t.nombre || ('Tratamiento #' + t.id) }}</span>
+            <span class="trat-tipo">{{ t.tipoTerapia?.nombre }} · {{ t.sesionesAtendidas ?? 0 }}/{{ t.sesionesTotal ?? 0 }} sesiones</span>
+          </div>
+          <span class="estado-chip"
+                [style.background]="estadoColor(t.estadoTratamiento?.key) + '20'"
+                [style.color]="estadoColor(t.estadoTratamiento?.key)">
+            {{ estadoTratamiento(t) }}
+          </span>
+        </div>
+        <div class="trat-card-fin">
+          <span>S/ {{ (t.montoTotal ?? 0).toFixed(2) }} total</span>
+          <span>Cobrado: S/ {{ (t.totalCobrado ?? 0).toFixed(2) }}</span>
+          <span [class.txt-danger]="deudaTratamiento(t) > 0">
+            Deuda: S/ {{ deudaTratamiento(t).toFixed(2) }}
+          </span>
+          <span class="txt-link">Ver detalle →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CITAS -->
+    <div class="tab-panel" *ngIf="tabActivo === 'citas'">
+      <div class="state-box" *ngIf="citas.length === 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="36" height="36"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <p>Sin citas registradas</p>
+      </div>
+      <table class="data-table" *ngIf="citas.length > 0">
+        <thead>
+          <tr>
+            <th>Fecha y hora</th>
+            <th>Terapeuta</th>
+            <th>Tipo</th>
+            <th>Modalidad</th>
+            <th>Estado</th>
+            <th>Duración</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of citas | slice:0:50">
+            <td>{{ formatFechaHora(c.fecha_inicio) }}</td>
+            <td>{{ c.terapeuta_nombre || '—' }}</td>
+            <td>{{ c.tipo_terapia_nombre || '—' }}</td>
+            <td>{{ c.modalidad || '—' }}</td>
+            <td>
+              <span class="chip-estado">{{ c.estado }}</span>
+            </td>
+            <td>{{ c.duracion_minutos }} min</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TAB: PAGOS -->
+    <div class="tab-panel" *ngIf="tabActivo === 'pagos'">
+      <div class="state-box" *ngIf="pagos.length === 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="36" height="36"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <p>Sin pagos registrados</p>
+      </div>
+      <table class="data-table" *ngIf="pagos.length > 0">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Monto recibido</th>
+            <th>Monto aplicado</th>
+            <th>Saldo generado</th>
+            <th>Método</th>
+            <th>Referencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of pagos">
+            <td>{{ formatFecha(p.fechaPago) }}</td>
+            <td><strong>S/ {{ (p.montoRecibido ?? 0).toFixed(2) }}</strong></td>
+            <td>S/ {{ (p.montoAplicado ?? 0).toFixed(2) }}</td>
+            <td [class.txt-success]="(p.saldoGenerado ?? 0) > 0">S/ {{ (p.saldoGenerado ?? 0).toFixed(2) }}</td>
+            <td>{{ p.metodo?.nombre || '—' }}</td>
+            <td class="txt-muted">{{ p.referencia || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

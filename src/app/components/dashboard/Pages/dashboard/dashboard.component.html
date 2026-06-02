@@ -1,0 +1,138 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Resumen operacional y financiero</p>
+    </div>
+  </div>
+
+  <div class="state-box" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Cargando datos...</p>
+  </div>
+
+  <div class="page-body" *ngIf="!loading">
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-icon--blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-val">{{ citasHoy.length }}</div>
+          <div class="kpi-lbl">Citas hoy</div>
+          <div class="kpi-sub">{{ citasSemana.length }} esta semana</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-icon--green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-val">{{ tratamientosActivos.length }}</div>
+          <div class="kpi-lbl">Tratamientos activos</div>
+          <div class="kpi-sub">{{ tratamientos.length }} en total</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-icon--emerald">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-val">S/ {{ ingresosMes.toFixed(0) }}</div>
+          <div class="kpi-lbl">Ingresos del mes</div>
+          <div class="kpi-sub">{{ pagos.length }} pagos registrados</div>
+        </div>
+      </div>
+
+      <div class="kpi-card" [class.kpi-card--danger]="deudaTotal > 0">
+        <div class="kpi-icon" [class.kpi-icon--red]="deudaTotal > 0" [class.kpi-icon--slate]="deudaTotal === 0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-val">S/ {{ deudaTotal.toFixed(0) }}</div>
+          <div class="kpi-lbl">Deuda pendiente</div>
+          <div class="kpi-sub">Total en tratamientos activos</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-icon--purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-val">{{ tasaAsistencia }}%</div>
+          <div class="kpi-lbl">Tasa de asistencia</div>
+          <div class="kpi-sub">Histórico de citas completadas</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="two-col">
+
+      <!-- CITAS HOY -->
+      <div class="card">
+        <div class="card-hdr">
+          <h2>Citas de hoy</h2>
+          <span class="badge-count">{{ citasHoy.length }}</span>
+        </div>
+
+        <div class="estado-pills" *ngIf="citasHoy.length > 0">
+          <span class="epill" *ngFor="let e of resumenEstados"
+                [style.background]="e.color + '20'" [style.color]="e.color">
+            {{ e.count }} {{ e.key }}
+          </span>
+        </div>
+
+        <div class="state-box" *ngIf="citasHoy.length === 0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="32" height="32"><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+          <p>Sin citas programadas hoy</p>
+        </div>
+
+        <div class="cita-hoy-list" *ngIf="citasHoy.length > 0">
+          <div class="cita-hoy-row" *ngFor="let c of citasHoy | slice:0:10">
+            <span class="ch-hora">{{ formatHora(c.fecha_inicio) }}</span>
+            <div class="ch-info">
+              <span class="ch-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</span>
+              <span class="ch-ter">{{ c.terapeuta_nombre }}</span>
+            </div>
+            <span class="ch-badge" style="background:#3b82f620;color:#3b82f6">{{ c.estado }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRÓXIMAS CITAS -->
+      <div class="card">
+        <div class="card-hdr">
+          <h2>Próximas citas</h2>
+          <span class="badge-count">{{ proximasCitas.length }}</span>
+        </div>
+
+        <div class="state-box" *ngIf="proximasCitas.length === 0">
+          <p>Sin próximas citas</p>
+        </div>
+
+        <div class="cita-hoy-list" *ngIf="proximasCitas.length > 0">
+          <div class="cita-hoy-row" *ngFor="let c of proximasCitas">
+            <div class="ch-fecha-col">
+              <span class="ch-fecha">{{ formatFecha(c.fecha_inicio) }}</span>
+              <span class="ch-hora">{{ formatHora(c.fecha_inicio) }}</span>
+            </div>
+            <div class="ch-info">
+              <span class="ch-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</span>
+              <span class="ch-ter">{{ c.terapeuta_nombre }} · {{ c.tipo_terapia_nombre }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>

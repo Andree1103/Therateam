@@ -1,0 +1,58 @@
+:host{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.page{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#f1f5f9;font-family:'DM Sans',system-ui,sans-serif}
+.page-header{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 24px;flex-shrink:0}
+.page-header h1{font-size:18px;font-weight:700;color:#0f172a;margin:0}
+.page-header p{font-size:12px;color:#64748b;margin:2px 0 0}
+.page-body{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+
+/* KPI Grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start}
+.kpi-card--danger{border-color:#fca5a5;background:#fff5f5}
+.kpi-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-icon--blue{background:#dbeafe;color:#1d4ed8}
+.kpi-icon--green{background:#dcfce7;color:#15803d}
+.kpi-icon--emerald{background:#d1fae5;color:#059669}
+.kpi-icon--red{background:#fee2e2;color:#dc2626}
+.kpi-icon--slate{background:#f1f5f9;color:#475569}
+.kpi-icon--purple{background:#ede9fe;color:#7c3aed}
+.kpi-content{flex:1}
+.kpi-val{font-size:22px;font-weight:700;color:#0f172a;line-height:1}
+.kpi-lbl{font-size:12px;font-weight:600;color:#334155;margin-top:2px}
+.kpi-sub{font-size:11px;color:#94a3b8;margin-top:2px}
+
+/* Two column layout */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* Card */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+.card-hdr{padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px}
+.card-hdr h2{font-size:14px;font-weight:700;color:#0f172a;margin:0}
+.badge-count{background:#f1f5f9;color:#64748b;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px}
+
+/* Estado pills */
+.estado-pills{display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid #f1f5f9}
+.epill{display:inline-flex;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+
+/* Cita hoy list */
+.cita-hoy-list{display:flex;flex-direction:column}
+.cita-hoy-row{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid #f8fafc}
+.cita-hoy-row:first-child{border-top:none}
+.cita-hoy-row:hover{background:#f8fafc}
+.ch-hora{font-size:12px;font-weight:700;color:#185FA5;white-space:nowrap;width:42px;flex-shrink:0}
+.ch-fecha-col{display:flex;flex-direction:column;gap:1px;width:90px;flex-shrink:0}
+.ch-fecha{font-size:11px;color:#64748b}
+.ch-info{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.ch-pac{font-size:13px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-ter{font-size:11px;color:#64748b}
+.ch-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;flex-shrink:0}
+
+/* States */
+.state-box{padding:32px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#94a3b8}
+.state-box p{margin:0;font-size:13px}
+.spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}}
+@media(max-width:540px){.kpi-grid{grid-template-columns:1fr}}

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, map, catchError, of } from 'rxjs';
+import { PageResponse } from '../../../core/models/page.model';
 import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, PacienteResumen, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
 import { ApiService } from '../../../core/services/api.service';
 
@@ -44,13 +45,16 @@ export class CitaService {
   getCitas(filtros?: { fechaInicio?: Date; fechaFin?: Date; terapeuta?: string }): Observable<Cita[]> {
     const hasFiltros = filtros && (filtros.fechaInicio || filtros.fechaFin || filtros.terapeuta);
     if (!hasFiltros) {
-      return this.api.get<CitaApiDTO[]>(this.PATH).pipe(map(list => list.map(d => this.mapDTO(d))));
+      return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(this.PATH, { size: '1000' }).pipe(
+        map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d)))
+      );
     }
-    return this.api.get<CitaApiDTO[]>(`${this.PATH}/filtro`, {
+    return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(`${this.PATH}/filtro`, {
       fechaInicio: filtros!.fechaInicio ? this.toISOLocal(filtros!.fechaInicio) : undefined,
       fechaFin:    filtros!.fechaFin    ? this.toISOLocal(filtros!.fechaFin)    : undefined,
       terapeuta:   filtros!.terapeuta,
-    }).pipe(map(list => list.map(d => this.mapDTO(d))));
+      size: '1000',
+    }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
   }
 
   getCitaById(id: string): Observable<Cita> {

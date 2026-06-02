@@ -50,14 +50,13 @@
 
       <div class="nav-section-lbl">Principal</div>
 
-      <div class="nav-item nav-item--dim" title="Próximamente">
+      <a class="nav-item" routerLink="/dashboard" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
         </svg>
         <span class="nav-txt">Dashboard</span>
-        <span class="nav-pronto">Próx.</span>
-      </div>
+      </a>
 
       <a class="nav-item" routerLink="/citas" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
