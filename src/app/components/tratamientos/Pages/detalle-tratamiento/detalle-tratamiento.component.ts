@@ -6,7 +6,9 @@ import { TratamientoService } from '../../Services/tratamiento.service';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { TratamientoDetalle, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
+import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 
 @Component({
@@ -25,6 +27,9 @@ export class DetalleTratamientoComponent implements OnInit {
   guardandoPago = false;
   formPago = this.emptyPago();
 
+  atencionMap = new Map<number, AtencionClinica | null>();
+  sesionExpandida: number | null = null;
+
   pacienteNombre = tratamientoPaciente;
   terapeutaNombre = tratamientoTerapeuta;
 
@@ -36,6 +41,7 @@ export class DetalleTratamientoComponent implements OnInit {
     private tratamientoService: TratamientoService,
     private pagoService: PagoService,
     private catalogService: CatalogService,
+    private atencionService: AtencionClinicaService,
     private toast: ToastService
   ) {}
 
@@ -57,12 +63,37 @@ export class DetalleTratamientoComponent implements OnInit {
         this.tratamiento = tratamiento;
         this.sesiones = [...sesiones].sort((a, b) => a.numero - b.numero);
         this.loading = false;
+        this.cargarAtenciones();
       },
       error: () => {
         this.loading = false;
         this.toast.error('Error al cargar el tratamiento');
       }
     });
+  }
+
+  private cargarAtenciones(): void {
+    const conCita = this.sesiones.filter(s => s.citaActiva?.id);
+    if (conCita.length === 0) return;
+
+    const requests$ = conCita.map(s =>
+      this.atencionService.getByCita(s.citaActiva!.id).pipe(catchError(() => of(null)))
+    );
+
+    forkJoin(requests$).subscribe(results => {
+      conCita.forEach((s, i) => {
+        this.atencionMap.set(s.citaActiva!.id, results[i]);
+      });
+    });
+  }
+
+  toggleSesion(sesionId: number): void {
+    this.sesionExpandida = this.sesionExpandida === sesionId ? null : sesionId;
+  }
+
+  getAtencion(citaId?: number): AtencionClinica | null {
+    if (!citaId) return null;
+    return this.atencionMap.get(citaId) ?? null;
   }
 
   // ── Cálculos financieros ───────────────────────────────────────────────────
@@ -76,13 +107,13 @@ export class DetalleTratamientoComponent implements OnInit {
   }
 
   get progreso(): number {
-    const total     = this.tratamiento?.sesionesTotal    ?? 0;
+    const total     = this.tratamiento?.totalSesiones    ?? 0;
     const atendidas = this.tratamiento?.sesionesAtendidas ?? 0;
     return total > 0 ? Math.round((atendidas / total) * 100) : 0;
   }
 
   get estadoColor(): string {
-    return this.tratamiento?.estadoTratamiento?.colorHex ?? '#94a3b8';
+    return this.tratamiento?.estadoColor ?? '#94a3b8';
   }
 
   // ── Formato de fechas ──────────────────────────────────────────────────────
@@ -117,7 +148,7 @@ export class DetalleTratamientoComponent implements OnInit {
     this.guardandoPago = true;
     const body = {
       tratamiento:   { id: this.tratamiento!.id },
-      paciente:      { id: this.tratamiento!.paciente!.id },
+      paciente:      { id: this.tratamiento!.pacienteId },
       metodo:        { id: this.formPago.metodoId },
       montoRecibido: this.formPago.montoRecibido,
       montoAplicado: this.formPago.montoRecibido,

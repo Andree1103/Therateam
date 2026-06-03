@@ -58,14 +58,14 @@
             <td>
               <div class="entity-sub">{{ terapeutaNombre(t) }}</div>
             </td>
-            <td>{{ t.tipoTerapia?.nombre || '—' }}</td>
+            <td>{{ t.tipoTerapiaNombre || '—' }}</td>
             <td>
-              <span class="badge" [class]="'badge--' + (t.estadoTratamiento?.key | lowercase)">
-                {{ t.estadoTratamiento?.nombre || '—' }}
+              <span class="badge" [class]="'badge--' + ((t.estadoKey ?? '') | lowercase)">
+                {{ t.estadoNombre || '—' }}
               </span>
             </td>
             <td class="text-muted small">{{ t.fechaInicio | date:'d MMM yyyy' }}</td>
-            <td class="text-center">{{ t.sesionesTotal ?? '—' }}</td>
+            <td class="text-center">{{ t.totalSesiones ?? '—' }}</td>
             <td>{{ t.precioPorSesion ? ('S/ ' + t.precioPorSesion) : '—' }}</td>
             <td>
               <div class="actions">

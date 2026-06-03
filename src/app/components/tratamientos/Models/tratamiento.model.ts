@@ -1,24 +1,42 @@
-import { CatalogItem } from '../../../core/models/catalog.model';
-
 export interface Tratamiento {
   id?: number;
-  paciente?: { id: number; nombre: string; apellido: string; };
-  terapeuta?: { id: number; usuario?: { nombre: string; apellido: string; }; };
-  tipoTerapia?: CatalogItem;
-  estadoTratamiento?: CatalogItem;
   nombre?: string;
   fechaInicio?: string;
   fechaFin?: string;
-  sesionesTotal?: number;
-  sesionesAtendidas?: number;
-  sesionesPendientes?: number;
+  notas?: string;
+  activo?: boolean;
+  createdAt?: string;
+
+  // Paciente (flat desde TratamientoDTO)
+  pacienteId?: number;
+  pacienteNombre?: string;
+  pacienteApellido?: string;
+  pacienteDni?: string;
+  pacienteTelefono?: string;
+
+  // Terapeuta (flat)
+  terapeutaId?: number;
+  terapeutaNombre?: string;
+
+  // Tipo terapia (flat)
+  tipoTerapiaKey?: string;
+  tipoTerapiaNombre?: string;
+
+  // Estado (flat)
+  estadoKey?: string;
+  estadoNombre?: string;
+  estadoColor?: string;
+
+  // Financiero
   precioPorSesion?: number;
   montoTotal?: number;
   totalCobrado?: number;
   saldoAFavor?: number;
-  notas?: string;
-  activo?: boolean;
-  createdAt?: string;
+
+  // Sesiones
+  totalSesiones?: number;
+  sesionesAtendidas?: number;
+  sesionesPendientes?: number;
 }
 
 export interface TratamientoForm {
@@ -55,11 +73,10 @@ export interface TratamientoDetalle extends Tratamiento {
 }
 
 export function tratamientoPaciente(t: Tratamiento): string {
-  if (!t.paciente) return '—';
-  return `${t.paciente.nombre} ${t.paciente.apellido}`.trim();
+  if (!t.pacienteNombre) return '—';
+  return `${t.pacienteNombre} ${t.pacienteApellido || ''}`.trim();
 }
 
 export function tratamientoTerapeuta(t: Tratamiento): string {
-  if (!t.terapeuta?.usuario) return '—';
-  return `${t.terapeuta.usuario.nombre} ${t.terapeuta.usuario.apellido}`.trim();
+  return t.terapeutaNombre || '—';
 }

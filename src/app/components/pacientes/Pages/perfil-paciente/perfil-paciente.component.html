@@ -100,11 +100,11 @@
         <div class="trat-card-top">
           <div class="trat-info">
             <span class="trat-nombre">{{ t.nombre || ('Tratamiento #' + t.id) }}</span>
-            <span class="trat-tipo">{{ t.tipoTerapia?.nombre }} · {{ t.sesionesAtendidas ?? 0 }}/{{ t.sesionesTotal ?? 0 }} sesiones</span>
+            <span class="trat-tipo">{{ t.tipoTerapiaNombre }} · {{ t.sesionesAtendidas ?? 0 }}/{{ t.totalSesiones ?? 0 }} sesiones</span>
           </div>
           <span class="estado-chip"
-                [style.background]="estadoColor(t.estadoTratamiento?.key) + '20'"
-                [style.color]="estadoColor(t.estadoTratamiento?.key)">
+                [style.background]="estadoColor(t.estadoKey) + '20'"
+                [style.color]="estadoColor(t.estadoKey)">
             {{ estadoTratamiento(t) }}
           </span>
         </div>

@@ -71,9 +71,9 @@ export class ListaTratamientosComponent implements OnInit {
       const pac = tratamientoPaciente(t).toLowerCase();
       const ter = tratamientoTerapeuta(t).toLowerCase();
       const matchQ = !q || pac.includes(q) || ter.includes(q) ||
-        (t.tipoTerapia?.nombre || '').toLowerCase().includes(q);
+        (t.tipoTerapiaNombre || '').toLowerCase().includes(q);
       const matchEst = !this.filtroEstado ||
-        (t.estadoTratamiento?.key || '') === this.filtroEstado;
+        (t.estadoKey || '') === this.filtroEstado;
       return matchQ && matchEst;
     });
   }
@@ -87,16 +87,16 @@ export class ListaTratamientosComponent implements OnInit {
   abrirEditar(t: Tratamiento): void {
     this.editando = t;
     this.formData = {
-      pacienteId:          t.paciente?.id         ?? null,
-      terapeutaId:         t.terapeuta?.id        ?? null,
-      tipoTerapiaId:       t.tipoTerapia?.id      ?? null,
-      estadoTratamientoId: t.estadoTratamiento?.id ?? null,
-      fechaInicio:         t.fechaInicio          || '',
-      fechaFin:            t.fechaFin             || '',
-      sesionesTotal:       t.sesionesTotal        ?? null,
-      precioPorSesion:     t.precioPorSesion      ?? null,
-      notas:               t.notas               || '',
-      activo:              t.activo              ?? true,
+      pacienteId:          t.pacienteId ?? null,
+      terapeutaId:         t.terapeutaId ?? null,
+      tipoTerapiaId:       this.tiposTerapia.find(tt => tt.key === t.tipoTerapiaKey)?.id ?? null,
+      estadoTratamientoId: this.estadosTratamiento.find(e => e.key === t.estadoKey)?.id ?? null,
+      fechaInicio:         t.fechaInicio || '',
+      fechaFin:            t.fechaFin    || '',
+      sesionesTotal:       t.totalSesiones   ?? null,
+      precioPorSesion:     t.precioPorSesion ?? null,
+      notas:               t.notas          || '',
+      activo:              t.activo         ?? true,
     };
     this.modalAbierto = true;
   }
@@ -141,7 +141,7 @@ export class ListaTratamientosComponent implements OnInit {
              sesionesTotal: null, precioPorSesion: null, notas: '', activo: true };
   }
 
-  private buildBody(): Partial<Tratamiento> {
+  private buildBody(): any {
     const f = this.formData;
     return {
       paciente:           f.pacienteId           ? { id: f.pacienteId } as any           : undefined,

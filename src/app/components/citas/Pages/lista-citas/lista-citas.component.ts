@@ -1,15 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { CitaService } from '../../Services/cita.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
+import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
+import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
 import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, TipoTerapia } from '../../Models/cita.model';
+import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
-import { terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -41,9 +44,17 @@ export class ListaCitasComponent implements OnInit {
   tiposTerapia: TipoTerapia[] = [];
   estadosCita:  CatalogItem[] = [];
   modalidades:  CatalogItem[] = [];
-  terapeutasNombres: string[] = [];
+  metodosPago:  CatalogItem[] = [];
 
-  filtroTerapeuta = '';
+  // ── Terapeutas (objetos completos para filtro por tipo) ────────────────────
+  terapeutas: Terapeuta[] = [];
+  terapeutasNombres: string[] = [];
+  filtrosTerapeutas: string[] = [];
+  filtroTipoTerapeuta = '';
+
+  // ── Hover card ────────────────────────────────────────────────────────────
+  citaHoverId: string | null = null;
+
   vista: 'semana' | 'libre' = 'semana';
   configVisible = false;
 
@@ -64,10 +75,24 @@ export class ListaCitasComponent implements OnInit {
   fTipoId = '';
   fEstKey = '';
   fModalidad = 'PRESENCIAL';
-  fDia = 0; fH = 8; fM = 0; fDur = 45;
+  fFecha = '';       // "YYYY-MM-DD" — reemplaza fDia
+  fHoraInicio = '08:00'; // "HH:MM"  — reemplaza fH, fM
+  fDur = 45;
   fObs = '';
 
-  // ── Atención Clínica ─────────────────────────────────────────────────────────
+  // ── Precio / pago ────────────────────────────────────────────────────────
+  fPrecio: number | null = null;
+  fPagado = false;
+  fMetodoPagoId: number | null = null;
+
+  // ── Programación múltiple ─────────────────────────────────────────────────
+  modoProgramacion: 'single' | 'multiple' = 'single';
+  bulkDias = [true, false, true, false, true, false, false]; // L M X J V S D
+  bulkSesiones = 10;
+  bulkFechaInicio = '';
+  bulkPreview: Date[] = [];
+
+  // ── Atención Clínica ─────────────────────────────────────────────────────
   modalAtencion = false;
   guardandoAtencion = false;
   citaParaAtencion: Cita | null = null;
@@ -75,10 +100,13 @@ export class ListaCitasComponent implements OnInit {
   atencionMetricas: AtencionMetrica[] = [];
 
   readonly DIAS_NOM = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  readonly DIAS_ABR = ['L','M','X','J','V','S','D'];
 
   constructor(
     private citaService: CitaService,
     private terapeutaService: TerapeutaService,
+    private tratamientoService: TratamientoService,
+    private pagoService: PagoService,
     private catalogService: CatalogService,
     private toast: ToastService,
     private router: Router,
@@ -110,6 +138,24 @@ export class ListaCitasComponent implements OnInit {
     return 'Sin datos';
   }
 
+  get tiposTerapeuta(): string[] {
+    const tipos = new Set(this.terapeutas.map(t => t.tipoTerapeuta?.nombre).filter(Boolean));
+    return [...tipos] as string[];
+  }
+
+  get terapeutasFiltrados(): Terapeuta[] {
+    if (!this.filtroTipoTerapeuta) return this.terapeutas;
+    return this.terapeutas.filter(t =>
+      (t.tipoTerapeuta?.nombre ?? '').toLowerCase().includes(this.filtroTipoTerapeuta.toLowerCase())
+    );
+  }
+
+  getNombreTerapeuta(t: Terapeuta): string { return terapeutaNombre(t); }
+
+  esTerapeutaSeleccionado(nombre: string): boolean {
+    return this.filtrosTerapeutas.includes(nombre);
+  }
+
   // ── Carga de datos ───────────────────────────────────────────────────────────
 
   private cargarCatalogos(): void {
@@ -119,12 +165,16 @@ export class ListaCitasComponent implements OnInit {
       estados:     this.catalogService.getEstadosCita(),
       modalidades: this.catalogService.getModalidades(),
       terapeutas:  this.terapeutaService.getAll(),
+      metodosPago: this.catalogService.getMetodosPago().pipe(catchError(() => of([] as CatalogItem[]))),
     }).subscribe({
-      next: ({ tipos, estados, modalidades, terapeutas }) => {
+      next: ({ tipos, estados, modalidades, terapeutas, metodosPago }) => {
         this.tiposTerapia      = tipos;
         this.estadosCita       = estados;
         this.modalidades       = modalidades;
+        this.metodosPago       = metodosPago;
+        this.terapeutas        = terapeutas;
         this.terapeutasNombres = terapeutas.map(t => terapeutaNombre(t)).filter(Boolean);
+        this.fMetodoPagoId     = metodosPago[0]?.id ?? null;
         this.cargandoCatalogos = false;
         this.resetForm();
       },
@@ -132,11 +182,14 @@ export class ListaCitasComponent implements OnInit {
     });
   }
 
+  // ── Slots — cada 30 min para soportar horarios flexibles ────────────────────
+
   generarSlots(): void {
     this.slots = [];
     for (let h = 8; h < 20; h++) {
-      for (const m of [0, 40]) {
-        this.slots.push({ h, m, lbl: `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '40'}` });
+      for (const m of [0, 30]) {
+        const lbl = `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '30'}`;
+        this.slots.push({ h, m, lbl });
       }
     }
   }
@@ -182,7 +235,29 @@ export class ListaCitasComponent implements OnInit {
     this.citaService.getCitas().subscribe({ next: citas => { this.citas = citas; } });
   }
 
-  // ── Helpers de estado, tipo, chips ───────────────────────────────────────────
+  // ── Filtro de terapeutas ────────────────────────────────────────────────────
+
+  toggleFiltroTerapeuta(nombre: string): void {
+    const idx = this.filtrosTerapeutas.indexOf(nombre);
+    if (idx >= 0) this.filtrosTerapeutas.splice(idx, 1);
+    else this.filtrosTerapeutas.push(nombre);
+  }
+
+  filtrarPorTipo(tipo: string): void {
+    this.filtroTipoTerapeuta = tipo;
+    if (!tipo) { this.filtrosTerapeutas = []; return; }
+    this.filtrosTerapeutas = this.terapeutas
+      .filter(t => (t.tipoTerapeuta?.nombre ?? '') === tipo)
+      .map(t => terapeutaNombre(t))
+      .filter(Boolean);
+  }
+
+  limpiarFiltros(): void {
+    this.filtrosTerapeutas = [];
+    this.filtroTipoTerapeuta = '';
+  }
+
+  // ── Helpers de estado, tipo, chips ─────────────────────────────────────────
 
   getTipo(id: string): TipoTerapia {
     return this.tiposTerapia.find(t => t.id === id)
@@ -203,26 +278,32 @@ export class ListaCitasComponent implements OnInit {
   getCitasSlot(diaIdx: number, h: number, m: number): Cita[] {
     const fecha = this.diasSemana[diaIdx]?.fecha;
     if (!fecha) return [];
+    const slotMin = h * 60 + m;
     return this.citas.filter(c => {
       const ini = new Date(c.fecha_inicio);
-      return ini.getFullYear() === fecha.getFullYear() &&
-             ini.getMonth()    === fecha.getMonth()    &&
-             ini.getDate()     === fecha.getDate()     &&
-             ini.getHours()    === h && ini.getMinutes() === m &&
-             (!this.filtroTerapeuta || c.terapeuta_nombre === this.filtroTerapeuta);
+      if (ini.getFullYear() !== fecha.getFullYear() ||
+          ini.getMonth()    !== fecha.getMonth()    ||
+          ini.getDate()     !== fecha.getDate()) return false;
+      const citaMin = ini.getHours() * 60 + ini.getMinutes();
+      if (citaMin < slotMin || citaMin >= slotMin + 30) return false;
+      if (this.filtrosTerapeutas.length > 0 &&
+          !this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? '')) return false;
+      return true;
     });
   }
 
   getCitasSlotTer(diaIdx: number, h: number, m: number, terapeuta: string): Cita[] {
     const fecha = this.diasSemana[diaIdx]?.fecha;
     if (!fecha) return [];
+    const slotMin = h * 60 + m;
     return this.citas.filter(c => {
       const ini = new Date(c.fecha_inicio);
-      return ini.getFullYear() === fecha.getFullYear() &&
-             ini.getMonth()    === fecha.getMonth()    &&
-             ini.getDate()     === fecha.getDate()     &&
-             ini.getHours()    === h && ini.getMinutes() === m &&
-             c.terapeuta_nombre === terapeuta;
+      if (ini.getFullYear() !== fecha.getFullYear() ||
+          ini.getMonth()    !== fecha.getMonth()    ||
+          ini.getDate()     !== fecha.getDate()) return false;
+      const citaMin = ini.getHours() * 60 + ini.getMinutes();
+      if (citaMin < slotMin || citaMin >= slotMin + 30) return false;
+      return c.terapeuta_nombre === terapeuta;
     });
   }
 
@@ -262,9 +343,6 @@ export class ListaCitasComponent implements OnInit {
       : `${tipo.nombre}: duración fija ${tipo.duracion_minutos} min · 1 paciente por slot`;
   }
 
-  getSlotLbl(): string { return this.slots.find(s => s.h === this.fH && s.m === this.fM)?.lbl ?? '08:00'; }
-  onSlotChange(lbl: string): void { const s = this.slots.find(x => x.lbl === lbl); if (s) { this.fH = s.h; this.fM = s.m; } }
-
   onTipoChange(): void {
     const tipo = this.tipoSeleccionado;
     if (tipo && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
@@ -286,17 +364,12 @@ export class ListaCitasComponent implements OnInit {
       next: encontrado => {
         pac.buscando = false;
         if (encontrado) {
-          pac.id       = encontrado.id;
-          pac.nombre   = encontrado.nombre;
-          pac.apellido = encontrado.apellido;
-          pac.telefono = encontrado.telefono ?? '';
-          pac.correo   = encontrado.correo   ?? '';
-          pac.modo     = 'encontrado';
-          pac.colapsado = true;
+          pac.id = encontrado.id; pac.nombre = encontrado.nombre;
+          pac.apellido = encontrado.apellido; pac.telefono = encontrado.telefono ?? '';
+          pac.correo = encontrado.correo ?? ''; pac.modo = 'encontrado'; pac.colapsado = true;
         } else {
-          pac.id     = null;
-          pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = '';
-          pac.modo   = 'nuevo';
+          pac.id = null; pac.nombre = ''; pac.apellido = '';
+          pac.telefono = ''; pac.correo = ''; pac.modo = 'nuevo';
         }
       },
       error: () => { pac.buscando = false; pac.modo = 'nuevo'; pac.id = null; }
@@ -304,8 +377,7 @@ export class ListaCitasComponent implements OnInit {
   }
 
   cambiarPaciente(pac: PacienteState): void {
-    pac.modo = 'buscar';
-    pac.id = null;
+    pac.modo = 'buscar'; pac.id = null;
     pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = '';
     pac.colapsado = false;
   }
@@ -320,7 +392,9 @@ export class ListaCitasComponent implements OnInit {
 
   abrirSlot(diaIdx: number, s: Slot): void {
     this.citaEditando = null; this.resetForm();
-    this.fDia = diaIdx; this.fH = s.h; this.fM = s.m;
+    const fecha = this.diasSemana[diaIdx].fecha;
+    this.fFecha = this.fechaToISO(fecha);
+    this.fHoraInicio = s.lbl;
     this.modalAbierto = true;
   }
 
@@ -329,8 +403,7 @@ export class ListaCitasComponent implements OnInit {
     this.citaEditando = cita;
     const ini = new Date(cita.fecha_inicio);
     this.pac1 = {
-      colapsado: true, modo: 'encontrado', buscando: false,
-      id: null,
+      colapsado: true, modo: 'encontrado', buscando: false, id: null,
       dni:      cita.paciente_dni      ?? '',
       nombre:   cita.paciente_nombre   ?? '',
       apellido: cita.paciente_apellido ?? '',
@@ -343,13 +416,12 @@ export class ListaCitasComponent implements OnInit {
     this.fTipoId    = (cita.tipo_terapia_key ?? '').toUpperCase() || (this.tiposTerapia[0]?.id ?? '');
     this.fEstKey    = cita.estado;
     this.fModalidad = (cita.modalidad as string) || 'PRESENCIAL';
-    this.fDia    = this.diasSemana.findIndex(d =>
-      d.fecha.getDate() === ini.getDate() && d.fecha.getMonth() === ini.getMonth());
-    if (this.fDia === -1) this.fDia = 0;
-    this.fH = ini.getHours(); this.fM = ini.getMinutes();
-    this.fDur = cita.duracion_minutos;
-    this.fObs = cita.observacion ?? cita.notas_previas ?? '';
+    this.fFecha     = this.fechaToISO(ini);
+    this.fHoraInicio = `${String(ini.getHours()).padStart(2,'0')}:${String(ini.getMinutes()).padStart(2,'0')}`;
+    this.fDur       = cita.duracion_minutos;
+    this.fObs       = cita.observacion ?? cita.notas_previas ?? '';
     this.modoFormulario = this.fTipoId === 'KIDS' ? 'kids' : 'regular';
+    this.modoProgramacion = 'single';
     this.modalAbierto = true;
   }
 
@@ -362,12 +434,23 @@ export class ListaCitasComponent implements OnInit {
     this.fTer    = this.terapeutasNombres[0] ?? '';
     const primerTipo = this.tiposTerapia.find(t => t.id !== 'KIDS') ?? this.tiposTerapia[0];
     this.fTipoId = primerTipo?.id ?? '';
-    this.fDia = 0; this.fH = 8; this.fM = 0;
-    this.fDur    = primerTipo?.duracion_minutos ?? 45;
+    const hoy = new Date();
+    this.fFecha     = this.fechaToISO(hoy);
+    this.fHoraInicio = '08:00';
+    this.fDur       = primerTipo?.duracion_minutos ?? 45;
     this.fEstKey    = this.estadosCita[0]?.key  ?? 'PROGRAMADA';
     this.fModalidad = this.modalidades[0]?.key  ?? 'PRESENCIAL';
     this.fObs       = '';
-    this.modoFormulario = 'regular';
+    this.fPrecio    = null;
+    this.fPagado    = false;
+    this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
+    this.modoFormulario   = 'regular';
+    this.modoProgramacion = 'single';
+    this.bulkDias   = [true, false, true, false, true, false, false];
+    this.bulkSesiones     = 10;
+    this.bulkFechaInicio  = this.fechaToISO(hoy);
+    this.bulkPreview      = [];
+    this.calcularBulkDates();
   }
 
   cambiarModo(m: 'regular' | 'kids'): void {
@@ -382,19 +465,53 @@ export class ListaCitasComponent implements OnInit {
     this.onTipoChange();
   }
 
+  // ── Programación múltiple ──────────────────────────────────────────────────
+
+  calcularBulkDates(): void {
+    this.bulkPreview = [];
+    if (!this.bulkFechaInicio || !this.fHoraInicio) return;
+    const diasActivos = this.bulkDias.map((v, i) => v ? i : -1).filter(i => i >= 0);
+    if (diasActivos.length === 0 || this.bulkSesiones < 1) return;
+
+    const [y, mo, d] = this.bulkFechaInicio.split('-').map(Number);
+    const [fH, fM]   = this.fHoraInicio.split(':').map(Number);
+
+    let cursor = new Date(y, mo - 1, d);
+    let count = 0;
+    let tries = 0;
+
+    while (count < this.bulkSesiones && tries < 366) {
+      tries++;
+      const dow = (cursor.getDay() + 6) % 7; // 0=Lunes … 6=Domingo
+      if (diasActivos.includes(dow)) {
+        const date = new Date(cursor);
+        date.setHours(fH, fM, 0, 0);
+        this.bulkPreview.push(date);
+        count++;
+      }
+      cursor = new Date(cursor);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  // ── Guardar cita ──────────────────────────────────────────────────────────
+
   guardarCita(): void {
     if (!this.pac1.nombre.trim() || !this.pac1.apellido.trim()) {
       this.toast.warning('Completa los datos del paciente 1'); return;
     }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
+    if (!this.fFecha || !this.fHoraInicio) { this.toast.warning('Selecciona fecha y hora'); return; }
+
+    if (this.modoProgramacion === 'multiple' && !this.citaEditando) {
+      this.guardarBulk(); return;
+    }
 
     const tipo = this.tipoSeleccionado!;
     const dur  = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
-
-    const fechaSlot = new Date(this.diasSemana[this.fDia].fecha);
-    fechaSlot.setHours(this.fH, this.fM, 0, 0);
-    const fechaFin = new Date(fechaSlot);
+    const fechaSlot = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const fechaFin  = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
 
     // Conflicto de capacidad
@@ -415,18 +532,14 @@ export class ListaCitasComponent implements OnInit {
     this.guardando = true;
 
     if (this.citaEditando) {
-      // EDITAR — usa endpoint local existente
       const req: CrearCitaLocalRequest = {
-        // FK @ManyToOne — IDs para que buildBody() los envíe como { id }
-        terapeuta_id: Number(this.citaEditando!.terapeuta_id) || undefined,
-        sesion_id:    this.citaEditando!.sesion_id             || undefined,
+        terapeuta_id: Number(this.citaEditando.terapeuta_id) || undefined,
+        sesion_id:    this.citaEditando.sesion_id             || undefined,
         estado_id:    this.estadosCita.find(e => e.key === this.fEstKey)?.id,
         modalidad_id: this.modalidades.find(m => m.key === this.fModalidad)?.id,
-        // Campos de la cita
         fecha_inicio:     fechaSlot,
         duracion_minutos: dur,
         notas_previas:    this.fObs || undefined,
-        // Helpers
         terapeuta_nombre:  this.fTer,
         tipo_key:          this.fTipoId,
         tipo_nombre:       tipo.nombre,
@@ -440,11 +553,13 @@ export class ListaCitasComponent implements OnInit {
         observacion:       this.fObs || undefined,
       };
       this.citaService.actualizarCitaLocal(this.citaEditando.id, req).subscribe({
-        next: () => { this.toast.success('Cita actualizada correctamente'); this.cerrarModal(); this.recargarSilencioso(); this.guardando = false; },
+        next: () => {
+          this.toast.success('Cita actualizada correctamente');
+          this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+        },
         error: () => { this.toast.error('Error al actualizar la cita'); this.guardando = false; }
       });
     } else {
-      // CREAR — usa endpoint atómico con paciente
       const buildPac = (p: PacienteState): PacienteEnCita => ({
         id:       p.id ?? undefined,
         dni:      p.dni,
@@ -468,10 +583,90 @@ export class ListaCitasComponent implements OnInit {
       };
 
       this.citaService.crearConPaciente(req).subscribe({
-        next: () => { this.toast.success('Cita creada correctamente'); this.cerrarModal(); this.recargarSilencioso(); this.guardando = false; },
+        next: (citas) => {
+          if (this.fPrecio && this.fPrecio > 0 && citas.length > 0) {
+            const pacienteId = Number(citas[0].paciente_id);
+            if (pacienteId) this.crearPagoParaCita(pacienteId, this.fPrecio, this.fMetodoPagoId);
+          }
+          this.toast.success('Cita creada correctamente');
+          this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+        },
         error: () => { this.toast.error('Error al crear la cita'); this.guardando = false; }
       });
     }
+  }
+
+  private guardarBulk(): void {
+    if (this.bulkPreview.length === 0) {
+      this.toast.warning('No hay fechas programadas. Selecciona días y fecha de inicio.'); return;
+    }
+
+    const tipo = this.tipoSeleccionado!;
+    const dur  = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    this.guardando = true;
+
+    const buildPac = (p: PacienteState): PacienteEnCita => ({
+      id: p.id ?? undefined, dni: p.dni, nombre: p.nombre, apellido: p.apellido,
+      telefono: p.telefono || undefined, correo: p.correo || undefined,
+    });
+
+    let creadas = 0;
+    const total = this.bulkPreview.length;
+
+    const crearSiguiente = (index: number): void => {
+      if (index >= total) {
+        this.toast.success(`${creadas} de ${total} citas creadas correctamente`);
+        this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+        return;
+      }
+      const fecha = this.bulkPreview[index];
+      const req: CrearCitaConPacienteRequest = {
+        paciente:  buildPac(this.pac1),
+        paciente2: (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim())
+                    ? buildPac(this.pac2) : null,
+        terapeutaNombre: this.fTer,
+        tipoKey:         this.fTipoId,
+        fechaInicio:     this.toLocalDT(fecha),
+        duracionMinutos: dur,
+        estadoKey:       this.fEstKey,
+        modalidadKey:    this.fModalidad,
+        observacion:     this.fObs || undefined,
+      };
+      this.citaService.crearConPaciente(req).subscribe({
+        next: (citas) => {
+          creadas++;
+          if (index === 0 && this.fPrecio && this.fPrecio > 0 && citas.length > 0) {
+            const pid = Number(citas[0].paciente_id);
+            if (pid) this.crearPagoParaCita(pid, this.fPrecio * total, this.fMetodoPagoId);
+          }
+          crearSiguiente(index + 1);
+        },
+        error: () => crearSiguiente(index + 1)
+      });
+    };
+
+    crearSiguiente(0);
+  }
+
+  private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null): void {
+    this.tratamientoService.getByPaciente(pacienteId).subscribe({
+      next: tratamientos => {
+        if (tratamientos.length === 0) return;
+        const t = tratamientos.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+        const body: any = {
+          tratamiento:   { id: t.id },
+          paciente:      { id: pacienteId },
+          montoRecibido: this.fPagado ? monto : 0,
+          montoAplicado: this.fPagado ? monto : 0,
+          saldoGenerado: 0,
+          saldoPrevio:   t.saldoAFavor ?? 0,
+          fechaPago:     new Date().toISOString(),
+          notas:         this.fPagado ? 'Pagado al crear cita' : 'Pendiente de cobro',
+        };
+        if (metodoId) body.metodo = { id: metodoId };
+        this.pagoService.create(body).subscribe({ error: () => {} });
+      }
+    });
   }
 
   eliminarCita(): void {
@@ -483,7 +678,7 @@ export class ListaCitasComponent implements OnInit {
     });
   }
 
-  // ── Atención Clínica ──────────────────────────────────────────────────────────
+  // ── Atención Clínica ──────────────────────────────────────────────────────
 
   abrirAtencion(cita: Cita, e: Event): void {
     e.stopPropagation();
@@ -494,10 +689,10 @@ export class ListaCitasComponent implements OnInit {
   }
 
   cerrarAtencion(): void {
-    this.modalAtencion     = false;
-    this.citaParaAtencion  = null;
-    this.atencionNotas     = '';
-    this.atencionMetricas  = [];
+    this.modalAtencion    = false;
+    this.citaParaAtencion = null;
+    this.atencionNotas    = '';
+    this.atencionMetricas = [];
   }
 
   guardarAtencion(): void {
@@ -505,29 +700,43 @@ export class ListaCitasComponent implements OnInit {
     this.guardandoAtencion = true;
     const now = new Date().toISOString().slice(0, 19);
     const payload = {
-      citaId:         Number(this.citaParaAtencion.id),
+      citaId:          Number(this.citaParaAtencion.id),
       fechaInicioReal: now,
-      notasPost:      this.atencionNotas || undefined,
-      metricas:       this.atencionMetricas.filter(m => m.valor !== null),
+      notasPost:       this.atencionNotas || undefined,
+      metricas:        this.atencionMetricas.filter(m => m.valor !== null),
     };
     this.atencionService.crear(payload).subscribe({
       next: () => {
         this.toast.success('Atención registrada correctamente');
-        this.cerrarAtencion();
-        this.recargarSilencioso();
-        this.guardandoAtencion = false;
+        this.cerrarAtencion(); this.recargarSilencioso(); this.guardandoAtencion = false;
       },
-      error: () => {
-        this.toast.error('Error al registrar la atención');
-        this.guardandoAtencion = false;
-      }
+      error: () => { this.toast.error('Error al registrar la atención'); this.guardandoAtencion = false; }
     });
   }
 
   verDetalle(id: string): void { this.router.navigate(['/citas', id]); }
 
+  formatHora(f: Date): string {
+    return new Date(f).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  formatFecha(f: Date): string {
+    return new Date(f).toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
   private emptyPac(): PacienteState {
     return { colapsado: false, modo: 'buscar', buscando: false, id: null, dni: '', nombre: '', apellido: '', telefono: '', correo: '' };
+  }
+
+  private fechaToISO(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  }
+
+  private parseFechaHora(fecha: string, hora: string): Date {
+    const [y, mo, d] = fecha.split('-').map(Number);
+    const [h, m]     = hora.split(':').map(Number);
+    return new Date(y, mo - 1, d, h, m, 0, 0);
   }
 
   private toLocalDT(d: Date): string {

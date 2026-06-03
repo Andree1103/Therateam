@@ -39,11 +39,11 @@ export class TratamientoService {
     return this.api.get<Tratamiento[]>(`${this.PATH}/terapeuta/${terapeutaId}`);
   }
 
-  create(t: Partial<Tratamiento>): Observable<Tratamiento> {
+  create(t: any): Observable<Tratamiento> {
     return this.api.post<Tratamiento>(this.PATH, t);
   }
 
-  update(id: number, t: Partial<Tratamiento>): Observable<Tratamiento> {
+  update(id: number, t: any): Observable<Tratamiento> {
     return this.api.put<Tratamiento>(`${this.PATH}/${id}`, t);
   }
 

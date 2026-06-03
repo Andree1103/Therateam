@@ -66,7 +66,7 @@ export class DashboardComponent implements OnInit {
   }
 
   get tratamientosActivos(): Tratamiento[] {
-    return this.tratamientos.filter(t => t.estadoTratamiento?.key === 'ACTIVO');
+    return this.tratamientos.filter(t => t.estadoKey === 'ACTIVO');
   }
 
   get deudaTotal(): number {

@@ -9,7 +9,7 @@
       </button>
       <div class="header-title" *ngIf="tratamiento">
         <h1>{{ tratamiento.nombre || ('Tratamiento #' + tratamiento.id) }}</h1>
-        <p>{{ pacienteNombre(tratamiento) }} &middot; {{ terapeutaNombre(tratamiento) }} &middot; {{ tratamiento.tipoTerapia?.nombre || '—' }}</p>
+        <p>{{ pacienteNombre(tratamiento) }} &middot; {{ terapeutaNombre(tratamiento) }} &middot; {{ tratamiento.tipoTerapiaNombre || '—' }}</p>
       </div>
     </div>
     <div class="header-actions" *ngIf="tratamiento">
@@ -17,7 +17,7 @@
             [style.background]="estadoColor + '20'"
             [style.color]="estadoColor"
             [style.border]="'1px solid ' + estadoColor + '40'">
-        {{ tratamiento.estadoTratamiento?.nombre || '—' }}
+        {{ tratamiento.estadoNombre || '—' }}
       </span>
       <button class="btn-primary" (click)="abrirPago()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -41,7 +41,7 @@
         <div class="stat-icon stat-icon--blue">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
         </div>
-        <div class="stat-val">{{ tratamiento.sesionesTotal ?? 0 }}</div>
+        <div class="stat-val">{{ tratamiento.totalSesiones ?? 0 }}</div>
         <div class="stat-lbl">Sesiones totales</div>
       </div>
 
@@ -90,7 +90,7 @@
     <div class="progress-card">
       <div class="progress-top">
         <span class="progress-label">Progreso del tratamiento</span>
-        <span class="progress-fraction">{{ tratamiento.sesionesAtendidas ?? 0 }} / {{ tratamiento.sesionesTotal ?? 0 }} sesiones</span>
+        <span class="progress-fraction">{{ tratamiento.sesionesAtendidas ?? 0 }} / {{ tratamiento.totalSesiones ?? 0 }} sesiones</span>
       </div>
       <div class="progress-track">
         <div class="progress-fill" [style.width.%]="progreso"></div>
@@ -131,33 +131,96 @@
             <th>Duración</th>
             <th>Estado cita</th>
             <th>Modalidad</th>
+            <th>Atención clínica</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let s of sesiones">
-            <td class="text-center col-num">
-              <span class="sesion-num">{{ s.numero }}</span>
-            </td>
-            <td>
-              <span class="chip"
-                    [style.background]="(s.estado.colorHex || '#94a3b8') + '20'"
-                    [style.color]="s.estado.colorHex || '#64748b'">
-                {{ s.estado.nombre }}
-              </span>
-            </td>
-            <td class="text-fecha">{{ s.citaActiva ? formatFecha(s.citaActiva.fechaInicio) : '—' }}</td>
-            <td>{{ s.citaActiva?.duracionMinutos ? (s.citaActiva!.duracionMinutos + ' min') : '—' }}</td>
-            <td>
-              <span class="chip"
-                    *ngIf="s.citaActiva"
-                    [style.background]="(s.citaActiva.estado.colorHex || '#94a3b8') + '20'"
-                    [style.color]="s.citaActiva.estado.colorHex || '#64748b'">
-                {{ s.citaActiva.estado.nombre }}
-              </span>
-              <span class="text-muted" *ngIf="!s.citaActiva">Sin agendar</span>
-            </td>
-            <td class="text-muted">{{ s.citaActiva?.modalidad?.nombre || '—' }}</td>
-          </tr>
+          <ng-container *ngFor="let s of sesiones">
+
+            <tr class="row-sesion" [class.row-expanded]="sesionExpandida === s.id" (click)="toggleSesion(s.id)">
+              <td class="text-center col-num">
+                <span class="sesion-num">{{ s.numero }}</span>
+              </td>
+              <td>
+                <span class="chip"
+                      [style.background]="(s.estado.colorHex || '#94a3b8') + '20'"
+                      [style.color]="s.estado.colorHex || '#64748b'">
+                  {{ s.estado.nombre }}
+                </span>
+              </td>
+              <td class="text-fecha">{{ s.citaActiva ? formatFecha(s.citaActiva.fechaInicio) : '—' }}</td>
+              <td>{{ s.citaActiva?.duracionMinutos ? (s.citaActiva!.duracionMinutos + ' min') : '—' }}</td>
+              <td>
+                <span class="chip"
+                      *ngIf="s.citaActiva"
+                      [style.background]="(s.citaActiva.estado.colorHex || '#94a3b8') + '20'"
+                      [style.color]="s.citaActiva.estado.colorHex || '#64748b'">
+                  {{ s.citaActiva.estado.nombre }}
+                </span>
+                <span class="text-muted" *ngIf="!s.citaActiva">Sin agendar</span>
+              </td>
+              <td class="text-muted">{{ s.citaActiva?.modalidad?.nombre || '—' }}</td>
+              <td class="col-atencion">
+                <ng-container *ngIf="s.citaActiva">
+                  <span class="chip-atencion chip-atencion--si" *ngIf="getAtencion(s.citaActiva.id)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                    Registrada
+                  </span>
+                  <span class="chip-atencion chip-atencion--no" *ngIf="!getAtencion(s.citaActiva.id)">
+                    Sin registro
+                  </span>
+                </ng-container>
+                <span class="text-muted" *ngIf="!s.citaActiva">—</span>
+                <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"
+                     [class.rotated]="sesionExpandida === s.id">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </td>
+            </tr>
+
+            <!-- Panel atención expandida -->
+            <tr *ngIf="sesionExpandida === s.id" class="row-atencion-expand">
+              <td colspan="7">
+                <div class="atencion-panel">
+
+                  <!-- Con atención registrada -->
+                  <ng-container *ngIf="s.citaActiva && getAtencion(s.citaActiva.id)">
+                    <div class="ap-header">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                      Detalle de atención clínica
+                    </div>
+                    <div class="ap-body">
+                      <div class="ap-block" *ngIf="getAtencion(s.citaActiva!.id)?.notasPost">
+                        <span class="ap-lbl">Notas post-sesión</span>
+                        <p class="ap-text">{{ getAtencion(s.citaActiva!.id)?.notasPost }}</p>
+                      </div>
+                      <div class="ap-block" *ngIf="(getAtencion(s.citaActiva!.id)?.metricas?.length ?? 0) > 0">
+                        <span class="ap-lbl">Métricas registradas</span>
+                        <div class="ap-metricas">
+                          <div class="ap-metrica" *ngFor="let m of getAtencion(s.citaActiva!.id)?.metricas">
+                            <span class="ap-met-nombre">{{ m.metrica }}</span>
+                            <span class="ap-met-valor">{{ m.valor }}{{ m.unidad }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <p class="ap-empty"
+                         *ngIf="!getAtencion(s.citaActiva!.id)?.notasPost && !(getAtencion(s.citaActiva!.id)?.metricas?.length)">
+                        Atención registrada sin detalles adicionales
+                      </p>
+                    </div>
+                  </ng-container>
+
+                  <!-- Sin atención -->
+                  <p class="ap-empty" *ngIf="!s.citaActiva || !getAtencion(s.citaActiva?.id)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" style="vertical-align:middle;margin-right:5px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {{ !s.citaActiva ? 'Sesión sin cita asignada' : 'No se ha registrado atención para esta sesión' }}
+                  </p>
+
+                </div>
+              </td>
+            </tr>
+
+          </ng-container>
         </tbody>
       </table>
     </div>

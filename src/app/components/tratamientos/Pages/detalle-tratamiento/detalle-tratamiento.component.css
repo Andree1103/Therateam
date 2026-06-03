@@ -93,5 +93,39 @@
 .pago-res-item strong{font-size:15px;font-weight:700;color:#0f172a}
 .pago-res-item strong.danger{color:#dc2626}
 
+/* Clickable session rows */
+.row-sesion{cursor:pointer;transition:background .12s;user-select:none}
+.row-sesion:hover{background:#f0f9ff !important}
+.row-sesion.row-expanded{background:#eff6ff}
+.col-atencion{display:flex;align-items:center;gap:8px;white-space:nowrap}
+
+/* Atención chips inline */
+.chip-atencion{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.chip-atencion--si{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
+.chip-atencion--no{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0}
+
+/* Chevron toggle */
+.row-chevron{color:#94a3b8;flex-shrink:0;transition:transform .2s ease;margin-left:auto}
+.row-chevron.rotated{transform:rotate(180deg)}
+
+/* Expanded atención row */
+.row-atencion-expand td{padding:0;background:#f8fafc;border-top:none}
+.atencion-panel{padding:16px 24px;border-top:2px solid #bfdbfe;animation:apFadeIn .18s ease}
+@keyframes apFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.ap-header{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#185FA5;margin-bottom:12px}
+.ap-body{display:flex;flex-direction:column;gap:12px}
+.ap-block{display:flex;flex-direction:column;gap:5px}
+.ap-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.ap-text{margin:0;font-size:13px;color:#334155;line-height:1.6}
+
+/* Métricas */
+.ap-metricas{display:flex;flex-wrap:wrap;gap:8px}
+.ap-metrica{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;gap:2px;min-width:90px}
+.ap-met-nombre{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.ap-met-valor{font-size:18px;font-weight:700;color:#0f172a;line-height:1}
+
+.ap-empty{margin:0;font-size:13px;color:#94a3b8;font-style:italic;display:flex;align-items:center}
+
 @media(max-width:1024px){.stats-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.stats-row{grid-template-columns:repeat(2,1fr)}.page-header{flex-direction:column;align-items:flex-start}.frow-2{grid-template-columns:1fr}}

@@ -107,7 +107,7 @@ export class PerfilPacienteComponent implements OnInit {
   }
 
   estadoTratamiento(t: Tratamiento): string {
-    return t.estadoTratamiento?.nombre ?? '—';
+    return t.estadoNombre ?? '—';
   }
 
   deudaTratamiento(t: Tratamiento): number {

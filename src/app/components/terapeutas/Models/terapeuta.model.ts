@@ -10,6 +10,10 @@ export interface UsuarioBasico {
 export interface Terapeuta {
   id?: number;
   usuario?: UsuarioBasico;
+  // Campos planos que devuelve el DTO paginado
+  nombre?: string;
+  apellido?: string;
+  email?: string;
   tipoTerapeuta?: CatalogItem;
   cmp?: string;
   telefono?: string;
@@ -57,6 +61,8 @@ export interface TerapeutaCompletoRequest {
 }
 
 export function terapeutaNombre(t: Terapeuta): string {
-  if (!t.usuario) return `Terapeuta #${t.id}`;
-  return `${t.usuario.nombre} ${t.usuario.apellido}`.trim();
+  // Prioridad: objeto usuario anidado → campos planos del DTO → fallback
+  if (t.usuario?.nombre) return `${t.usuario.nombre} ${t.usuario.apellido ?? ''}`.trim();
+  if (t.nombre)          return `${t.nombre} ${t.apellido ?? ''}`.trim();
+  return `Terapeuta #${t.id}`;
 }
