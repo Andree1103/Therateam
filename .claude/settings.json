@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/dto/**)",
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/model/**)",
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/service/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\dto",
+      "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\service"
+    ]
+  }
+}

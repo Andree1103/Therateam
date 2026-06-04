@@ -171,6 +171,9 @@ export class CitaService {
       tipo_terapia_nombre: dto.tipo_terapia_nombre,
       tipo_terapia_key:    dto.tipo_terapia_key,
       observacion:         dto.observacion ?? dto.notas_previas,
+      estado_pago_key:     dto.estado_pago_key,
+      estado_pago_nombre:  dto.estado_pago_nombre,
+      estado_pago_color:   dto.estado_pago_color,
     };
   }
 

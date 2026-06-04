@@ -93,6 +93,11 @@
                   <div class="chip-bot">
                     <span class="chip-tipo">{{ c.duracion_minutos }}min</span>
                     <span class="chip-hora">{{ c.fecha_inicio | date:'HH:mm' }}</span>
+                    <span class="chip-pago-dot"
+                          *ngIf="c.estado_pago_key && c.estado_pago_key !== 'SIN_PAGO'"
+                          [style.background]="getPagoColor(c.estado_pago_key)"
+                          [title]="c.estado_pago_nombre ?? ''">
+                    </span>
                   </div>
                   <button class="btn-atencion"
                           *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA'"
@@ -105,6 +110,13 @@
                     <div class="hc-hdr">
                       <span class="hc-estado-dot" [style.background]="getEstadoColor(c.estado)"></span>
                       <span class="hc-estado">{{ c.estado }}</span>
+                      <span class="hc-pago-badge"
+                            *ngIf="c.estado_pago_key"
+                            [style.background]="getPagoColor(c.estado_pago_key) + '22'"
+                            [style.color]="getPagoColor(c.estado_pago_key)"
+                            [style.border]="'1px solid ' + getPagoColor(c.estado_pago_key) + '55'">
+                        {{ c.estado_pago_nombre }}
+                      </span>
                     </div>
                     <div class="hc-row hc-pac">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>

@@ -35,6 +35,9 @@ export interface Cita {
   tipo_terapia_key?: string;
   especialidad_nombre?: string;
   observacion?: string;
+  estado_pago_key?: string;
+  estado_pago_nombre?: string;
+  estado_pago_color?: string;
 }
 
 export interface CrearCitaRequest {
@@ -141,4 +144,7 @@ export interface CitaApiDTO {
   tipo_terapia_nombre?: string;
   tipo_terapia_key?: string;
   observacion?: string;
+  estado_pago_key?: string;
+  estado_pago_nombre?: string;
+  estado_pago_color?: string;
 }

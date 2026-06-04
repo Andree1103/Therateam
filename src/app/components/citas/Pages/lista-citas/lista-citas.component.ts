@@ -273,6 +273,15 @@ export class ListaCitasComponent implements OnInit {
     return { 'border-left': `3px solid ${color}`, 'background': `${color}1a` };
   }
 
+  getPagoColor(key?: string): string {
+    if (key === 'PAGADA')  return '#22c55e';
+    if (key === 'PARCIAL') return '#f59e0b';
+    return '#94a3b8'; // SIN_PAGO
+  }
+
+  isPagada(cita: Cita): boolean { return cita.estado_pago_key === 'PAGADA'; }
+  isParcial(cita: Cita): boolean { return cita.estado_pago_key === 'PARCIAL'; }
+
   // ── Slots y vistas ─────────────────────────────────────────────────────────
 
   getCitasSlot(diaIdx: number, h: number, m: number): Cita[] {
@@ -584,9 +593,10 @@ export class ListaCitasComponent implements OnInit {
 
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
-          if (this.fPrecio && this.fPrecio > 0 && citas.length > 0) {
+          if (this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
             const pacienteId = Number(citas[0].paciente_id);
-            if (pacienteId) this.crearPagoParaCita(pacienteId, this.fPrecio, this.fMetodoPagoId);
+            const citaId     = Number(citas[0].id);
+            if (pacienteId) this.crearPagoParaCita(pacienteId, this.fPrecio, this.fMetodoPagoId, citaId);
           }
           this.toast.success('Cita creada correctamente');
           this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
@@ -635,9 +645,10 @@ export class ListaCitasComponent implements OnInit {
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
           creadas++;
-          if (index === 0 && this.fPrecio && this.fPrecio > 0 && citas.length > 0) {
-            const pid = Number(citas[0].paciente_id);
-            if (pid) this.crearPagoParaCita(pid, this.fPrecio * total, this.fMetodoPagoId);
+          if (index === 0 && this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
+            const pid    = Number(citas[0].paciente_id);
+            const citaId = Number(citas[0].id);
+            if (pid) this.crearPagoParaCita(pid, this.fPrecio * total, this.fMetodoPagoId, citaId);
           }
           crearSiguiente(index + 1);
         },
@@ -648,7 +659,7 @@ export class ListaCitasComponent implements OnInit {
     crearSiguiente(0);
   }
 
-  private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null): void {
+  private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number): void {
     this.tratamientoService.getByPaciente(pacienteId).subscribe({
       next: tratamientos => {
         if (tratamientos.length === 0) return;
@@ -656,14 +667,14 @@ export class ListaCitasComponent implements OnInit {
         const body: any = {
           tratamiento:   { id: t.id },
           paciente:      { id: pacienteId },
-          montoRecibido: this.fPagado ? monto : 0,
-          montoAplicado: this.fPagado ? monto : 0,
+          montoRecibido: monto,
+          montoAplicado: monto,
           saldoGenerado: 0,
           saldoPrevio:   t.saldoAFavor ?? 0,
-          fechaPago:     new Date().toISOString(),
-          notas:         this.fPagado ? 'Pagado al crear cita' : 'Pendiente de cobro',
+          notas:         'Pagado al crear cita',
         };
         if (metodoId) body.metodo = { id: metodoId };
+        if (citaId)   body.cita   = { id: citaId };
         this.pagoService.create(body).subscribe({ error: () => {} });
       }
     });
