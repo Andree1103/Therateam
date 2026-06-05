@@ -82,8 +82,8 @@
                 <!-- CHIP con hover card ─────────────────────────────────── -->
                 <div class="chip" [ngStyle]="getChipStyle(c)"
                      (click)="abrirEditar(c, $event)"
-                     (mouseenter)="citaHoverId = c.id"
-                     (mouseleave)="citaHoverId = null">
+                     (mouseenter)="enterHover(c.id)"
+                     (mouseleave)="leaveHover(c.id)">
 
                   <div class="chip-top">
                     <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
@@ -106,7 +106,10 @@
                   </button>
 
                   <!-- Hover card ─────────────────────────────────────────── -->
-                  <div class="chip-hover-card" *ngIf="citaHoverId === c.id" (click)="$event.stopPropagation()">
+                  <div class="chip-hover-card" *ngIf="citaHoverId === c.id"
+                       (click)="$event.stopPropagation()"
+                       (mouseenter)="enterHover(c.id)"
+                       (mouseleave)="leaveHover(c.id)">
                     <div class="hc-hdr">
                       <span class="hc-estado-dot" [style.background]="getEstadoColor(c.estado)"></span>
                       <span class="hc-estado">{{ c.estado }}</span>
@@ -136,8 +139,37 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                       {{ c.tipo_terapia_nombre }} · {{ c.modalidad }}
                     </div>
+                    <!-- Mini-formulario de pago inline -->
+                    <div class="hc-pago-form" *ngIf="citaPagandoId === c.id" (click)="$event.stopPropagation()">
+                      <div class="hc-pago-row">
+                        <div class="hc-pago-monto-display">
+                          <span class="hc-pago-lbl">Monto a cobrar</span>
+                          <span *ngIf="pagoMontoCargando" class="hc-pago-loading">Cargando...</span>
+                          <span *ngIf="!pagoMontoCargando" class="hc-pago-valor">
+                            S/ {{ pagoMonto | number:'1.2-2' }}
+                          </span>
+                        </div>
+                        <select class="hc-pago-sel" [(ngModel)]="pagoMetodoId">
+                          <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+                        </select>
+                      </div>
+                      <div class="hc-pago-actions">
+                        <button class="hc-btn-cancel-pago" (click)="cancelarPagoCita()">Cancelar</button>
+                        <button class="hc-btn-confirm-pago" (click)="confirmarPagoCita(c)"
+                                [disabled]="guardandoPago || pagoMontoCargando || !pagoMonto">
+                          {{ guardandoPago ? '...' : 'Confirmar pago' }}
+                        </button>
+                      </div>
+                    </div>
+
                     <div class="hc-footer">
                       <button class="hc-btn-edit" (click)="abrirEditar(c, $event)">Editar</button>
+                      <button class="hc-btn-pagar"
+                              *ngIf="c.estado_pago_key !== 'PAGADA' && citaPagandoId !== c.id"
+                              (click)="abrirPagoCita(c, $event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        Registrar pago
+                      </button>
                       <button class="hc-btn-at"
                               *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO'"
                               (click)="abrirAtencion(c, $event)">Registrar atención</button>
@@ -554,13 +586,34 @@
               </select>
             </div>
           </div>
-          <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0">
+          <!-- Toggle solo para sesión única -->
+          <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
             <label class="toggle-label" (click)="fPagado = !fPagado">
               <div class="toggle-box" [class.on]="fPagado">
                 <div class="toggle-knob"></div>
               </div>
               <span>{{ fPagado ? 'Marcar como PAGADO' : 'Dejar como PENDIENTE' }}</span>
             </label>
+          </div>
+          <!-- Control de pago parcial para programación múltiple -->
+          <div class="bulk-pago-ctrl" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'multiple'">
+            <div class="frow-2">
+              <div class="frow" style="margin-bottom:0">
+                <label>Sesiones a pagar ahora</label>
+                <input type="number" min="0" [max]="bulkPreview.length"
+                       [(ngModel)]="bulkSesionesAPagar" class="num-inp">
+              </div>
+              <div class="frow" style="margin-bottom:0">
+                <label>Total a cobrar</label>
+                <span class="pago-total-lbl">S/ {{ bulkSesionesAPagar * (fPrecio || 0) | number:'1.2-2' }}</span>
+              </div>
+            </div>
+            <p class="pago-hint">
+              {{ bulkSesionesAPagar }} de {{ bulkPreview.length }} sesiones pagarán ahora
+              <ng-container *ngIf="bulkSesionesAPagar < bulkPreview.length">
+                · {{ bulkPreview.length - bulkSesionesAPagar }} quedan como pendiente
+              </ng-container>
+            </p>
           </div>
         </div>
 
@@ -578,6 +631,49 @@
             <select [(ngModel)]="fEstKey" class="estado-select">
               <option *ngFor="let e of estadosCita" [value]="e.key">{{ e.nombre }}</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Pago (solo al editar) -->
+        <div class="edit-pago-section" *ngIf="citaEditando">
+          <div class="edit-pago-hdr">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            Pago
+            <span class="hc-pago-badge"
+                  *ngIf="citaEditando.estado_pago_key"
+                  [style.background]="getPagoColor(citaEditando.estado_pago_key) + '22'"
+                  [style.color]="getPagoColor(citaEditando.estado_pago_key)"
+                  [style.border]="'1px solid ' + getPagoColor(citaEditando.estado_pago_key) + '55'">
+              {{ citaEditando.estado_pago_nombre ?? citaEditando.estado_pago_key }}
+            </span>
+          </div>
+          <!-- Mini-form si no está pagada y citaPagandoId apunta a esta cita -->
+          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id">
+            <button class="hc-btn-pagar" style="margin-top:6px" (click)="abrirPagoCita(citaEditando, $event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              Registrar pago
+            </button>
+          </div>
+          <div class="hc-pago-form" *ngIf="citaPagandoId === citaEditando.id">
+            <div class="hc-pago-row">
+              <div class="hc-pago-monto-display">
+                <span class="hc-pago-lbl">Monto a cobrar</span>
+                <span *ngIf="pagoMontoCargando" class="hc-pago-loading">Cargando...</span>
+                <span *ngIf="!pagoMontoCargando" class="hc-pago-valor">
+                  S/ {{ pagoMonto | number:'1.2-2' }}
+                </span>
+              </div>
+              <select class="hc-pago-sel" [(ngModel)]="pagoMetodoId">
+                <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+              </select>
+            </div>
+            <div class="hc-pago-actions">
+              <button class="hc-btn-cancel-pago" (click)="cancelarPagoCita()">Cancelar</button>
+              <button class="hc-btn-confirm-pago" (click)="confirmarPagoCita(citaEditando)"
+                      [disabled]="guardandoPago || pagoMontoCargando || !pagoMonto">
+                {{ guardandoPago ? '...' : 'Confirmar pago' }}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -59,6 +59,9 @@ export interface CitaResumen {
   duracionMinutos?: number;
   estado: { id: number; key: string; nombre: string; colorHex?: string; };
   modalidad?: { key: string; nombre: string; };
+  estadoPagoKey?: string;
+  estadoPagoNombre?: string;
+  estadoPagoColor?: string;
 }
 
 export interface Sesion {

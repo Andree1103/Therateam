@@ -261,9 +261,22 @@ tbody tr{height:var(--slot-h)}
 .hc-pac{font-weight:600;color:#0f172a}
 .hc-dni{color:#94a3b8;font-size:11px}
 .hc-dur{color:#94a3b8;font-size:11px;margin-left:2px}
-.hc-footer{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9}
+.hc-footer{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;flex-wrap:wrap}
 .hc-btn-edit{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#374151;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .hc-btn-at{padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;color:#15803d;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.hc-btn-pagar{padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
+.hc-pago-form{margin-top:8px;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+.hc-pago-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.hc-pago-monto-display{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.hc-pago-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.hc-pago-valor{font-size:14px;font-weight:700;color:#185FA5}
+.hc-pago-loading{font-size:11px;color:#94a3b8;font-style:italic}
+.hc-pago-inp{flex:1;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;min-width:0}
+.hc-pago-sel{flex:1;padding:5px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;font-family:inherit;min-width:0;background:#fff}
+.hc-pago-actions{display:flex;gap:6px;justify-content:flex-end}
+.hc-btn-cancel-pago{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#6b7280;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.hc-btn-confirm-pago{padding:4px 12px;border:none;border-radius:6px;background:#16a34a;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.hc-btn-confirm-pago:disabled{opacity:.6;cursor:not-allowed}
 
 /* ── MULTI-FILTER (sidebar) ─────────────────────────────────────────────── */
 .tipo-select{padding:4px 8px;border:0.5px solid #e2e8f2;border-radius:6px;font-size:12px;background:#f8fafc;color:#111827;font-family:inherit;max-width:150px}
@@ -306,3 +319,8 @@ tbody tr{height:var(--slot-h)}
 .toggle-box.on{background:#16a34a}
 .toggle-knob{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .toggle-box.on .toggle-knob{transform:translateX(16px)}
+.bulk-pago-ctrl{margin-top:10px}
+.pago-total-lbl{font-size:14px;font-weight:700;color:#185FA5;padding:7px 10px;background:#fff;border:0.5px solid #e2e8f2;border-radius:8px;display:block}
+.pago-hint{font-size:11px;color:#6b7280;margin-top:8px;line-height:1.4}
+.edit-pago-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.edit-pago-hdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}

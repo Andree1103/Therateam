@@ -109,6 +109,13 @@ export class CitaService {
     }).pipe(map(d => this.mapDTO(d)));
   }
 
+  /** Actualiza el estado de pago de una cita (SIN_PAGO | PARCIAL | PAGADA) */
+  patchEstadoPago(id: string, key: string): Observable<Cita> {
+    return this.api.patch<CitaApiDTO>(`${this.PATH}/${id}/estado-pago`, {}, { key }).pipe(
+      map((d: CitaApiDTO) => this.mapDTO(d))
+    );
+  }
+
   // ── Acciones de estado ─────────────────────────────────────────────────────
   confirmarCita(id: string): Observable<Cita> {
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, { estado: 'CONFIRMADA' }).pipe(map(d => this.mapDTO(d)));

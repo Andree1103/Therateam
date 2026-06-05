@@ -54,6 +54,7 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Hover card ────────────────────────────────────────────────────────────
   citaHoverId: string | null = null;
+  private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   vista: 'semana' | 'libre' = 'semana';
   configVisible = false;
@@ -91,6 +92,16 @@ export class ListaCitasComponent implements OnInit {
   bulkSesiones = 10;
   bulkFechaInicio = '';
   bulkPreview: Date[] = [];
+  bulkSesionesAPagar = 10;
+
+  // ── Pago individual de cita ───────────────────────────────────────────────
+  citaPagandoId: string | null = null;
+  pagoMonto: number | null = null;
+  pagoMetodoId: number | null = null;
+  pagoTratamientoId: number | null = null;
+  pagoSaldoPrevio: number = 0;
+  pagoMontoCargando = false;
+  guardandoPago = false;
 
   // ── Atención Clínica ─────────────────────────────────────────────────────
   modalAtencion = false;
@@ -282,6 +293,88 @@ export class ListaCitasComponent implements OnInit {
   isPagada(cita: Cita): boolean { return cita.estado_pago_key === 'PAGADA'; }
   isParcial(cita: Cita): boolean { return cita.estado_pago_key === 'PARCIAL'; }
 
+  // ── Hover card con delay (evita que se cierre al cruzar el gap de 6px) ────
+
+  enterHover(id: string): void {
+    if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+    this.citaHoverId = id;
+  }
+
+  leaveHover(citaId: string): void {
+    if (this.citaPagandoId === citaId) return;
+    this.hideTimer = setTimeout(() => {
+      if (!this.citaPagandoId) this.citaHoverId = null;
+      this.hideTimer = null;
+    }, 180);
+  }
+
+  // ── Pago individual desde hover card ──────────────────────────────────────
+
+  abrirPagoCita(cita: Cita, e: Event): void {
+    e.stopPropagation();
+    this.citaPagandoId     = cita.id;
+    this.pagoMonto         = null;
+    this.pagoTratamientoId = null;
+    this.pagoSaldoPrevio   = 0;
+    this.pagoMetodoId      = this.metodosPago[0]?.id ?? null;
+    this.guardandoPago     = false;
+    this.pagoMontoCargando = true;
+
+    const pacienteId = Number(cita.paciente_id);
+    if (pacienteId) {
+      this.tratamientoService.getByPaciente(pacienteId).subscribe({
+        next: ts => {
+          const t = ts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+          if (t) {
+            this.pagoMonto         = t.precioPorSesion ?? null;
+            this.pagoTratamientoId = t.id ?? null;
+            this.pagoSaldoPrevio   = t.saldoAFavor ?? 0;
+          }
+          this.pagoMontoCargando = false;
+        },
+        error: () => { this.pagoMontoCargando = false; }
+      });
+    } else {
+      this.pagoMontoCargando = false;
+    }
+  }
+
+  cancelarPagoCita(): void { this.citaPagandoId = null; }
+
+  confirmarPagoCita(cita: Cita): void {
+    if (!this.pagoMonto || this.pagoMonto <= 0) {
+      this.toast.warning('Ingresa un monto válido'); return;
+    }
+    if (!this.pagoTratamientoId) {
+      this.toast.error('No se encontró tratamiento para este paciente'); return;
+    }
+    const pacienteId = Number(cita.paciente_id);
+    const citaId     = Number(cita.id);
+    if (!pacienteId || !citaId) return;
+
+    this.guardandoPago = true;
+    const body: any = {
+      tratamiento:   { id: this.pagoTratamientoId },
+      paciente:      { id: pacienteId },
+      cita:          { id: citaId },
+      montoRecibido: this.pagoMonto,
+      montoAplicado: this.pagoMonto,
+      saldoGenerado: 0,
+      saldoPrevio:   this.pagoSaldoPrevio,
+      notas:         'Pago por cita individual',
+    };
+    if (this.pagoMetodoId) body.metodo = { id: this.pagoMetodoId };
+    this.pagoService.create(body).subscribe({
+      next: () => {
+        this.toast.success('Pago registrado — cita marcada como pagada');
+        this.citaPagandoId = null;
+        this.guardandoPago = false;
+        this.recargarSilencioso();
+      },
+      error: () => { this.toast.error('Error al registrar el pago'); this.guardandoPago = false; }
+    });
+  }
+
   // ── Slots y vistas ─────────────────────────────────────────────────────────
 
   getCitasSlot(diaIdx: number, h: number, m: number): Cita[] {
@@ -456,9 +549,10 @@ export class ListaCitasComponent implements OnInit {
     this.modoFormulario   = 'regular';
     this.modoProgramacion = 'single';
     this.bulkDias   = [true, false, true, false, true, false, false];
-    this.bulkSesiones     = 10;
-    this.bulkFechaInicio  = this.fechaToISO(hoy);
-    this.bulkPreview      = [];
+    this.bulkSesiones        = 10;
+    this.bulkFechaInicio     = this.fechaToISO(hoy);
+    this.bulkPreview         = [];
+    this.bulkSesionesAPagar  = this.bulkSesiones;
     this.calcularBulkDates();
   }
 
@@ -500,6 +594,9 @@ export class ListaCitasComponent implements OnInit {
       }
       cursor = new Date(cursor);
       cursor.setDate(cursor.getDate() + 1);
+    }
+    if (this.bulkSesionesAPagar > this.bulkPreview.length) {
+      this.bulkSesionesAPagar = this.bulkPreview.length;
     }
   }
 
@@ -589,6 +686,8 @@ export class ListaCitasComponent implements OnInit {
         estadoKey:       this.fEstKey,
         modalidadKey:    this.fModalidad,
         observacion:     this.fObs || undefined,
+        totalSesionesPlan: 1,
+        precioPorSesion:   this.fPrecio ?? 0,
       };
 
       this.citaService.crearConPaciente(req).subscribe({
@@ -641,14 +740,16 @@ export class ListaCitasComponent implements OnInit {
         estadoKey:       this.fEstKey,
         modalidadKey:    this.fModalidad,
         observacion:     this.fObs || undefined,
+        totalSesionesPlan: total,
+        precioPorSesion:   this.fPrecio ?? 0,
       };
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
           creadas++;
-          if (index === 0 && this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
+          if (this.fPrecio && this.fPrecio > 0 && index < this.bulkSesionesAPagar && citas.length > 0) {
             const pid    = Number(citas[0].paciente_id);
             const citaId = Number(citas[0].id);
-            if (pid) this.crearPagoParaCita(pid, this.fPrecio * total, this.fMetodoPagoId, citaId);
+            if (pid) this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId);
           }
           crearSiguiente(index + 1);
         },

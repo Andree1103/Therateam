@@ -5,7 +5,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Tratamiento, TratamientoForm, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
+import { Tratamiento, TratamientoForm, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 
@@ -31,6 +31,11 @@ export class ListaTratamientosComponent implements OnInit {
 
   tratamientoAEliminar: Tratamiento | null = null;
   modalEliminar = false;
+
+  // ── Filas expandibles ────────────────────────────────────────────────────
+  expandidas: Record<number, boolean> = {};
+  sesionesMap: Record<number, Sesion[]> = {};
+  cargandoSes: Record<number, boolean> = {};
 
   pacientes: Paciente[] = [];
   terapeutasDropdown: { id: number; nombre: string }[] = [];
@@ -133,6 +138,29 @@ export class ListaTratamientosComponent implements OnInit {
       },
       error: () => { this.toast.error('Error al eliminar el tratamiento'); this.eliminando = false; }
     });
+  }
+
+  toggleExpansion(id: number): void {
+    this.expandidas[id] = !this.expandidas[id];
+    if (this.expandidas[id] && !this.sesionesMap[id]) {
+      this.cargandoSes[id] = true;
+      this.tratamientoService.getSesiones(id).subscribe({
+        next: s  => { this.sesionesMap[id] = s;  this.cargandoSes[id] = false; },
+        error: () => { this.cargandoSes[id] = false; }
+      });
+    }
+  }
+
+  getPagoColor(key?: string): string {
+    if (key === 'PAGADA')  return '#22c55e';
+    if (key === 'PARCIAL') return '#f59e0b';
+    return '#94a3b8';
+  }
+
+  getProgreso(t: Tratamiento): number {
+    const total = t.totalSesiones ?? 0;
+    const comp  = t.sesionesAtendidas ?? 0;
+    return total > 0 ? Math.min(100, Math.round((comp / total) * 100)) : 0;
   }
 
   private emptyForm(): TratamientoForm {

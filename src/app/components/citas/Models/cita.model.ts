@@ -96,6 +96,8 @@ export interface CrearCitaConPacienteRequest {
   estadoKey: string;
   modalidadKey: string;
   observacion?: string;
+  totalSesionesPlan?: number;
+  precioPorSesion?: number;
 }
 
 export interface PacienteResumen {
