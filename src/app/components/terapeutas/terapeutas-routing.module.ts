@@ -3,7 +3,8 @@ import { RouterModule, Routes } from '@angular/router';
 import { ListaTerapeutasComponent } from './Pages/lista-terapeutas/lista-terapeutas.component';
 
 const routes: Routes = [
-  { path: '', component: ListaTerapeutasComponent }
+  { path: '', component: ListaTerapeutasComponent },
+  { path: '**', redirectTo: '' }
 ];
 
 @NgModule({

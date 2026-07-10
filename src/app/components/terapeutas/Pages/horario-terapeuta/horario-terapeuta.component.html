@@ -1,0 +1,276 @@
+<div class="page">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Horarios de Terapeutas</h1>
+      <p>Configura la disponibilidad semanal y excepciones por terapeuta</p>
+    </div>
+    <div class="header-right" *ngIf="terapeutaActual">
+      <button class="btn-secondary btn-sm" (click)="abrirNuevaExcepcion()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar excepción
+      </button>
+      <button class="btn-primary btn-sm" (click)="abrirNuevoHorario()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar bloque
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Loading inicial ────────────────────────────────────────────────── -->
+  <ng-container *ngIf="loading">
+    <div class="state-box"><div class="spinner"></div><p>Cargando terapeutas…</p></div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading">
+    <div class="page-body">
+
+      <!-- Selector -->
+      <div class="selector-card">
+        <label class="sel-label">Seleccionar terapeuta</label>
+        <select class="sel-input" [(ngModel)]="terapeutaIdSeleccionado" (ngModelChange)="onTerapeutaChange()">
+          <option [ngValue]="null">— Elige un terapeuta —</option>
+          <option *ngFor="let t of terapeutas" [ngValue]="t.id">{{ nombreTerapeuta(t) }}</option>
+        </select>
+      </div>
+
+      <!-- Sin terapeuta seleccionado -->
+      <div class="empty-pick" *ngIf="!terapeutaActual">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        <p>Selecciona un terapeuta para ver y editar su horario</p>
+      </div>
+
+      <!-- Contenido del terapeuta -->
+      <ng-container *ngIf="terapeutaActual">
+
+        <!-- Resumen -->
+        <div class="summary-row">
+          <div class="sum-card">
+            <span class="sum-val">{{ totalBloques }}</span>
+            <span class="sum-lbl">Bloques semanales</span>
+          </div>
+          <div class="sum-card">
+            <span class="sum-val">{{ totalExcepciones }}</span>
+            <span class="sum-lbl">Excepciones registradas</span>
+          </div>
+          <div class="sum-card sum-card--info">
+            <span class="sum-val">{{ terapeutaActual.tipoTerapeuta?.nombre ?? '—' }}</span>
+            <span class="sum-lbl">Tipo de terapeuta</span>
+          </div>
+        </div>
+
+        <!-- Loading horario -->
+        <div class="state-box" *ngIf="cargandoHorario">
+          <div class="spinner"></div><p>Cargando horario…</p>
+        </div>
+
+        <ng-container *ngIf="!cargandoHorario">
+
+          <!-- Grilla semanal -->
+          <div class="section-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Horario semanal
+          </div>
+
+          <div class="week-grid">
+            <div class="day-col" *ngFor="let d of dias">
+              <div class="day-hdr">
+                <span class="day-name">{{ d.label }}</span>
+                <button class="btn-add-day" (click)="abrirNuevoHorario(d.value)" title="Agregar bloque">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+              <div class="day-body">
+                <!-- bloques activos -->
+                <div class="bloque" *ngFor="let h of horariosDia(d.value)">
+                  <div class="bloque-turno">{{ turnoNombre(h) }}</div>
+                  <div class="bloque-horas">{{ h.horaInicio }} – {{ h.horaFin }}</div>
+                  <div class="bloque-actions">
+                    <button class="btn-icon" (click)="abrirEditarHorario(h)" title="Editar">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-icon--danger" (click)="eliminarHorario(h)" title="Eliminar">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <!-- vacío -->
+                <div class="day-empty" *ngIf="horariosDia(d.value).length === 0">
+                  <span>Sin bloques</span>
+                </div>
+                <!-- inactivos -->
+                <div class="bloque bloque--inactive" *ngFor="let h of horariosDiaInactivos(d.value)">
+                  <div class="bloque-turno">{{ turnoNombre(h) }}</div>
+                  <div class="bloque-horas">{{ h.horaInicio }} – {{ h.horaFin }}</div>
+                  <span class="badge-inactive">Inactivo</span>
+                  <div class="bloque-actions">
+                    <button class="btn-icon" (click)="abrirEditarHorario(h)" title="Editar">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-icon--danger" (click)="eliminarHorario(h)" title="Eliminar">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Excepciones -->
+          <div class="section-title" style="margin-top:8px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Excepciones y bloqueos
+            <button class="btn-link" (click)="abrirNuevaExcepcion()">+ Agregar</button>
+          </div>
+
+          <!-- Sin excepciones -->
+          <div class="exc-empty" *ngIf="excepciones.length === 0">
+            No hay excepciones registradas para este terapeuta.
+          </div>
+
+          <!-- Lista de excepciones -->
+          <div class="exc-list" *ngIf="excepciones.length > 0">
+            <div class="exc-row" *ngFor="let e of excepciones">
+              <div class="exc-tipo-dot" [style.background]="tipoColor(e.tipo)"></div>
+              <div class="exc-fecha">{{ formatFechaCorta(e.fecha) }}</div>
+              <div class="exc-tipo-chip" [style.background]="tipoColor(e.tipo) + '22'" [style.color]="tipoColor(e.tipo)">
+                {{ tipoLabel(e.tipo) }}
+              </div>
+              <div class="exc-horas" *ngIf="e.horaInicio">{{ e.horaInicio }} – {{ e.horaFin }}</div>
+              <div class="exc-horas exc-horas--full" *ngIf="!e.horaInicio && e.tipo === 'BLOQUEO_TOTAL'">Día completo</div>
+              <div class="exc-motivo" *ngIf="e.motivo">{{ e.motivo }}</div>
+              <div class="exc-actions">
+                <button class="btn-icon" (click)="abrirEditarExcepcion(e)" title="Editar">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn-icon btn-icon--danger" (click)="eliminarExcepcion(e)" title="Eliminar">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </ng-container>
+      </ng-container>
+    </div>
+  </ng-container>
+
+</div>
+
+<!-- ══ MODAL: Horario bloque ══════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="modalHorario" (click)="cerrarModalHorario()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ editandoHorario ? 'Editar bloque' : 'Nuevo bloque de horario' }}</h2>
+      <button class="modal-close" (click)="cerrarModalHorario()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="frow">
+        <label>Día de la semana</label>
+        <select [(ngModel)]="formHorario.diaSemana">
+          <option [ngValue]="null">— Selecciona —</option>
+          <option *ngFor="let d of dias" [ngValue]="d.value">{{ d.label }}</option>
+        </select>
+      </div>
+      <div class="frow">
+        <label>Turno</label>
+        <select [(ngModel)]="formHorario.turnoId">
+          <option [ngValue]="null">— Selecciona —</option>
+          <option *ngFor="let t of turnos" [ngValue]="t.id">{{ t.nombre }}</option>
+        </select>
+      </div>
+      <div class="frow-2">
+        <div class="frow">
+          <label>Hora inicio</label>
+          <input type="time" [(ngModel)]="formHorario.horaInicio">
+        </div>
+        <div class="frow">
+          <label>Hora fin</label>
+          <input type="time" [(ngModel)]="formHorario.horaFin">
+        </div>
+      </div>
+      <div class="frow-check">
+        <label class="check-label">
+          <input type="checkbox" [(ngModel)]="formHorario.activo">
+          <span>Bloque activo</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cerrarModalHorario()">Cancelar</button>
+      <button class="btn-primary" (click)="guardarHorario()" [disabled]="guardandoHorario">
+        {{ guardandoHorario ? 'Guardando…' : (editandoHorario ? 'Guardar cambios' : 'Agregar bloque') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Excepción ═══════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="modalExcepcion" (click)="cerrarModalExcepcion()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ editandoExcepcion ? 'Editar excepción' : 'Nueva excepción' }}</h2>
+      <button class="modal-close" (click)="cerrarModalExcepcion()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="frow">
+        <label>Fecha</label>
+        <input type="date" [(ngModel)]="formExcepcion.fecha">
+      </div>
+      <div class="frow">
+        <label>Tipo de excepción</label>
+        <select [(ngModel)]="formExcepcion.tipo">
+          <option *ngFor="let t of tiposExcepcion" [value]="t.value">{{ t.label }}</option>
+        </select>
+      </div>
+      <div class="frow-2" *ngIf="formExcepcion.tipo !== 'BLOQUEO_TOTAL'">
+        <div class="frow">
+          <label>Hora inicio</label>
+          <input type="time" [(ngModel)]="formExcepcion.horaInicio">
+        </div>
+        <div class="frow">
+          <label>Hora fin</label>
+          <input type="time" [(ngModel)]="formExcepcion.horaFin">
+        </div>
+      </div>
+      <div class="frow">
+        <label>Motivo (opcional)</label>
+        <input type="text" [(ngModel)]="formExcepcion.motivo" placeholder="Ej. Vacaciones, reunión, etc.">
+      </div>
+      <!-- Info tip -->
+      <div class="exc-tip" [class.exc-tip--green]="formExcepcion.tipo === 'EXTRA'" [class.exc-tip--red]="formExcepcion.tipo !== 'EXTRA'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span *ngIf="formExcepcion.tipo === 'BLOQUEO_TOTAL'">El terapeuta no estará disponible todo el día.</span>
+        <span *ngIf="formExcepcion.tipo === 'BLOQUEO_PARCIAL'">El terapeuta no estará disponible en el rango horario indicado.</span>
+        <span *ngIf="formExcepcion.tipo === 'EXTRA'">El terapeuta tendrá disponibilidad adicional en ese horario.</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cerrarModalExcepcion()">Cancelar</button>
+      <button class="btn-primary" (click)="guardarExcepcion()" [disabled]="guardandoExcepcion">
+        {{ guardandoExcepcion ? 'Guardando…' : (editandoExcepcion ? 'Guardar cambios' : 'Registrar excepción') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Confirmación ════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="modalConfirm" (click)="cancelarConfirm()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>Confirmar eliminación</h2>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-msg">{{ confirmMsg }}</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cancelarConfirm()">Cancelar</button>
+      <button class="btn-danger" (click)="confirmar()">Eliminar</button>
+    </div>
+  </div>
+</div>

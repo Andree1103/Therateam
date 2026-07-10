@@ -65,26 +65,38 @@
 .btn-expand:hover{background:#f1f5f9;color:#185FA5}
 .chevron-ic{transition:transform .2s ease}
 .chevron-open{transform:rotate(180deg)}
-.tr-open{background:#f8fafc!important}
-.tr-open td{border-bottom:none!important}
 
 /* ── Sessions sub-row ──────────────────────────────────────────────────── */
-.tr-sesiones td{background:#f0f4f8;padding:0!important;border-top:none!important}
-.td-sesiones-body{padding:10px 20px 14px 52px!important}
-.ses-loading{display:flex;align-items:center;gap:8px;padding:10px 0;color:#64748b;font-size:12px}
+.tr-open{background:#f8fafc!important}
+.tr-open td{border-bottom:none!important}
+.tr-sesiones td{background:#f8fafc;padding:0!important;border-top:none!important}
+.td-sesiones-body{padding:0 20px 14px 52px!important;border-left:3px solid #bfdbfe}
+.ses-loading{display:flex;align-items:center;gap:8px;padding:12px 0 8px;color:#64748b;font-size:12px}
 .mini-spinner{width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
-.ses-empty{font-size:12px;color:#94a3b8;margin:8px 0;font-style:italic}
+.ses-empty{font-size:12px;color:#94a3b8;margin:10px 0 6px;font-style:italic}
 
 /* ── Sessions mini-table ───────────────────────────────────────────────── */
-.ses-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;font-size:12px}
-.ses-table thead th{background:#f8fafc;padding:7px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
-.ses-table tbody td{padding:8px 12px;border-top:1px solid #f1f5f9;color:#334155;vertical-align:middle}
+.ses-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;font-size:12px;margin-top:8px;margin-bottom:4px}
+.ses-table thead th{background:#f1f5f9;padding:6px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.ses-table tbody td{padding:7px 12px;border-top:1px solid #f1f5f9;color:#334155;vertical-align:middle}
 .ses-table tbody tr:last-child td{border-bottom:none}
+.ses-table tbody tr:hover td{background:#f8fafc}
 .ses-num-cell{font-weight:700;color:#185FA5;font-family:monospace;white-space:nowrap;width:40px}
 .sin-cita{color:#94a3b8;font-style:italic}
 .est-chip{display:inline-flex;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap}
 .pago-cell{display:flex;align-items:center;gap:5px;white-space:nowrap}
 .pago-dot-sm{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* Paid row highlight in mini-table */
+.ses-table tbody tr.ses-row-pagada td{background:#f0fdf4}
+.ses-table tbody tr.ses-row-pagada:hover td{background:#dcfce7}
+
+/* ── Edit modal: última sesión ─────────────────────────────────────────── */
+.ultima-ses-box{background:#f0f6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;display:flex;gap:20px}
+.ultima-ses-item{display:flex;flex-direction:column;gap:2px}
+.ultima-ses-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.ultima-ses-val{font-size:13px;font-weight:600;color:#0f172a}
+.ultima-ses-loading{font-size:12px;color:#94a3b8;font-style:italic}
+.ultima-ses-none{font-size:12px;color:#94a3b8;font-style:italic}
 
 /* ── Sesiones count cell ───────────────────────────────────────────────── */
 .ses-count{display:flex;align-items:baseline;justify-content:center;gap:1px;line-height:1}

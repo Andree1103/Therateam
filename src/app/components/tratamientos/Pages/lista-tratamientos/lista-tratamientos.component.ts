@@ -37,6 +37,10 @@ export class ListaTratamientosComponent implements OnInit {
   sesionesMap: Record<number, Sesion[]> = {};
   cargandoSes: Record<number, boolean> = {};
 
+  // ── Edit modal - última sesión ────────────────────────────────────────────
+  ultimaSesionFecha: string | null = null;
+  cargandoUltimaSesion = false;
+
   pacientes: Paciente[] = [];
   terapeutasDropdown: { id: number; nombre: string }[] = [];
   tiposTerapia: CatalogItem[] = [];
@@ -103,7 +107,33 @@ export class ListaTratamientosComponent implements OnInit {
       notas:               t.notas          || '',
       activo:              t.activo         ?? true,
     };
+    this.ultimaSesionFecha = null;
     this.modalAbierto = true;
+
+    const id = t.id!;
+    if (this.sesionesMap[id]) {
+      this.ultimaSesionFecha = this.computeUltimaSesion(this.sesionesMap[id]);
+    } else {
+      this.cargandoUltimaSesion = true;
+      this.tratamientoService.getSesiones(id).subscribe({
+        next: ses => {
+          this.sesionesMap[id] = ses;
+          this.ultimaSesionFecha = this.computeUltimaSesion(ses);
+          this.cargandoUltimaSesion = false;
+        },
+        error: () => { this.cargandoUltimaSesion = false; }
+      });
+    }
+  }
+
+  private computeUltimaSesion(sesiones: Sesion[]): string | null {
+    const ms = sesiones
+      .filter(s => s.citaActiva?.fechaInicio)
+      .map(s => new Date(s.citaActiva!.fechaInicio).getTime());
+    if (!ms.length) return null;
+    return new Date(Math.max(...ms)).toLocaleDateString('es-PE', {
+      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
   }
 
   cerrarModal(): void { this.modalAbierto = false; }

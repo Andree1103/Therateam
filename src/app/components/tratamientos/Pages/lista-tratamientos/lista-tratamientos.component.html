@@ -112,7 +112,8 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let s of sesionesMap[t.id!]">
+                    <tr *ngFor="let s of sesionesMap[t.id!]"
+                        [class.ses-row-pagada]="s.citaActiva?.estadoPagoKey === 'PAGADA'">
                       <td class="ses-num-cell">#{{ s.numero }}</td>
                       <td [class.sin-cita]="!s.citaActiva">
                         {{ s.citaActiva ? (s.citaActiva.fechaInicio | date:'d MMM yyyy, h:mm a':'':'es-PE') : 'Sin cita programada' }}
@@ -206,6 +207,20 @@
           <div class="frow">
             <label>Fecha de fin</label>
             <input [(ngModel)]="formData.fechaFin" name="fechaFin" type="date">
+          </div>
+        </div>
+
+        <!-- Última sesión programada (solo edición) -->
+        <div class="ultima-ses-box" *ngIf="editando">
+          <div class="ultima-ses-item">
+            <span class="ultima-ses-lbl">Última sesión programada</span>
+            <span class="ultima-ses-loading" *ngIf="cargandoUltimaSesion">Calculando...</span>
+            <span class="ultima-ses-val" *ngIf="!cargandoUltimaSesion && ultimaSesionFecha">{{ ultimaSesionFecha }}</span>
+            <span class="ultima-ses-none" *ngIf="!cargandoUltimaSesion && !ultimaSesionFecha">Sin sesiones programadas</span>
+          </div>
+          <div class="ultima-ses-item" *ngIf="editando.sesionesAtendidas">
+            <span class="ultima-ses-lbl">Sesiones atendidas</span>
+            <span class="ultima-ses-val">{{ editando.sesionesAtendidas }} / {{ editando.totalSesiones }}</span>
           </div>
         </div>
 

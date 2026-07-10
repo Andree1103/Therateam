@@ -24,4 +24,7 @@ export class CatalogService {
   getEstadosSesion(): Observable<CatalogItem[]> { return this.get<CatalogItem>('/api/cat-estados-sesion'); }
   getEstadosTratamiento(): Observable<CatalogItem[]> { return this.get<CatalogItem>('/api/cat-estados-tratamiento'); }
   getTiposTerapia(): Observable<CatalogItem[]>  { return this.get<CatalogItem>('/api/tipos-terapia'); }
+  getTurnos(): Observable<CatalogItem[]>        { return this.get<CatalogItem>('/api/cat-turnos'); }
+  getAreas(): Observable<CatalogItem[]>         { return this.get<CatalogItem>('/api/cat-areas'); }
+  getEstadosPagoCita(): Observable<CatalogItem[]> { return this.get<CatalogItem>('/api/cat-estados-pago-cita'); }
 }

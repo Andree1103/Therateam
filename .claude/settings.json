@@ -4,11 +4,15 @@
       "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/dto/**)",
       "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/model/**)",
       "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/service/**)",
-      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/controller/**)"
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/controller/**)",
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/**)",
+      "Bash(find \"C:/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam\" -type f -name \"*.java\" | sort)",
+      "Read(//c/Users/setie/OneDrive/Documentos/CodeWHITE/therateamback/src/main/java/com/therateam/therateam/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\dto",
-      "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\service"
+      "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\service",
+      "c:\\Users\\setie\\OneDrive\\Documentos\\CodeWHITE\\therateamback\\src\\main\\java\\com\\therateam\\therateam\\controller"
     ]
   }
 }

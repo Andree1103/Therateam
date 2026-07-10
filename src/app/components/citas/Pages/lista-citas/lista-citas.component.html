@@ -449,11 +449,12 @@
         <!-- ── DATOS DE LA CITA ──────────────────────────────────────── -->
         <div class="frow-2" style="margin-top:4px">
           <div class="frow">
-            <label>Terapeuta</label>
+            <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span></label>
             <select [(ngModel)]="fTer">
               <option value="">— Seleccionar —</option>
-              <option *ngFor="let t of terapeutasNombres" [value]="t">{{ t }}</option>
+              <option *ngFor="let t of terapeutasDisponiblesModal" [value]="getNombreTerapeuta(t)">{{ getNombreTerapeuta(t) }}</option>
             </select>
+            <div class="dur-info" *ngIf="terapeutasDisponiblesModal.length === 0">Ningún terapeuta disponible en ese horario.</div>
           </div>
           <div class="frow">
             <label>Tipo de terapia</label>
@@ -487,17 +488,17 @@
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
-              <input type="date" [(ngModel)]="fFecha" class="date-inp">
+              <input type="date" [(ngModel)]="fFecha" (ngModelChange)="onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora inicio <span class="opc-tag">libre</span></label>
-              <input type="time" [(ngModel)]="fHoraInicio" class="time-inp">
+              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="onDatosCitaChange()" class="time-inp">
             </div>
           </div>
 
           <div class="frow" *ngIf="esMultipaciente">
             <label>Duración</label>
-            <select [(ngModel)]="fDur">
+            <select [(ngModel)]="fDur" (ngModelChange)="onDatosCitaChange()">
               <option [value]="30">30 min</option><option [value]="40">40 min</option>
               <option [value]="45">45 min</option><option [value]="50">50 min</option>
               <option [value]="60">60 min (1 hora)</option>

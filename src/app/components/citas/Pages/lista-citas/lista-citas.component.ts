@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CitaService } from '../../Services/cita.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
@@ -12,6 +12,8 @@ import { AtencionClinicaService } from '../../../atencion-clinica/Services/atenc
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
 import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, TipoTerapia } from '../../Models/cita.model';
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
+import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
+import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
@@ -51,6 +53,9 @@ export class ListaCitasComponent implements OnInit {
   terapeutasNombres: string[] = [];
   filtrosTerapeutas: string[] = [];
   filtroTipoTerapeuta = '';
+
+  // ── Disponibilidad real (horario + excepciones + citas) por terapeuta ──────
+  disponibilidadPorTerapeuta = new Map<number, DisponibilidadDia[]>();
 
   // ── Hover card ────────────────────────────────────────────────────────────
   citaHoverId: string | null = null;
@@ -121,7 +126,8 @@ export class ListaCitasComponent implements OnInit {
     private catalogService: CatalogService,
     private toast: ToastService,
     private router: Router,
-    private atencionService: AtencionClinicaService
+    private atencionService: AtencionClinicaService,
+    private disponibilidadService: DisponibilidadService
   ) {}
 
   ngOnInit(): void {
@@ -136,6 +142,48 @@ export class ListaCitasComponent implements OnInit {
   get tipoKids(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === 'KIDS'); }
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
+
+  /** Terapeutas que realmente pueden atender en la fecha/hora/tipo seleccionados en el modal. */
+  get terapeutasDisponiblesModal(): Terapeuta[] {
+    if (!this.fFecha || !this.fHoraInicio) return this.terapeutas;
+    const tipo = this.tipoSeleccionado;
+    if (!tipo) return this.terapeutas;
+
+    const dur    = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const fin    = new Date(inicio);
+    fin.setMinutes(fin.getMinutes() + dur);
+    const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
+    const finMin     = fin.getHours()  * 60 + fin.getMinutes();
+
+    return this.terapeutas.filter(t => {
+      const nombre     = terapeutaNombre(t);
+      const solapadas  = this.citasSolapadas(nombre, inicio, fin, this.citaEditando?.id);
+      if (solapadas.length >= tipo.max_pacientes) return false;
+      if (t.id == null) return true; // sin id: no se puede validar horario, no se bloquea
+      return this.cubreFranja(t.id, this.fFecha, inicioMin, finMin);
+    });
+  }
+
+  /** Se llama al cambiar fecha/hora/duración/tipo en el modal: si el terapeuta elegido dejó de estar disponible, se limpia la selección. */
+  onDatosCitaChange(): void {
+    if (!this.fTer) return;
+    const sigueDisponible = this.terapeutasDisponiblesModal.some(t => terapeutaNombre(t) === this.fTer);
+    if (!sigueDisponible) {
+      this.fTer = '';
+      this.toast.warning('El terapeuta seleccionado ya no está disponible en ese horario, elige otro.');
+    }
+  }
+
+  private citasSolapadas(terapeutaNombreStr: string, inicio: Date, fin: Date, excluirId?: string): Cita[] {
+    return this.citas.filter(c => {
+      if (c.terapeuta_nombre !== terapeutaNombreStr) return false;
+      if (excluirId && c.id === excluirId) return false;
+      const ini   = new Date(c.fecha_inicio);
+      const finC  = new Date(c.fecha_fin);
+      return inicio < finC && fin > ini;
+    });
+  }
 
   get pac1Resumen(): string {
     if (this.pac1.nombre) return `${this.pac1.nombre} ${this.pac1.apellido}`.trim();
@@ -188,8 +236,41 @@ export class ListaCitasComponent implements OnInit {
         this.fMetodoPagoId     = metodosPago[0]?.id ?? null;
         this.cargandoCatalogos = false;
         this.resetForm();
+        this.cargarDisponibilidadSemana();
       },
       error: () => { this.cargandoCatalogos = false; this.resetForm(); }
+    });
+  }
+
+  /** Trae la disponibilidad real (horario + excepciones + citas) de cada terapeuta para la semana visible. */
+  private cargarDisponibilidadSemana(): void {
+    const idsValidos = this.terapeutas.filter(t => t.id != null);
+    if (idsValidos.length === 0 || this.diasSemana.length === 0) return;
+
+    const desde = this.fechaToISO(this.diasSemana[0].fecha);
+    const hasta = this.fechaToISO(this.diasSemana[6].fecha);
+    const calls = idsValidos.reduce((acc, t) => {
+      acc[t.id!] = this.disponibilidadService.getSemana(t.id!, desde, hasta)
+        .pipe(catchError(() => of([] as DisponibilidadDia[])));
+      return acc;
+    }, {} as Record<number, Observable<DisponibilidadDia[]>>);
+
+    forkJoin(calls).subscribe(resultado => {
+      this.disponibilidadPorTerapeuta.clear();
+      Object.entries(resultado).forEach(([id, dias]) => this.disponibilidadPorTerapeuta.set(Number(id), dias));
+    });
+  }
+
+  /** true si [inicioMin, finMin) del día `fechaISO` está cubierto por una franja libre cacheada. */
+  private cubreFranja(terapeutaId: number, fechaISO: string, inicioMin: number, finMin: number): boolean {
+    const dias = this.disponibilidadPorTerapeuta.get(terapeutaId);
+    if (!dias) return true; // sin datos cacheados: no bloquear, el backend valida de todos modos
+    const dia = dias.find(d => d.fecha === fechaISO);
+    if (!dia) return true; // fuera del rango cacheado
+    return dia.franjas.some(f => {
+      const [fh, fm] = f.horaInicio.split(':').map(Number);
+      const [th, tm] = f.horaFin.split(':').map(Number);
+      return inicioMin >= fh * 60 + fm && finMin <= th * 60 + tm;
     });
   }
 
@@ -214,6 +295,7 @@ export class ListaCitasComponent implements OnInit {
     this.fechaInicioSemana = lunes;
     this.construirSemana();
     this.cargarCitas();
+    this.cargarDisponibilidadSemana();
   }
 
   navSemana(dir: -1 | 1): void {
@@ -222,6 +304,7 @@ export class ListaCitasComponent implements OnInit {
     this.fechaInicioSemana = d;
     this.construirSemana();
     this.cargarCitas();
+    this.cargarDisponibilidadSemana();
   }
 
   construirSemana(): void {
@@ -410,12 +493,23 @@ export class ListaCitasComponent implements OnInit {
   }
 
   getSlotLibresDia(terapeuta: string, diaIdx: number): { slot: Slot; libre: number }[] {
+    const terapeutaId = this.terapeutas.find(t => terapeutaNombre(t) === terapeuta)?.id;
+    const fecha = this.diasSemana[diaIdx]?.fecha;
+    const fechaISO = fecha ? this.fechaToISO(fecha) : null;
+
     return this.slots.map(s => {
       const citasAqui = this.getCitasSlotTer(diaIdx, s.h, s.m, terapeuta);
       const maxPac = citasAqui.length > 0
         ? this.getTipo((citasAqui[0].tipo_terapia_key ?? '').toUpperCase()).max_pacientes
         : 1;
-      return { slot: s, libre: Math.max(0, maxPac - citasAqui.length) };
+      // Si ya hay una cita en el slot, el horario ya fue validado al crearla.
+      // Si no hay ninguna, hay que confirmar que el slot cae dentro de la disponibilidad real
+      // (horario semanal + excepciones) del terapeuta.
+      const dentroDeHorario = citasAqui.length > 0 || terapeutaId == null || fechaISO == null
+        ? true
+        : this.cubreFranja(terapeutaId, fechaISO, s.h * 60 + s.m, s.h * 60 + s.m + 30);
+      const libre = dentroDeHorario ? Math.max(0, maxPac - citasAqui.length) : 0;
+      return { slot: s, libre };
     }).filter(x => x.libre > 0);
   }
 
@@ -448,6 +542,7 @@ export class ListaCitasComponent implements OnInit {
   onTipoChange(): void {
     const tipo = this.tipoSeleccionado;
     if (tipo && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
+    this.onDatosCitaChange();
   }
 
   onDuracionTipoChange(tipo: TipoTerapia): void {
@@ -620,6 +715,17 @@ export class ListaCitasComponent implements OnInit {
     const fechaFin  = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
 
+    // Validación best-effort de horario (el backend es la autoridad final)
+    const terapeutaSel = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
+    if (terapeutaSel?.id != null) {
+      const inicioMin = fechaSlot.getHours() * 60 + fechaSlot.getMinutes();
+      const finMin    = fechaFin.getHours()  * 60 + fechaFin.getMinutes();
+      if (!this.cubreFranja(terapeutaSel.id, this.fFecha, inicioMin, finMin)) {
+        this.toast.error('El terapeuta no atiende en ese horario (fuera de su horario habitual o bloqueado por una excepción).');
+        return;
+      }
+    }
+
     // Conflicto de capacidad
     const nuevosCount = (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim()) ? 2 : 1;
     const conflictos = this.citas.filter(c => {
@@ -663,7 +769,7 @@ export class ListaCitasComponent implements OnInit {
           this.toast.success('Cita actualizada correctamente');
           this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
         },
-        error: () => { this.toast.error('Error al actualizar la cita'); this.guardando = false; }
+        error: (err) => { this.toast.error(err?.error?.error || 'Error al actualizar la cita'); this.guardando = false; }
       });
     } else {
       const buildPac = (p: PacienteState): PacienteEnCita => ({
@@ -700,7 +806,7 @@ export class ListaCitasComponent implements OnInit {
           this.toast.success('Cita creada correctamente');
           this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
         },
-        error: () => { this.toast.error('Error al crear la cita'); this.guardando = false; }
+        error: (err) => { this.toast.error(err?.error?.error || 'Error al crear la cita'); this.guardando = false; }
       });
     }
   }
@@ -720,11 +826,16 @@ export class ListaCitasComponent implements OnInit {
     });
 
     let creadas = 0;
+    let primerError: string | null = null;
     const total = this.bulkPreview.length;
 
     const crearSiguiente = (index: number): void => {
       if (index >= total) {
-        this.toast.success(`${creadas} de ${total} citas creadas correctamente`);
+        if (creadas === total) {
+          this.toast.success(`${creadas} de ${total} citas creadas correctamente`);
+        } else {
+          this.toast.error(`${creadas} de ${total} citas creadas` + (primerError ? ` — ${primerError}` : ''));
+        }
         this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
         return;
       }
@@ -753,7 +864,10 @@ export class ListaCitasComponent implements OnInit {
           }
           crearSiguiente(index + 1);
         },
-        error: () => crearSiguiente(index + 1)
+        error: (err) => {
+          if (!primerError) primerError = err?.error?.error || 'error al crear una de las citas';
+          crearSiguiente(index + 1);
+        }
       });
     };
 

@@ -65,7 +65,7 @@
         <div class="stat-icon stat-icon--green">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
-        <div class="stat-val">S/ {{ (tratamiento.totalCobrado ?? 0).toFixed(2) }}</div>
+        <div class="stat-val">S/ {{ totalCobradoReal.toFixed(2) }}</div>
         <div class="stat-lbl">Total cobrado</div>
       </div>
 
@@ -130,6 +130,7 @@
             <th>Fecha y hora</th>
             <th>Duración</th>
             <th>Estado cita</th>
+            <th>Pago</th>
             <th>Modalidad</th>
             <th>Atención clínica</th>
           </tr>
@@ -137,7 +138,10 @@
         <tbody>
           <ng-container *ngFor="let s of sesiones">
 
-            <tr class="row-sesion" [class.row-expanded]="sesionExpandida === s.id" (click)="toggleSesion(s.id)">
+            <tr class="row-sesion"
+                [class.row-expanded]="sesionExpandida === s.id"
+                [class.row-pagada]="s.citaActiva?.estadoPagoKey === 'PAGADA'"
+                (click)="toggleSesion(s.id)">
               <td class="text-center col-num">
                 <span class="sesion-num">{{ s.numero }}</span>
               </td>
@@ -158,6 +162,17 @@
                   {{ s.citaActiva.estado.nombre }}
                 </span>
                 <span class="text-muted" *ngIf="!s.citaActiva">Sin agendar</span>
+              </td>
+              <td>
+                <ng-container *ngIf="s.citaActiva">
+                  <span class="pago-pill"
+                        [style.background]="(s.citaActiva.estadoPagoColor || '#94a3b8') + '22'"
+                        [style.color]="s.citaActiva.estadoPagoColor || '#94a3b8'">
+                    <span class="pago-dot" [style.background]="s.citaActiva.estadoPagoColor || '#94a3b8'"></span>
+                    {{ s.citaActiva.estadoPagoNombre || 'Sin pago' }}
+                  </span>
+                </ng-container>
+                <span class="text-muted" *ngIf="!s.citaActiva">—</span>
               </td>
               <td class="text-muted">{{ s.citaActiva?.modalidad?.nombre || '—' }}</td>
               <td class="col-atencion">
@@ -180,7 +195,7 @@
 
             <!-- Panel atención expandida -->
             <tr *ngIf="sesionExpandida === s.id" class="row-atencion-expand">
-              <td colspan="7">
+              <td colspan="8">
                 <div class="atencion-panel">
 
                   <!-- Con atención registrada -->
@@ -232,16 +247,23 @@
 
 <!-- ── MODAL REGISTRAR PAGO ── -->
 <div class="modal-overlay" *ngIf="modalPago" (click)="cerrarPago()">
-  <div class="modal" (click)="$event.stopPropagation()">
+  <div class="modal modal-pago-lg" (click)="$event.stopPropagation()">
 
     <div class="modal-hdr">
-      <h2>Registrar pago</h2>
+      <div>
+        <h2>Registrar pago</h2>
+        <p class="modal-subhead" *ngIf="tratamiento?.precioPorSesion">
+          S/ {{ tratamiento!.precioPorSesion }} por sesión &middot; {{ pacienteNombre(tratamiento!) }}
+        </p>
+      </div>
       <button class="modal-close" (click)="cerrarPago()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
     <div class="modal-body">
+
+      <!-- Resumen financiero -->
       <div class="pago-resumen">
         <div class="pago-res-item">
           <span>Deuda pendiente</span>
@@ -251,38 +273,84 @@
           <span>Saldo a favor</span>
           <strong>S/ {{ (tratamiento?.saldoAFavor ?? 0).toFixed(2) }}</strong>
         </div>
+        <div class="pago-res-item pago-res-item--selected" *ngIf="citasSeleccionadas.size > 0">
+          <span>A pagar ahora</span>
+          <strong class="success">S/ {{ totalPago.toFixed(2) }}</strong>
+        </div>
       </div>
 
+      <!-- Lista citas pendientes de pago -->
+      <div class="frow">
+        <div class="citas-select-hdr">
+          <span class="citas-select-label">Citas pendientes de pago</span>
+          <button type="button" class="btn-link" *ngIf="sesionesParaPagar.length > 0" (click)="toggleTodasCitas()">
+            {{ todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas' }}
+          </button>
+        </div>
+
+        <div class="citas-list" *ngIf="sesionesParaPagar.length > 0">
+          <label class="cita-row"
+                 *ngFor="let s of sesionesParaPagar"
+                 [class.cita-row--selected]="citasSeleccionadas.has(s.citaActiva!.id)">
+            <input type="checkbox"
+                   [checked]="citasSeleccionadas.has(s.citaActiva!.id)"
+                   (change)="toggleCitaSeleccion(s.citaActiva!.id)">
+            <span class="cita-row-num">#{{ s.numero }}</span>
+            <span class="cita-row-fecha">{{ formatFecha(s.citaActiva!.fechaInicio) }}</span>
+            <span class="chip" style="flex-shrink:0;font-size:10px"
+                  [style.background]="(s.citaActiva!.estado.colorHex || '#94a3b8') + '20'"
+                  [style.color]="s.citaActiva!.estado.colorHex || '#94a3b8'">
+              {{ s.citaActiva!.estado.nombre }}
+            </span>
+            <span class="cita-row-precio">S/ {{ (tratamiento?.precioPorSesion ?? 0).toFixed(2) }}</span>
+          </label>
+        </div>
+
+        <div class="citas-all-paid" *ngIf="sesionesParaPagar.length === 0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+          Todas las citas de este tratamiento ya están pagadas
+        </div>
+      </div>
+
+      <!-- Método y referencia -->
       <div class="frow-2">
         <div class="frow">
-          <label>Monto recibido (S/) *</label>
-          <input type="number" min="0.01" step="0.01" [(ngModel)]="formPago.montoRecibido" placeholder="0.00">
-        </div>
-        <div class="frow">
           <label>Método de pago *</label>
-          <select [(ngModel)]="formPago.metodoId">
-            <option [ngValue]="null">Seleccionar...</option>
+          <select [(ngModel)]="pagoMetodoId"
+                  [class.err-input]="!pagoMetodoId && metodosPago.length > 0">
+            <option [ngValue]="null">{{ metodosPago.length === 0 ? 'Cargando...' : 'Seleccionar...' }}</option>
             <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
           </select>
+          <span class="err-msg" *ngIf="!pagoMetodoId && metodosPago.length > 0">Selecciona el método</span>
         </div>
-      </div>
-
-      <div class="frow">
-        <label>Referencia / N° operación</label>
-        <input type="text" [(ngModel)]="formPago.referencia" placeholder="Ej: OP-12345">
+        <div class="frow">
+          <label>Referencia / N° operación</label>
+          <input type="text" [(ngModel)]="pagoReferencia" placeholder="Ej: OP-12345">
+        </div>
       </div>
 
       <div class="frow">
         <label>Notas</label>
-        <textarea [(ngModel)]="formPago.notas" rows="2" placeholder="Observaciones del pago..."></textarea>
+        <textarea [(ngModel)]="pagoNotas" rows="2" placeholder="Observaciones del pago..."></textarea>
       </div>
+
     </div>
 
-    <div class="modal-footer">
-      <button class="btn-secondary" (click)="cerrarPago()">Cancelar</button>
-      <button class="btn-primary" (click)="guardarPago()" [disabled]="guardandoPago">
-        {{ guardandoPago ? 'Registrando...' : 'Registrar pago' }}
-      </button>
+    <div class="modal-footer-pago">
+      <div class="mf-resumen">
+        <span class="mf-hint" *ngIf="citasSeleccionadas.size === 0">Selecciona al menos una cita</span>
+        <span class="mf-total" *ngIf="citasSeleccionadas.size > 0">
+          {{ citasSeleccionadas.size }} cita{{ citasSeleccionadas.size !== 1 ? 's' : '' }}
+          &rarr; <strong>S/ {{ totalPago.toFixed(2) }}</strong>
+        </span>
+      </div>
+      <div class="mf-btns">
+        <button class="btn-secondary" (click)="cerrarPago()">Cancelar</button>
+        <button class="btn-primary" (click)="guardarPago()"
+                [disabled]="guardandoPago || citasSeleccionadas.size === 0 || !pagoMetodoId">
+          {{ guardandoPago ? 'Registrando...' : 'Registrar pago' }}
+        </button>
+      </div>
     </div>
 
   </div>

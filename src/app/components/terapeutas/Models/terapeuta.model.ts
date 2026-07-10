@@ -5,6 +5,7 @@ export interface UsuarioBasico {
   nombre: string;
   apellido: string;
   email: string;
+  sede?: { id: number; nombre?: string };
 }
 
 export interface Terapeuta {
@@ -15,6 +16,7 @@ export interface Terapeuta {
   apellido?: string;
   email?: string;
   tipoTerapeuta?: CatalogItem;
+  area?: CatalogItem;
   cmp?: string;
   telefono?: string;
   fotoUrl?: string;
@@ -37,6 +39,7 @@ export interface TerapeutaForm {
   sedeId: number | null;
   // datos del terapeuta
   tipoTerapeutaId: number | null;
+  areaId: number | null;
   cmp: string;
   telefono: string;
   horarioDescripcion: string;
@@ -53,6 +56,7 @@ export interface TerapeutaCompletoRequest {
   password?: string;
   sedeId?: number | null;
   tipoTerapeutaId?: number | null;
+  areaId?: number | null;
   cmp?: string;
   telefono?: string;
   horarioDescripcion?: string;

@@ -25,7 +25,11 @@ export class DetalleTratamientoComponent implements OnInit {
 
   modalPago = false;
   guardandoPago = false;
-  formPago = this.emptyPago();
+
+  citasSeleccionadas = new Set<number>();
+  pagoMetodoId: number | null = null;
+  pagoNotas = '';
+  pagoReferencia = '';
 
   atencionMap = new Map<number, AtencionClinica | null>();
   sesionExpandida: number | null = null;
@@ -96,14 +100,51 @@ export class DetalleTratamientoComponent implements OnInit {
     return this.atencionMap.get(citaId) ?? null;
   }
 
-  // ── Cálculos financieros ───────────────────────────────────────────────────
+  // ── Sesiones para pagar ────────────────────────────────────────────────────
+
+  get sesionesParaPagar(): Sesion[] {
+    return this.sesiones.filter(s =>
+      s.citaActiva && s.citaActiva.estadoPagoKey !== 'PAGADA'
+    );
+  }
+
+  get totalPago(): number {
+    return this.citasSeleccionadas.size * (this.tratamiento?.precioPorSesion ?? 0);
+  }
+
+  get todasSeleccionadas(): boolean {
+    const para = this.sesionesParaPagar;
+    return para.length > 0 && this.citasSeleccionadas.size === para.length;
+  }
+
+  toggleCitaSeleccion(citaId: number): void {
+    if (this.citasSeleccionadas.has(citaId)) {
+      this.citasSeleccionadas.delete(citaId);
+    } else {
+      this.citasSeleccionadas.add(citaId);
+    }
+  }
+
+  toggleTodasCitas(): void {
+    if (this.todasSeleccionadas) {
+      this.citasSeleccionadas.clear();
+    } else {
+      this.sesionesParaPagar.forEach(s => this.citasSeleccionadas.add(s.citaActiva!.id));
+    }
+  }
+
+  // ── Cálculos financieros (basados en estado real de sesiones) ─────────────
+
+  get totalCobradoReal(): number {
+    const precio = this.tratamiento?.precioPorSesion ?? 0;
+    return this.sesiones.filter(s => s.citaActiva?.estadoPagoKey === 'PAGADA').length * precio;
+  }
 
   get deuda(): number {
-    if (!this.tratamiento) return 0;
-    const atendidas = this.tratamiento.sesionesAtendidas ?? 0;
-    const precio    = this.tratamiento.precioPorSesion  ?? 0;
-    const cobrado   = this.tratamiento.totalCobrado     ?? 0;
-    return Math.max(0, atendidas * precio - cobrado);
+    const precio = this.tratamiento?.precioPorSesion ?? 0;
+    return this.sesiones.filter(s =>
+      s.citaActiva && s.citaActiva.estadoPagoKey !== 'PAGADA'
+    ).length * precio;
   }
 
   get progreso(): number {
@@ -133,34 +174,55 @@ export class DetalleTratamientoComponent implements OnInit {
 
   // ── Modal Pago ────────────────────────────────────────────────────────────
 
-  abrirPago(): void { this.modalPago = true; }
+  abrirPago(): void {
+    this.citasSeleccionadas.clear();
+    // Pre-seleccionar todas las citas pendientes de pago
+    this.sesionesParaPagar.forEach(s => this.citasSeleccionadas.add(s.citaActiva!.id));
+    this.pagoMetodoId   = this.metodosPago[0]?.id ?? null;
+    this.pagoNotas      = '';
+    this.pagoReferencia = '';
+    this.modalPago      = true;
+  }
 
   cerrarPago(): void {
     this.modalPago = false;
-    this.formPago = this.emptyPago();
+    this.citasSeleccionadas.clear();
+    this.pagoMetodoId   = null;
+    this.pagoNotas      = '';
+    this.pagoReferencia = '';
   }
 
   guardarPago(): void {
-    if (!this.formPago.montoRecibido || !this.formPago.metodoId) {
-      this.toast.warning('Completa monto y método de pago');
-      return;
+    if (this.citasSeleccionadas.size === 0) {
+      this.toast.warning('Selecciona al menos una cita para pagar'); return;
+    }
+    if (!this.pagoMetodoId) {
+      this.toast.warning('Selecciona el método de pago'); return;
     }
     this.guardandoPago = true;
-    const body = {
-      tratamiento:   { id: this.tratamiento!.id },
-      paciente:      { id: this.tratamiento!.pacienteId },
-      metodo:        { id: this.formPago.metodoId },
-      montoRecibido: this.formPago.montoRecibido,
-      montoAplicado: this.formPago.montoRecibido,
-      saldoGenerado: 0,
-      saldoPrevio:   this.tratamiento?.saldoAFavor ?? 0,
-      referencia:    this.formPago.referencia || undefined,
-      notas:         this.formPago.notas      || undefined,
-      fechaPago:     new Date().toISOString(),
-    };
-    this.pagoService.create(body as any).subscribe({
+    const precio      = this.tratamiento!.precioPorSesion ?? 0;
+    const saldoPrevio = this.tratamiento?.saldoAFavor     ?? 0;
+    const pacienteId  = this.tratamiento!.pacienteId
+                     ?? (this.tratamiento as any)?.paciente?.id;
+    const pagos$      = Array.from(this.citasSeleccionadas).map(citaId =>
+      this.pagoService.create({
+        tratamiento:   { id: this.tratamiento!.id },
+        paciente:      pacienteId ? { id: pacienteId } : undefined,
+        cita:          { id: citaId },
+        metodo:        { id: this.pagoMetodoId },
+        montoRecibido: precio,
+        montoAplicado: precio,
+        saldoGenerado: 0,
+        saldoPrevio,
+        referencia:    this.pagoReferencia || undefined,
+        notas:         this.pagoNotas      || undefined,
+        fechaPago:     new Date().toISOString(),
+      } as any)
+    );
+    forkJoin(pagos$).subscribe({
       next: () => {
-        this.toast.success('Pago registrado correctamente');
+        const n = this.citasSeleccionadas.size;
+        this.toast.success(`${n} pago${n > 1 ? 's' : ''} registrado${n > 1 ? 's' : ''} correctamente`);
         this.cerrarPago();
         this.cargar();
         this.guardandoPago = false;
@@ -178,7 +240,4 @@ export class DetalleTratamientoComponent implements OnInit {
 
   irCitas(): void { this.router.navigate(['/citas']); }
 
-  private emptyPago() {
-    return { montoRecibido: null as number | null, metodoId: null as number | null, referencia: '', notas: '' };
-  }
 }

@@ -69,4 +69,61 @@
 .modo-btn:hover:not(.active){background:#f1f5f9}
 .section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:4px 0 2px;border-bottom:1px solid #f1f5f9}
 .hint-msg{font-size:11px;color:#94a3b8;margin-top:2px}
+.text-muted{color:#94a3b8;font-size:12px}
+.area-tag{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#f0fdf4;color:#15803d}
+.btn-icon-horario:hover{background:#eff6ff;border-color:#bfdbfe;color:#185FA5}
+
+/* Modal horario */
+.modal-horario{max-width:820px}
+.modal-sub{font-size:12px;color:#64748b;margin:2px 0 0}
+.state-box-sm{padding:24px;flex-direction:row;justify-content:center}
+
+/* Section headers inside horario modal */
+.h-section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.h-section-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.05em}
+.btn-sm-outline{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #185FA5;color:#185FA5;background:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .12s}
+.btn-sm-outline:hover{background:#eff6ff}
+
+/* Week grid */
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.day-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.day-hdr{padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.day-name{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em}
+.day-add-btn{background:none;border:none;cursor:pointer;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:#94a3b8;transition:background .12s,color .12s}
+.day-add-btn:hover{background:#dbeafe;color:#185FA5}
+.day-body{padding:5px;display:flex;flex-direction:column;gap:4px;min-height:52px}
+.day-empty{display:flex;align-items:center;justify-content:center;flex:1;font-size:11px;color:#cbd5e1}
+
+/* Bloques */
+.h-bloque{background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:5px 7px}
+.h-bloque--off{background:#f1f5f9;border-color:#e2e8f0;opacity:.6}
+.h-bloque-turno{font-size:9px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.04em}
+.h-bloque-horas{font-size:10px;color:#1e3a5f;font-weight:600;margin-top:1px}
+.h-bloque-acts{display:flex;gap:3px;margin-top:4px}
+.h-act-btn{background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;opacity:.6;transition:opacity .12s}
+.h-act-btn:hover{opacity:1}
+.h-act-btn--del:hover{color:#dc2626}
+
+/* Excepciones */
+.exc-empty{font-size:12px;color:#94a3b8;font-style:italic;padding:8px 0}
+.exc-list{display:flex;flex-direction:column;gap:5px}
+.exc-row{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.exc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.exc-fecha{font-size:12px;font-weight:600;color:#0f172a;min-width:100px}
+.exc-chip{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.exc-horas{font-size:11px;color:#64748b;font-weight:600}
+.exc-motivo{font-size:11px;color:#94a3b8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exc-acts{display:flex;gap:4px;margin-left:auto}
+.exc-tip{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;font-size:11px;background:#f1f5f9;color:#475569}
+.exc-tip--green{background:#f0fdf4;color:#15803d}
+.exc-tip--red{background:#fff5f5;color:#dc2626}
+
+/* Sub-modal overlay on top of modal */
+.modal-overlay-sub{z-index:300}
+.turno-hint{display:flex;align-items:center;gap:5px;font-size:11px;color:#185FA5;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 10px}
+.frow-check{display:flex;align-items:center}
+.check-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;font-weight:500}
+.check-label input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#185FA5}
+
 @media(max-width:768px){.page-header{flex-direction:column;align-items:flex-start;padding-left:64px}.page-body{padding:16px}.frow-2{grid-template-columns:1fr}.modal{border-radius:12px}}
+@media(max-width:900px){.week-grid{grid-template-columns:repeat(4,1fr)}.modal-horario{max-width:100%}}
