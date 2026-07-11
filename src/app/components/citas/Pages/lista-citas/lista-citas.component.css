@@ -1,10 +1,9 @@
 *{box-sizing:border-box;margin:0;padding:0}
 
 /* Fix: permite que el host element llene el content-area del layout */
-:host{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
-
-:root{
-  --slot-h:56px;--hora-w:56px;--radius:8px;
+:host{
+  display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;
+  --slot-h:90px;--hora-w:56px;--radius:8px;
 }
 .agenda-container{display:flex;flex-direction:column;height:100%;background:#f1f4f9;font-family:'DM Sans',system-ui,sans-serif;color:#111827;position:relative}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:0.5px solid #e2e8f2;flex-shrink:0}
@@ -43,20 +42,20 @@ thead tr{background:#1c2f52}
 .dd.hoy-dd{background:#f97316;box-shadow:0 2px 8px rgba(249,115,22,.4)}
 .dm{display:block;font-size:9px;color:#7ca3d0;text-transform:uppercase;letter-spacing:.04em;margin-top:1px}
 tbody tr.hora-mark{border-top:1px solid #c8d5e8}
-tbody tr.sub-mark{border-top:0.5px solid #e8edf4}
 tbody tr{height:var(--slot-h)}
 .td-hora{width:var(--hora-w);padding:0 6px 0 0;text-align:right;font-size:11px;font-weight:600;color:#9ba8bc;border-right:2px solid #d0dae8;vertical-align:top;padding-top:5px;white-space:nowrap;user-select:none}
-.td-dia{padding:2px 3px;border-right:0.5px solid #e8edf4;vertical-align:top;cursor:pointer;transition:background .1s}
+.td-dia{padding:0 3px;border-right:0.5px solid #e8edf4;vertical-align:top;transition:background .1s;position:relative;overflow:visible}
 .td-dia:hover{background:#f0f6ff}
 .td-dia.hoy-col{background:#fffaf5}
-.slot-libre{min-height:28px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.slot-libre{position:absolute;left:2px;right:2px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;cursor:pointer;overflow:hidden}
 .td-dia:hover .slot-libre{opacity:1}
-.slot-libre span{font-size:10px;color:#6b7280;background:#f8fafc;padding:2px 8px;border-radius:4px;border:0.5px solid #e2e8f2}
-.chip{border-radius:0;padding:4px 6px 4px 8px;margin-bottom:2px;border-left:3px solid #c7d5e8;background:#f8fafc;cursor:pointer;transition:transform .12s}
-.chip:hover{transform:translateX(2px)}
+.slot-libre span{font-size:10px;color:#6b7280;background:#f8fafc;padding:2px 8px;border-radius:4px;border:0.5px solid #e2e8f2;white-space:nowrap}
+.chip{position:absolute;border-radius:0;padding:0;border-left:3px solid #c7d5e8;background:#f8fafc;cursor:pointer;transition:transform .12s;box-sizing:border-box;z-index:5}
+.chip:hover{transform:translateX(2px);z-index:6}
 .chip.azul{background:#dbeafe;border-color:#2563eb;color:#1e3a8a}
 .chip.verde{background:#bbf7d0;border-color:#15803d;color:#14532d}
 .chip.rojo{background:#fecaca;border-color:#dc2626;color:#7f1d1d}
+.chip-body{height:100%;padding:4px 6px 4px 8px;box-sizing:border-box;overflow:hidden}
 .chip-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}
 .chip-ter{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.65}
 .chip-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;border:0.5px solid currentColor;opacity:.7;white-space:nowrap}
@@ -250,7 +249,6 @@ tbody tr{height:var(--slot-h)}
 .btn-atencion:hover{background:#dcfce7}
 
 /* ── HOVER CARD ─────────────────────────────────────────────────────────── */
-.chip{position:relative}
 .chip-hover-card{position:absolute;top:0;left:calc(100% + 6px);width:240px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:150;padding:10px 12px;pointer-events:all;animation:hcFade .12s ease}
 @keyframes hcFade{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
 .hc-hdr{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}

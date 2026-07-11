@@ -427,6 +427,25 @@ export class ListaTerapeutasComponent implements OnInit {
     return h.turno?.nombre ?? this.turnos.find(t => t.id === h.turnoId)?.nombre ?? 'Turno';
   }
 
+  /** mañana=1, tarde=2, noche=3 — según el nombre del turno. 0 si no se reconoce. */
+  turnoNivel(h: TerapeutaHorario): number {
+    const n = this.turnoNombre(h).toLowerCase();
+    if (n.includes('mañ') || n.includes('man'))  return 1;
+    if (n.includes('tard'))                       return 2;
+    if (n.includes('noch'))                       return 3;
+    return 0;
+  }
+
+  /** Clase CSS del bloque según su turno, para el color-coding (verde/azul/naranja). */
+  turnoClase(h: TerapeutaHorario): string {
+    switch (this.turnoNivel(h)) {
+      case 1: return 'h-bloque--manana';
+      case 2: return 'h-bloque--tarde';
+      case 3: return 'h-bloque--noche';
+      default: return '';
+    }
+  }
+
   tipoLabel(tipo: string): string {
     return this.tiposExcepcion.find(t => t.value === tipo)?.label ?? tipo;
   }

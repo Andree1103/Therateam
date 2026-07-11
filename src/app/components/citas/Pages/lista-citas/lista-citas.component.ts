@@ -118,6 +118,10 @@ export class ListaCitasComponent implements OnInit {
   readonly DIAS_NOM = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
   readonly DIAS_ABR = ['L','M','X','J','V','S','D'];
 
+  // ── Grid con posicionamiento por minuto exacto ──────────────────────────────
+  readonly SLOT_H = 90;   // px por fila de 1 hora, debe coincidir con --slot-h en el CSS
+  horasGrid: Slot[] = []; // filas visuales de la agenda (1 por hora, 08:00 .. 19:00)
+
   constructor(
     private citaService: CitaService,
     private terapeutaService: TerapeutaService,
@@ -143,14 +147,27 @@ export class ListaCitasComponent implements OnInit {
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
 
-  /** Terapeutas que realmente pueden atender en la fecha/hora/tipo seleccionados en el modal. */
+  /**
+   * Terapeutas que realmente pueden atender en la fecha/hora/tipo seleccionados en el modal.
+   * En modo "Programar grupo" valida contra la fecha real de la primera sesión calculada
+   * (bulkPreview[0]) — no contra bulkFechaInicio, que puede caer en un día de la semana
+   * que ni siquiera está marcado en "días de la semana" (ej. si el primer turno real es
+   * el miércoles siguiente porque el día de inicio no está seleccionado).
+   */
   get terapeutasDisponiblesModal(): Terapeuta[] {
-    if (!this.fFecha || !this.fHoraInicio) return this.terapeutas;
+    let inicio: Date;
+    if (this.modoProgramacion === 'multiple') {
+      if (this.bulkPreview.length === 0) return this.terapeutas;
+      inicio = this.bulkPreview[0];
+    } else {
+      if (!this.fFecha || !this.fHoraInicio) return this.terapeutas;
+      inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    }
+    const fecha = this.fechaToISO(inicio);
     const tipo = this.tipoSeleccionado;
     if (!tipo) return this.terapeutas;
 
     const dur    = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
-    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
     const fin    = new Date(inicio);
     fin.setMinutes(fin.getMinutes() + dur);
     const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
@@ -161,7 +178,7 @@ export class ListaCitasComponent implements OnInit {
       const solapadas  = this.citasSolapadas(nombre, inicio, fin, this.citaEditando?.id);
       if (solapadas.length >= tipo.max_pacientes) return false;
       if (t.id == null) return true; // sin id: no se puede validar horario, no se bloquea
-      return this.cubreFranja(t.id, this.fFecha, inicioMin, finMin);
+      return this.cubreFranja(t.id, fecha, inicioMin, finMin);
     });
   }
 
@@ -274,15 +291,19 @@ export class ListaCitasComponent implements OnInit {
     });
   }
 
-  // ── Slots — cada 30 min para soportar horarios flexibles ────────────────────
+  // ── Slots ────────────────────────────────────────────────────────────────
+  // `slots` (30 min) se usa para el cálculo de disponibilidad/capacidad (Vista Libre, sidebar).
+  // `horasGrid` (1h) es solo la fila visual de la agenda semanal.
 
   generarSlots(): void {
     this.slots = [];
+    this.horasGrid = [];
     for (let h = 8; h < 20; h++) {
       for (const m of [0, 30]) {
         const lbl = `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '30'}`;
         this.slots.push({ h, m, lbl });
       }
+      this.horasGrid.push({ h, m: 0, lbl: `${String(h).padStart(2,'0')}:00` });
     }
   }
 
@@ -460,21 +481,68 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Slots y vistas ─────────────────────────────────────────────────────────
 
-  getCitasSlot(diaIdx: number, h: number, m: number): Cita[] {
+  /** Citas que empiezan dentro de la hora `h` (ventana de 60 min) del día `diaIdx`, para la fila de la agenda. */
+  getCitasHora(diaIdx: number, h: number): Cita[] {
     const fecha = this.diasSemana[diaIdx]?.fecha;
     if (!fecha) return [];
-    const slotMin = h * 60 + m;
+    const horaMin = h * 60;
     return this.citas.filter(c => {
       const ini = new Date(c.fecha_inicio);
       if (ini.getFullYear() !== fecha.getFullYear() ||
           ini.getMonth()    !== fecha.getMonth()    ||
           ini.getDate()     !== fecha.getDate()) return false;
       const citaMin = ini.getHours() * 60 + ini.getMinutes();
-      if (citaMin < slotMin || citaMin >= slotMin + 30) return false;
+      if (citaMin < horaMin || citaMin >= horaMin + 60) return false;
       if (this.filtrosTerapeutas.length > 0 &&
           !this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? '')) return false;
       return true;
     });
+  }
+
+  /**
+   * Huecos libres dentro de la hora `h` (los tramos NO ocupados por ninguna cita), con su posición
+   * exacta en píxeles — para poder agregar una cita justo desde el minuto en que termina la anterior,
+   * en vez de esperar al siguiente bloque de 30/60 min.
+   */
+  getFranjasLibresHora(diaIdx: number, h: number): { top: number; height: number; horaInicio: string; minutoInicio: number }[] {
+    const pxPorMin     = this.SLOT_H / 60;
+    const horaInicioMin = h * 60;
+    const horaFinMin    = horaInicioMin + 60;
+
+    const citas = this.getCitasHora(diaIdx, h)
+      .slice()
+      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
+
+    const franjas: { top: number; height: number; horaInicio: string; minutoInicio: number }[] = [];
+    const build = (desdeMin: number, hastaMin: number) => {
+      const hh = Math.floor(desdeMin / 60);
+      const mm = desdeMin % 60;
+      franjas.push({
+        top:    (desdeMin - horaInicioMin) * pxPorMin,
+        height: (hastaMin - desdeMin) * pxPorMin,
+        horaInicio: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`,
+        minutoInicio: desdeMin,
+      });
+    };
+
+    let cursor = horaInicioMin;
+    for (const c of citas) {
+      const ini = new Date(c.fecha_inicio);
+      const fin = new Date(c.fecha_fin);
+      const iniMin = Math.max(horaInicioMin, ini.getHours() * 60 + ini.getMinutes());
+      const finMin = Math.min(horaFinMin, fin.getHours() * 60 + fin.getMinutes());
+      if (iniMin > cursor) build(cursor, iniMin);
+      cursor = Math.max(cursor, finMin);
+    }
+    if (cursor < horaFinMin) build(cursor, horaFinMin);
+
+    return franjas;
+  }
+
+  /** Abre el modal de nueva cita con la hora exacta (HH:MM) del hueco libre en el que se hizo click. */
+  abrirSlotExacto(diaIdx: number, h: number, m: number): void {
+    const lbl = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    this.abrirSlot(diaIdx, { h, m, lbl });
   }
 
   getCitasSlotTer(diaIdx: number, h: number, m: number, terapeuta: string): Cita[] {
@@ -490,6 +558,25 @@ export class ListaCitasComponent implements OnInit {
       if (citaMin < slotMin || citaMin >= slotMin + 30) return false;
       return c.terapeuta_nombre === terapeuta;
     });
+  }
+
+  /** Desplazamiento vertical (px) de la tarjeta dentro de su fila de 1 hora, según el minuto exacto de inicio. */
+  getChipTop(c: Cita, s: Slot): number {
+    const pxPorMin = this.SLOT_H / 60;
+    const ini = new Date(c.fecha_inicio);
+    const offsetMin = (ini.getHours() * 60 + ini.getMinutes()) - (s.h * 60 + s.m);
+    return Math.max(0, offsetMin) * pxPorMin;
+  }
+
+  /**
+   * Alto (px) de la tarjeta: proporcional a la duración real, pero nunca menor al mínimo
+   * necesario para que se lea completa (nombre, hora, botón) sin recortarse.
+   */
+  getChipHeight(c: Cita): number {
+    const pxPorMin = this.SLOT_H / 60;
+    const proporcional = c.duracion_minutos * pxPorMin - 2;
+    const minimo = (c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA') ? 78 : 56;
+    return Math.max(minimo, proporcional);
   }
 
   getSlotLibresDia(terapeuta: string, diaIdx: number): { slot: Slot; libre: number }[] {

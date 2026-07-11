@@ -286,6 +286,12 @@
           </button>
         </div>
 
+        <div class="h-legend">
+          <span class="h-legend-item"><span class="h-legend-dot h-legend-dot--manana"></span>Nivel 1 · Mañana</span>
+          <span class="h-legend-item"><span class="h-legend-dot h-legend-dot--tarde"></span>Nivel 2 · Tarde</span>
+          <span class="h-legend-item"><span class="h-legend-dot h-legend-dot--noche"></span>Nivel 3 · Noche</span>
+        </div>
+
         <div class="week-grid">
           <div class="day-col" *ngFor="let d of dias">
             <div class="day-hdr">
@@ -296,8 +302,11 @@
             </div>
             <div class="day-body">
               <ng-container *ngFor="let h of horariosDia(d.value)">
-                <div class="h-bloque" [class.h-bloque--off]="h.activo === false">
-                  <div class="h-bloque-turno">{{ turnoNombre(h) }}</div>
+                <div class="h-bloque" [ngClass]="turnoClase(h)" [class.h-bloque--off]="h.activo === false">
+                  <div class="h-bloque-top">
+                    <span class="h-bloque-turno">{{ turnoNombre(h) }}</span>
+                    <span class="h-bloque-nivel" *ngIf="turnoNivel(h) > 0">N{{ turnoNivel(h) }}</span>
+                  </div>
                   <div class="h-bloque-horas">{{ h.horaInicio }}–{{ h.horaFin }}</div>
                   <div class="h-bloque-acts">
                     <button class="h-act-btn" (click)="abrirEditarBloque(h)" title="Editar">✏️</button>

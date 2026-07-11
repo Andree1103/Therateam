@@ -73,37 +73,41 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let s of slots" [class.hora-mark]="s.m === 0" [class.sub-mark]="s.m !== 0">
+          <tr *ngFor="let s of horasGrid" class="hora-mark">
             <td class="td-hora">{{ s.lbl }}</td>
             <td *ngFor="let dia of diasSemana; let di = index" class="td-dia"
-                [class.hoy-col]="esHoy(dia.fecha)" (click)="abrirSlot(di, s)">
-              <ng-container *ngFor="let c of getCitasSlot(di, s.h, s.m)">
+                [class.hoy-col]="esHoy(dia.fecha)">
+              <ng-container *ngFor="let c of getCitasHora(di, s.h); let ci = index; let ctotal = count">
 
                 <!-- CHIP con hover card ─────────────────────────────────── -->
                 <div class="chip" [ngStyle]="getChipStyle(c)"
+                     [style.top.px]="getChipTop(c, s)" [style.height.px]="getChipHeight(c)"
+                     [style.left]="(ci * (100 / ctotal)) + '%'" [style.width.%]="100 / ctotal"
                      (click)="abrirEditar(c, $event)"
                      (mouseenter)="enterHover(c.id)"
                      (mouseleave)="leaveHover(c.id)">
 
-                  <div class="chip-top">
-                    <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
-                    <span class="chip-badge">{{ c.tipo_terapia_nombre }}</span>
+                  <div class="chip-body">
+                    <div class="chip-top">
+                      <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
+                      <span class="chip-badge">{{ c.tipo_terapia_nombre }}</span>
+                    </div>
+                    <div class="chip-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
+                    <div class="chip-bot">
+                      <span class="chip-tipo">{{ c.duracion_minutos }}min</span>
+                      <span class="chip-hora">{{ c.fecha_inicio | date:'HH:mm' }}–{{ c.fecha_fin | date:'HH:mm' }}</span>
+                      <span class="chip-pago-dot"
+                            *ngIf="c.estado_pago_key && c.estado_pago_key !== 'SIN_PAGO'"
+                            [style.background]="getPagoColor(c.estado_pago_key)"
+                            [title]="c.estado_pago_nombre ?? ''">
+                      </span>
+                    </div>
+                    <button class="btn-atencion"
+                            *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA'"
+                            (click)="abrirAtencion(c, $event)">
+                      Registrar atención
+                    </button>
                   </div>
-                  <div class="chip-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
-                  <div class="chip-bot">
-                    <span class="chip-tipo">{{ c.duracion_minutos }}min</span>
-                    <span class="chip-hora">{{ c.fecha_inicio | date:'HH:mm' }}</span>
-                    <span class="chip-pago-dot"
-                          *ngIf="c.estado_pago_key && c.estado_pago_key !== 'SIN_PAGO'"
-                          [style.background]="getPagoColor(c.estado_pago_key)"
-                          [title]="c.estado_pago_nombre ?? ''">
-                    </span>
-                  </div>
-                  <button class="btn-atencion"
-                          *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA'"
-                          (click)="abrirAtencion(c, $event)">
-                    Registrar atención
-                  </button>
 
                   <!-- Hover card ─────────────────────────────────────────── -->
                   <div class="chip-hover-card" *ngIf="citaHoverId === c.id"
@@ -179,7 +183,14 @@
                 </div><!-- /chip -->
 
               </ng-container>
-              <div *ngIf="getCitasSlot(di, s.h, s.m).length === 0" class="slot-libre"><span>+ Agregar</span></div>
+
+              <!-- Huecos libres dentro de la hora: cada uno abre "Nueva cita" en su minuto exacto ── -->
+              <div class="slot-libre" *ngFor="let g of getFranjasLibresHora(di, s.h)"
+                   [style.top.px]="g.top" [style.height.px]="g.height"
+                   [title]="'Agregar cita a las ' + g.horaInicio"
+                   (click)="abrirSlotExacto(di, s.h, g.minutoInicio)">
+                <span *ngIf="g.height >= 14">+ {{ g.horaInicio }}</span>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -294,11 +305,11 @@
 
         <!-- Modo single / múltiple (solo nueva) -->
         <div class="modo-prog-tabs" *ngIf="!citaEditando">
-          <button class="mprog-btn" [class.act]="modoProgramacion === 'single'"   (click)="modoProgramacion = 'single'">
+          <button class="mprog-btn" [class.act]="modoProgramacion === 'single'"   (click)="modoProgramacion = 'single'; onDatosCitaChange()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
             Sesión única
           </button>
-          <button class="mprog-btn" [class.act]="modoProgramacion === 'multiple'" (click)="modoProgramacion = 'multiple'; calcularBulkDates()">
+          <button class="mprog-btn" [class.act]="modoProgramacion === 'multiple'" (click)="modoProgramacion = 'multiple'; calcularBulkDates(); onDatosCitaChange()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
             Programar grupo ({{ bulkPreview.length }} sesiones)
           </button>
@@ -517,11 +528,11 @@
           <div class="frow-2">
             <div class="frow">
               <label>Fecha inicio</label>
-              <input type="date" [(ngModel)]="bulkFechaInicio" (ngModelChange)="calcularBulkDates()" class="date-inp">
+              <input type="date" [(ngModel)]="bulkFechaInicio" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora</label>
-              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="calcularBulkDates()" class="time-inp">
+              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="time-inp">
             </div>
           </div>
 
@@ -530,7 +541,7 @@
             <div class="bulk-dias">
               <label class="bulk-dia-btn" *ngFor="let dia of DIAS_ABR; let i = index"
                      [class.activo]="bulkDias[i]">
-                <input type="checkbox" [(ngModel)]="bulkDias[i]" (ngModelChange)="calcularBulkDates()" style="display:none">
+                <input type="checkbox" [(ngModel)]="bulkDias[i]" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" style="display:none">
                 {{ dia }}
               </label>
             </div>
