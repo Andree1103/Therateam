@@ -11,18 +11,27 @@
 .tab-count{background:rgba(255,255,255,.25);border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700}
 .tab-btn:not(.active) .tab-count{background:#f1f5f9;color:#185FA5}
 .card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden}
+.filters-bar{display:flex;align-items:center;gap:8px}
+.ctrl-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.filter-sel{padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;color:#0f172a;font-family:inherit;cursor:pointer}
 .state-box{padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8}
 .state-box p{margin:0;font-size:14px}
 .spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Scroll garantizado: listas largas (ej. Tipos de terapia) siempre quedan navegables,
+   sin depender del alto disponible del layout exterior. */
+.table-scroll{max-height:60vh;overflow-y:auto}
 .data-table{width:100%;border-collapse:collapse}
+.data-table thead{position:sticky;top:0;z-index:1}
 .data-table thead th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
 .data-table tbody td{padding:11px 16px;border-top:1px solid #f1f5f9;font-size:13px;color:#334155;vertical-align:middle}
 .data-table tbody tr:hover{background:#f8fafc}
 .id-col{color:#94a3b8;font-size:12px;width:40px}
 .item-nombre{font-weight:600;color:#0f172a}
 .key-badge{background:#ede9fe;color:#7c3aed;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;font-family:monospace}
+.area-badge{background:#f0fdf4;color:#15803d;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600}
 .text-muted{color:#94a3b8}
+.hint-msg{font-size:11px;color:#94a3b8;margin-top:2px}
 .badge{display:inline-flex;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
 .badge-active{background:#dcfce7;color:#15803d}
 .badge-inactive{background:#f1f5f9;color:#64748b}
@@ -48,8 +57,10 @@
 .modal-footer{padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
 .frow{display:flex;flex-direction:column;gap:5px}
 .frow label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
-.frow input,.frow select{padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc;transition:border-color .15s}
-.frow input:focus,.frow select:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}
+.frow input,.frow select,.frow textarea{padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc;transition:border-color .15s}
+.frow input:focus,.frow select:focus,.frow textarea:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}
+.frow textarea{resize:vertical;min-height:52px}
+.frow-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .err-input{border-color:#ef4444!important}
 .err-msg{font-size:11px;color:#ef4444}
 .confirm-msg{font-size:14px;color:#334155;margin:0;line-height:1.6}

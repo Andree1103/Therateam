@@ -33,6 +33,8 @@ export class CitaService {
         nombre:           t.nombre,
         duracion_minutos: t.duracionMinutos ?? t.duracion_minutos ?? 45,
         max_pacientes:    t.maxPacientes    ?? t.max_pacientes    ?? 1,
+        area_id:          t.area?.id ?? null,
+        area_nombre:      t.area?.nombre ?? null,
       } as TipoTerapia))),
       catchError(() => of([
         { id: 'CONVENCIONAL', nombre: 'Convencional', duracion_minutos: 45, max_pacientes: 2 },

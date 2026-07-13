@@ -48,11 +48,12 @@ export class ListaCitasComponent implements OnInit {
   modalidades:  CatalogItem[] = [];
   metodosPago:  CatalogItem[] = [];
 
-  // ── Terapeutas (objetos completos para filtro por tipo) ────────────────────
+  // ── Terapeutas (objetos completos para filtro por área) ─────────────────────
   terapeutas: Terapeuta[] = [];
   terapeutasNombres: string[] = [];
   filtrosTerapeutas: string[] = [];
-  filtroTipoTerapeuta = '';
+  filtroArea = '';
+  areas: CatalogItem[] = [];
 
   // ── Disponibilidad real (horario + excepciones + citas) por terapeuta ──────
   disponibilidadPorTerapeuta = new Map<number, DisponibilidadDia[]>();
@@ -70,7 +71,7 @@ export class ListaCitasComponent implements OnInit {
   slots: Slot[] = [];
 
   modalAbierto = false;
-  modoFormulario: 'regular' | 'kids' = 'regular';
+  fAreaId: number | null = null;
   citaEditando: Cita | null = null;
 
   pac1: PacienteState = this.emptyPac();
@@ -142,8 +143,8 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
-  get tiposRegulares(): TipoTerapia[] { return this.tiposTerapia.filter(t => t.id !== 'KIDS'); }
-  get tipoKids(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === 'KIDS'); }
+  /** Tipos de terapia del área seleccionada en el modal — reemplaza las pestañas fijas Regular/Kids/Consultas. */
+  get tiposDeArea(): TipoTerapia[] { return this.tiposTerapia.filter(t => t.area_id === this.fAreaId); }
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
 
@@ -174,10 +175,24 @@ export class ListaCitasComponent implements OnInit {
     const finMin     = fin.getHours()  * 60 + fin.getMinutes();
 
     return this.terapeutas.filter(t => {
-      const nombre     = terapeutaNombre(t);
-      const solapadas  = this.citasSolapadas(nombre, inicio, fin, this.citaEditando?.id);
+      const nombre = terapeutaNombre(t);
+
+      // El terapeuta ya asignado a la cita que se está editando siempre se incluye, sin pasar
+      // por los demás filtros (área/disponibilidad/capacidad): esos se calculan con datos que
+      // ya incluyen esta misma cita (la caché de disponibilidad la cuenta como "ocupado", y
+      // datos antiguos pueden tener un tipo de terapia que no calza con el área actual del
+      // terapeuta) — igual lo excluirían incorrectamente a sí mismo. El backend revalida con
+      // excluirCitaId al guardar, así que esto es seguro.
+      if (this.citaEditando && nombre === this.citaEditando.terapeuta_nombre) return true;
+
+      // El terapeuta debe pertenecer al área que requiere el tipo de terapia seleccionado
+      // (ej. tipo "KIDS" → área "Kids", tipo "CONSULTA_MEDICA" → área "Consultas Médicas").
+      if (tipo.area_id != null && t.area?.id !== tipo.area_id) return false;
+
+      const solapadas = this.citasSolapadas(nombre, inicio, fin, this.citaEditando?.id);
       if (solapadas.length >= tipo.max_pacientes) return false;
       if (t.id == null) return true; // sin id: no se puede validar horario, no se bloquea
+
       return this.cubreFranja(t.id, fecha, inicioMin, finMin);
     });
   }
@@ -214,16 +229,14 @@ export class ListaCitasComponent implements OnInit {
     return 'Sin datos';
   }
 
-  get tiposTerapeuta(): string[] {
-    const tipos = new Set(this.terapeutas.map(t => t.tipoTerapeuta?.nombre).filter(Boolean));
-    return [...tipos] as string[];
+  get areasTerapeutas(): string[] {
+    const nombres = new Set(this.terapeutas.map(t => t.area?.nombre).filter(Boolean));
+    return [...nombres] as string[];
   }
 
   get terapeutasFiltrados(): Terapeuta[] {
-    if (!this.filtroTipoTerapeuta) return this.terapeutas;
-    return this.terapeutas.filter(t =>
-      (t.tipoTerapeuta?.nombre ?? '').toLowerCase().includes(this.filtroTipoTerapeuta.toLowerCase())
-    );
+    if (!this.filtroArea) return this.terapeutas;
+    return this.terapeutas.filter(t => (t.area?.nombre ?? '') === this.filtroArea);
   }
 
   getNombreTerapeuta(t: Terapeuta): string { return terapeutaNombre(t); }
@@ -242,12 +255,14 @@ export class ListaCitasComponent implements OnInit {
       modalidades: this.catalogService.getModalidades(),
       terapeutas:  this.terapeutaService.getAll(),
       metodosPago: this.catalogService.getMetodosPago().pipe(catchError(() => of([] as CatalogItem[]))),
+      areas:       this.catalogService.getAreas().pipe(catchError(() => of([] as CatalogItem[]))),
     }).subscribe({
-      next: ({ tipos, estados, modalidades, terapeutas, metodosPago }) => {
+      next: ({ tipos, estados, modalidades, terapeutas, metodosPago, areas }) => {
         this.tiposTerapia      = tipos;
         this.estadosCita       = estados;
         this.modalidades       = modalidades;
         this.metodosPago       = metodosPago;
+        this.areas             = areas;
         this.terapeutas        = terapeutas;
         this.terapeutasNombres = terapeutas.map(t => terapeutaNombre(t)).filter(Boolean);
         this.fMetodoPagoId     = metodosPago[0]?.id ?? null;
@@ -298,7 +313,7 @@ export class ListaCitasComponent implements OnInit {
   generarSlots(): void {
     this.slots = [];
     this.horasGrid = [];
-    for (let h = 8; h < 20; h++) {
+    for (let h = 8; h < 22; h++) {
       for (const m of [0, 30]) {
         const lbl = `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '30'}`;
         this.slots.push({ h, m, lbl });
@@ -358,18 +373,18 @@ export class ListaCitasComponent implements OnInit {
     else this.filtrosTerapeutas.push(nombre);
   }
 
-  filtrarPorTipo(tipo: string): void {
-    this.filtroTipoTerapeuta = tipo;
-    if (!tipo) { this.filtrosTerapeutas = []; return; }
+  filtrarPorArea(area: string): void {
+    this.filtroArea = area;
+    if (!area) { this.filtrosTerapeutas = []; return; }
     this.filtrosTerapeutas = this.terapeutas
-      .filter(t => (t.tipoTerapeuta?.nombre ?? '') === tipo)
+      .filter(t => (t.area?.nombre ?? '') === area)
       .map(t => terapeutaNombre(t))
       .filter(Boolean);
   }
 
   limpiarFiltros(): void {
     this.filtrosTerapeutas = [];
-    this.filtroTipoTerapeuta = '';
+    this.filtroArea = '';
   }
 
   // ── Helpers de estado, tipo, chips ─────────────────────────────────────────
@@ -398,10 +413,47 @@ export class ListaCitasComponent implements OnInit {
   isParcial(cita: Cita): boolean { return cita.estado_pago_key === 'PARCIAL'; }
 
   // ── Hover card con delay (evita que se cierre al cruzar el gap de 6px) ────
+  // Se posiciona con coordenadas de viewport (position: fixed) en vez de depender del layout
+  // relativo al chip, porque `.cal-scroll` tiene overflow:auto — un popup `position: absolute`
+  // que se abre a la derecha del chip queda atrapado por ese scroll y no se ve para la mayoría
+  // de columnas (ya que la agenda es más ancha que el contenedor visible).
+  hoverCardTop = 0;
+  hoverCardLeft = 0;
 
-  enterHover(id: string): void {
+  enterHover(id: string, el?: HTMLElement): void {
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     this.citaHoverId = id;
+    if (el) this.posicionarHoverCard(el);
+  }
+
+  /**
+   * Recalcula la posición del hover card a partir del chip bajo el cursor. Se llama tanto en
+   * `mouseenter` como en `mousemove` sobre el chip — así, sin importar la ruta que haya seguido
+   * el mouse para llegar ahí (cruzando otros chips en el camino), la posición siempre se
+   * autocorrige contra el chip que realmente está bajo el cursor en ese momento.
+   *
+   * Recibe el elemento directamente (referencia de plantilla), no `event.currentTarget`: esa
+   * propiedad del evento deja de ser válida apenas termina el despacho síncrono, y con Zone.js
+   * de por medio a veces se lee ya en null, cayendo a un elemento hijo mucho más chico (ej. el
+   * texto del paciente) como respaldo — eso daba coordenadas erráticas, lejos del chip real.
+   */
+  posicionarHoverCard(el: HTMLElement): void {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cardW = 240;
+    const margin = 6;
+    let left = rect.right + margin;
+    if (left + cardW > window.innerWidth - 8) {
+      left = rect.left - cardW - margin;
+      if (left < 8) left = Math.max(8, window.innerWidth - cardW - 8);
+    }
+    const cardMaxH = 340;
+    let top = rect.top;
+    if (top + cardMaxH > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - cardMaxH - 8);
+    }
+    this.hoverCardTop = top;
+    this.hoverCardLeft = left;
   }
 
   leaveHover(citaId: string): void {
@@ -481,6 +533,22 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Slots y vistas ─────────────────────────────────────────────────────────
 
+  /**
+   * `getClustersHora`/`getFranjasLibresHora` devuelven objetos NUEVOS en cada llamada (se evalúan
+   * en cada ciclo de detección de cambios de Angular). Sin `trackBy`, *ngFor compararía por
+   * identidad de objeto, vería "todo distinto" en cada ciclo, y destruiría/recrearía los <div>
+   * de las citas constantemente — incluso el que el mouse está tocando en ese momento, rompiendo
+   * el hover y a veces el click. Estas funciones le dan a Angular una clave estable (basada en
+   * los ids reales de las citas) para que reutilice el mismo DOM mientras los datos no cambien.
+   */
+  trackByCluster(_index: number, cl: { citas: Cita[] }): string {
+    return cl.citas.map(c => c.id).join('|');
+  }
+
+  trackByFranja(_index: number, g: { minutoInicio: number }): number {
+    return g.minutoInicio;
+  }
+
   /** Citas que empiezan dentro de la hora `h` (ventana de 60 min) del día `diaIdx`, para la fila de la agenda. */
   getCitasHora(diaIdx: number, h: number): Cita[] {
     const fecha = this.diasSemana[diaIdx]?.fecha;
@@ -497,6 +565,53 @@ export class ListaCitasComponent implements OnInit {
           !this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? '')) return false;
       return true;
     });
+  }
+
+  /**
+   * Agrupa las citas de la hora `h` para dibujarlas: si hay más de una cita en esa hora
+   * (sin importar si hay un filtro de terapeuta activo), se colapsan TODAS en un único
+   * bloque "N citas" — el detalle se ve en el modal al hacer click. Con exactamente 1 cita
+   * en la hora, se dibuja la tarjeta normal.
+   */
+  getClustersHora(diaIdx: number, h: number): { top: number; height: number; citas: Cita[] }[] {
+    const pxPorMin = this.SLOT_H / 60;
+    const citas = this.getCitasHora(diaIdx, h)
+      .slice()
+      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
+
+    if (citas.length === 0) return [];
+
+    const iniMs = Math.min(...citas.map(c => new Date(c.fecha_inicio).getTime()));
+    const finMs = Math.max(...citas.map(c => new Date(c.fecha_fin).getTime()));
+    const ini = new Date(iniMs);
+    const offsetMin = (ini.getHours() * 60 + ini.getMinutes()) - h * 60;
+
+    return [{
+      top:    Math.max(0, offsetMin) * pxPorMin,
+      height: Math.max(20, ((finMs - iniMs) / 60000) * pxPorMin - 2),
+      citas,
+    }];
+  }
+
+  // ── Modal: varias citas solapadas ───────────────────────────────────────────
+  modalMultiCitas = false;
+  citasMultiSeleccionadas: Cita[] = [];
+
+  abrirMultiCitas(citas: Cita[], e: Event): void {
+    e.stopPropagation();
+    this.citasMultiSeleccionadas = citas;
+    this.modalMultiCitas = true;
+  }
+
+  cerrarMultiCitas(): void {
+    this.modalMultiCitas = false;
+    this.citasMultiSeleccionadas = [];
+  }
+
+  seleccionarCitaDeMulti(c: Cita, e: Event): void {
+    e.stopPropagation();
+    this.cerrarMultiCitas();
+    this.abrirEditar(c, e);
   }
 
   /**
@@ -539,8 +654,14 @@ export class ListaCitasComponent implements OnInit {
     return franjas;
   }
 
-  /** Abre el modal de nueva cita con la hora exacta (HH:MM) del hueco libre en el que se hizo click. */
-  abrirSlotExacto(diaIdx: number, h: number, m: number): void {
+  /**
+   * Abre el modal de nueva cita con la hora exacta del hueco libre en el que se hizo click.
+   * `minutoAbsoluto` es el minuto del día completo (ej. 480 = 08:00), tal como lo entrega
+   * `getFranjasLibresHora` — no un minuto dentro de la hora.
+   */
+  abrirSlotExacto(diaIdx: number, minutoAbsoluto: number): void {
+    const h = Math.floor(minutoAbsoluto / 60);
+    const m = minutoAbsoluto % 60;
     const lbl = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     this.abrirSlot(diaIdx, { h, m, lbl });
   }
@@ -626,9 +747,17 @@ export class ListaCitasComponent implements OnInit {
       : `${tipo.nombre}: duración fija ${tipo.duracion_minutos} min · 1 paciente por slot`;
   }
 
+  /** Se llama al cambiar el área en el modal: recarga el dropdown de tipo de terapia con los de esa área. */
+  onAreaChange(): void {
+    const primerTipo = this.tiposDeArea[0];
+    this.fTipoId = primerTipo?.id ?? '';
+    this.onTipoChange();
+  }
+
   onTipoChange(): void {
     const tipo = this.tipoSeleccionado;
     if (tipo && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
+    if (tipo && !this.esMultipaciente) this.pac2habilitado = false;
     this.onDatosCitaChange();
   }
 
@@ -704,7 +833,7 @@ export class ListaCitasComponent implements OnInit {
     this.fHoraInicio = `${String(ini.getHours()).padStart(2,'0')}:${String(ini.getMinutes()).padStart(2,'0')}`;
     this.fDur       = cita.duracion_minutos;
     this.fObs       = cita.observacion ?? cita.notas_previas ?? '';
-    this.modoFormulario = this.fTipoId === 'KIDS' ? 'kids' : 'regular';
+    this.fAreaId    = this.tiposTerapia.find(t => t.id === this.fTipoId)?.area_id ?? null;
     this.modoProgramacion = 'single';
     this.modalAbierto = true;
   }
@@ -716,7 +845,8 @@ export class ListaCitasComponent implements OnInit {
     this.pac2 = this.emptyPac();
     this.pac2habilitado = false;
     this.fTer    = this.terapeutasNombres[0] ?? '';
-    const primerTipo = this.tiposTerapia.find(t => t.id !== 'KIDS') ?? this.tiposTerapia[0];
+    this.fAreaId = this.areas[0]?.id ?? null;
+    const primerTipo = this.tiposDeArea[0] ?? this.tiposTerapia[0];
     this.fTipoId = primerTipo?.id ?? '';
     const hoy = new Date();
     this.fFecha     = this.fechaToISO(hoy);
@@ -728,7 +858,6 @@ export class ListaCitasComponent implements OnInit {
     this.fPrecio    = null;
     this.fPagado    = false;
     this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
-    this.modoFormulario   = 'regular';
     this.modoProgramacion = 'single';
     this.bulkDias   = [true, false, true, false, true, false, false];
     this.bulkSesiones        = 10;
@@ -736,18 +865,6 @@ export class ListaCitasComponent implements OnInit {
     this.bulkPreview         = [];
     this.bulkSesionesAPagar  = this.bulkSesiones;
     this.calcularBulkDates();
-  }
-
-  cambiarModo(m: 'regular' | 'kids'): void {
-    this.modoFormulario = m;
-    if (m === 'kids') {
-      this.fTipoId = this.tipoKids?.id ?? 'KIDS';
-      this.pac2habilitado = false;
-    } else {
-      const regular = this.tiposTerapia.find(t => t.id !== 'KIDS');
-      this.fTipoId = regular?.id ?? '';
-    }
-    this.onTipoChange();
   }
 
   // ── Programación múltiple ──────────────────────────────────────────────────

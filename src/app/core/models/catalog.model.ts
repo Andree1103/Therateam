@@ -8,6 +8,10 @@ export interface CatalogItem {
   simbolo?: string;
   duracionMinutos?: number;
   maxPacientes?: number;
+  area?: { id: number; nombre?: string; key?: string } | null;
+  especialidad?: string | null;
+  sesionesSugeridas?: number | null;
+  comentario?: string | null;
 }
 
 export interface Sede {

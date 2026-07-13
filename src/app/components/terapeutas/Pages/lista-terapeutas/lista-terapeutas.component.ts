@@ -47,7 +47,6 @@ export class ListaTerapeutasComponent implements OnInit {
 
   // ── Catálogos ─────────────────────────────────────────────────────────────
   sedes: Sede[] = [];
-  tiposTerapeuta: CatalogItem[] = [];
   areas: CatalogItem[] = [];
   especialidades: CatalogItem[] = [];
   turnos: CatalogItem[] = [];
@@ -94,13 +93,11 @@ export class ListaTerapeutasComponent implements OnInit {
     this.cargar();
     forkJoin({
       sedes:          this.catalogService.getSedes().pipe(catchError(() => of([]))),
-      tipos:          this.catalogService.getTiposTerapeuta().pipe(catchError(() => of([]))),
       areas:          this.catalogService.getAreas().pipe(catchError(() => of([]))),
       especialidades: this.catalogService.getEspecialidades().pipe(catchError(() => of([]))),
       turnos:         this.catalogService.getTurnos().pipe(catchError(() => of([]))),
-    }).subscribe(({ sedes, tipos, areas, especialidades, turnos }) => {
+    }).subscribe(({ sedes, areas, especialidades, turnos }) => {
       this.sedes          = sedes;
-      this.tiposTerapeuta = tipos;
       this.areas          = areas;
       this.especialidades = especialidades;
       this.turnos         = turnos;
@@ -161,7 +158,6 @@ export class ListaTerapeutasComponent implements OnInit {
       email:              t.usuario?.email   ?? t.email   ?? '',
       password:           '',
       sedeId:             t.usuario?.sede?.id ?? null,
-      tipoTerapeutaId:    t.tipoTerapeuta?.id ?? null,
       areaId:             t.area?.id ?? null,
       cmp:                t.cmp || '',
       telefono:           t.telefono || '',
@@ -470,7 +466,7 @@ export class ListaTerapeutasComponent implements OnInit {
     return {
       modo: 'existente', usuarioId: null,
       nombre: '', apellido: '', email: '', password: '', sedeId: null,
-      tipoTerapeutaId: null, areaId: null, cmp: '', telefono: '',
+      areaId: null, cmp: '', telefono: '',
       horarioDescripcion: '', activo: true, especialidadIds: []
     };
   }
@@ -488,7 +484,6 @@ export class ListaTerapeutasComponent implements OnInit {
     const modo: 'existente' | 'nuevo' = this.editando ? 'nuevo' : f.modo;
     const base: TerapeutaCompletoRequest = {
       modo,
-      tipoTerapeutaId:    f.tipoTerapeutaId || undefined,
       areaId:             f.areaId || null,
       cmp:                f.cmp || undefined,
       telefono:           f.telefono || undefined,

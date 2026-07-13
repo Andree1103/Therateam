@@ -22,11 +22,11 @@
     <button class="btn-hoy" (click)="irHoy()">Hoy</button>
     <div class="sep"></div>
 
-    <!-- Filtro por tipo de terapeuta -->
-    <label class="ctrl-lbl">Tipo:</label>
-    <select class="tipo-select" [(ngModel)]="filtroTipoTerapeuta" (ngModelChange)="filtrarPorTipo($event)">
-      <option value="">Todos los tipos</option>
-      <option *ngFor="let tipo of tiposTerapeuta" [value]="tipo">{{ tipo }}</option>
+    <!-- Filtro por área -->
+    <label class="ctrl-lbl">Área:</label>
+    <select class="tipo-select" [(ngModel)]="filtroArea" (ngModelChange)="filtrarPorArea($event)">
+      <option value="">Todas las áreas</option>
+      <option *ngFor="let area of areasTerapeutas" [value]="area">{{ area }}</option>
     </select>
 
     <!-- Badge de filtros activos -->
@@ -53,7 +53,7 @@
         <div class="ter-ini">{{ getNombreTerapeuta(t).slice(0,2).toUpperCase() }}</div>
         <div class="ter-info">
           <p>{{ getNombreTerapeuta(t) }}</p>
-          <span *ngIf="t.tipoTerapeuta" class="ter-tipo-tag">{{ t.tipoTerapeuta.nombre }}</span>
+          <span *ngIf="t.area" class="ter-tipo-tag">{{ t.area.nombre }}</span>
           <span>{{ getLibresTerapeuta(getNombreTerapeuta(t)) }} slots libres</span>
         </div>
       </div>
@@ -77,14 +77,17 @@
             <td class="td-hora">{{ s.lbl }}</td>
             <td *ngFor="let dia of diasSemana; let di = index" class="td-dia"
                 [class.hoy-col]="esHoy(dia.fecha)">
-              <ng-container *ngFor="let c of getCitasHora(di, s.h); let ci = index; let ctotal = count">
+              <ng-container *ngFor="let cl of getClustersHora(di, s.h); trackBy: trackByCluster">
+              <ng-container *ngIf="cl.citas.length === 1; else multiChip">
+              <ng-container *ngIf="cl.citas[0] as c">
 
                 <!-- CHIP con hover card ─────────────────────────────────── -->
-                <div class="chip" [ngStyle]="getChipStyle(c)"
-                     [style.top.px]="getChipTop(c, s)" [style.height.px]="getChipHeight(c)"
-                     [style.left]="(ci * (100 / ctotal)) + '%'" [style.width.%]="100 / ctotal"
+                <div class="chip" #chipEl [ngStyle]="getChipStyle(c)"
+                     [style.top.px]="cl.top" [style.height.px]="getChipHeight(c)"
+                     [style.left]="'0%'" [style.width.%]="100"
                      (click)="abrirEditar(c, $event)"
-                     (mouseenter)="enterHover(c.id)"
+                     (mouseenter)="enterHover(c.id, chipEl)"
+                     (mousemove)="citaHoverId === c.id && posicionarHoverCard(chipEl)"
                      (mouseleave)="leaveHover(c.id)">
 
                   <div class="chip-body">
@@ -111,6 +114,7 @@
 
                   <!-- Hover card ─────────────────────────────────────────── -->
                   <div class="chip-hover-card" *ngIf="citaHoverId === c.id"
+                       [style.top.px]="hoverCardTop" [style.left.px]="hoverCardLeft"
                        (click)="$event.stopPropagation()"
                        (mouseenter)="enterHover(c.id)"
                        (mouseleave)="leaveHover(c.id)">
@@ -183,12 +187,24 @@
                 </div><!-- /chip -->
 
               </ng-container>
+              </ng-container>
+
+              <!-- Varias citas solapadas (terapeutas distintos a la misma hora): chip compacto ── -->
+              <ng-template #multiChip>
+                <div class="chip chip-multi"
+                     [style.top.px]="cl.top" [style.height.px]="cl.height < 32 ? 32 : cl.height"
+                     (click)="abrirMultiCitas(cl.citas, $event)">
+                  <span class="chip-multi-count">{{ cl.citas.length }} citas</span>
+                  <span class="chip-multi-hint">Ver detalle</span>
+                </div>
+              </ng-template>
+              </ng-container>
 
               <!-- Huecos libres dentro de la hora: cada uno abre "Nueva cita" en su minuto exacto ── -->
-              <div class="slot-libre" *ngFor="let g of getFranjasLibresHora(di, s.h)"
+              <div class="slot-libre" *ngFor="let g of getFranjasLibresHora(di, s.h); trackBy: trackByFranja"
                    [style.top.px]="g.top" [style.height.px]="g.height"
                    [title]="'Agregar cita a las ' + g.horaInicio"
-                   (click)="abrirSlotExacto(di, s.h, g.minutoInicio)">
+                   (click)="abrirSlotExacto(di, g.minutoInicio)">
                 <span *ngIf="g.height >= 14">+ {{ g.horaInicio }}</span>
               </div>
             </td>
@@ -315,13 +331,12 @@
           </button>
         </div>
 
-        <!-- Tabs Regular / Kids -->
-        <div class="modo-tabs" *ngIf="!citaEditando">
-          <button class="modo-btn" [class.act]="modoFormulario === 'regular'" (click)="cambiarModo('regular')">Regular / Adulto</button>
-          <button class="modo-btn" [class.act]="modoFormulario === 'kids'"    (click)="cambiarModo('kids')" [disabled]="!tipoKids">Kids</button>
-        </div>
-        <div class="kids-banner" *ngIf="modoFormulario === 'kids' && tipoKids">
-          Modo Kids: duración fija {{ tipoKids.duracion_minutos }} min · 1 paciente por slot
+        <!-- Área — determina qué tipos de terapia se pueden elegir -->
+        <div class="frow">
+          <label>Área</label>
+          <select [(ngModel)]="fAreaId" (ngModelChange)="onAreaChange()">
+            <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
+          </select>
         </div>
 
         <!-- ── PACIENTE 1 ─────────────────────────────────────────── -->
@@ -469,12 +484,10 @@
           </div>
           <div class="frow">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()" [disabled]="modoFormulario === 'kids'">
-              <ng-container *ngIf="modoFormulario !== 'kids'">
-                <option *ngFor="let t of tiposRegulares" [value]="t.id">{{ t.nombre }} ({{ t.duracion_minutos }}min)</option>
-              </ng-container>
-              <option *ngIf="modoFormulario === 'kids' && tipoKids" [value]="tipoKids!.id">{{ tipoKids!.nombre }} ({{ tipoKids!.duracion_minutos }}min)</option>
+            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()">
+              <option *ngFor="let t of tiposDeArea" [value]="t.id">{{ t.nombre }} ({{ t.duracion_minutos }}min)</option>
             </select>
+            <div class="dur-info" *ngIf="tiposDeArea.length === 0">Esta área no tiene tipos de terapia configurados.</div>
           </div>
         </div>
 
@@ -748,5 +761,34 @@
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══ MODAL: VARIAS CITAS SOLAPADAS ══════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="modalMultiCitas" (click)="cerrarMultiCitas()">
+  <div class="modal modal-multi" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ citasMultiSeleccionadas.length }} citas en ese horario</h2>
+      <button class="modal-close" (click)="cerrarMultiCitas()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="multi-cita-row" *ngFor="let c of citasMultiSeleccionadas" (click)="seleccionarCitaDeMulti(c, $event)">
+        <span class="multi-cita-dot" [style.background]="getEstadoColor(c.estado)"></span>
+        <div class="multi-cita-info">
+          <div class="multi-cita-top">
+            <span class="multi-cita-ter">{{ c.terapeuta_nombre }}</span>
+            <span class="multi-cita-badge">{{ c.tipo_terapia_nombre }}</span>
+          </div>
+          <div class="multi-cita-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
+          <div class="multi-cita-hora">{{ c.fecha_inicio | date:'HH:mm' }}–{{ c.fecha_fin | date:'HH:mm' }} · {{ c.duracion_minutos }}min</div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="multi-cita-arrow"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cerrarMultiCitas()">Cerrar</button>
+    </div>
   </div>
 </div>

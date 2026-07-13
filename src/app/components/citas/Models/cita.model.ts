@@ -3,6 +3,8 @@ export interface TipoTerapia {
   nombre: string;
   duracion_minutos: number;
   max_pacientes: number;
+  area_id?: number | null;   // área del terapeuta requerida para este tipo (ej: Física, Kids, Consultas Médicas)
+  area_nombre?: string | null;
 }
 
 export interface Cita {

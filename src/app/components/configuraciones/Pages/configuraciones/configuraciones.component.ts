@@ -25,7 +25,7 @@ export class ConfiguracionesComponent implements OnInit {
 
   tabs: CatalogoTab[] = [
     { key: 'especialidades',       label: 'Especialidades',         path: '/api/cat-especialidades',       tipo: 'estandar', items: [], loading: false, cargado: false },
-    { key: 'tipos-terapeuta',      label: 'Tipos de terapeuta',     path: '/api/cat-tipos-terapeuta',      tipo: 'estandar', items: [], loading: false, cargado: false },
+    { key: 'areas',                label: 'Áreas',                  path: '/api/cat-areas',                tipo: 'estandar', items: [], loading: false, cargado: false },
     { key: 'tipos-terapia',        label: 'Tipos de terapia',       path: '/api/tipos-terapia',            tipo: 'terapia',  items: [], loading: false, cargado: false },
     { key: 'origenes',             label: 'Orígenes de paciente',   path: '/api/cat-origenes',             tipo: 'estandar', items: [], loading: false, cargado: false },
     { key: 'metodos-pago',         label: 'Métodos de pago',        path: '/api/cat-metodos-pago',         tipo: 'estandar', items: [], loading: false, cargado: false },
@@ -54,19 +54,37 @@ export class ConfiguracionesComponent implements OnInit {
   formSimbolo        = '';
   formDuracion       = 60;
   formMaxPacientes   = 1;
+  formAreaId: number | null = null;
+  formEspecialidad   = '';
+  formSesiones: number | null = null;
+  formComentario     = '';
+
+  areas: CatalogItem[] = [];
+  filtroAreaTerapia: number | null = null;
 
   get esEstado()  { return this.tabActivo.tipo === 'estado'; }
   get esMoneda()  { return this.tabActivo.tipo === 'moneda'; }
   get esTerapia() { return this.tabActivo.tipo === 'terapia'; }
   get tieneKey()  { return this.tabActivo.tipo !== 'moneda'; }
 
+  /** Items del tab activo, filtrados por área si estamos en "Tipos de terapia" y hay un filtro elegido. */
+  get itemsFiltrados(): CatalogItem[] {
+    if (!this.esTerapia || this.filtroAreaTerapia == null) return this.tabActivo.items;
+    return this.tabActivo.items.filter(i => i.area?.id === this.filtroAreaTerapia);
+  }
+
   constructor(private api: ApiService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.seleccionarTab(this.tabs[0]);
+    this.api.get<CatalogItem[]>('/api/cat-areas').subscribe({
+      next: d => this.areas = d,
+      error: () => {}
+    });
   }
 
   seleccionarTab(tab: CatalogoTab): void {
+    this.filtroAreaTerapia = null;
     this.tabActivo = tab;
     if (!tab.cargado) this.cargarTab(tab);
   }
@@ -89,6 +107,10 @@ export class ConfiguracionesComponent implements OnInit {
     this.formSimbolo   = '';
     this.formDuracion  = 60;
     this.formMaxPacientes = 1;
+    this.formAreaId    = null;
+    this.formEspecialidad = '';
+    this.formSesiones  = null;
+    this.formComentario = '';
     this.modalAbierto  = true;
   }
 
@@ -102,6 +124,10 @@ export class ConfiguracionesComponent implements OnInit {
     this.formSimbolo      = item.simbolo  || '';
     this.formDuracion     = item.duracionMinutos ?? 60;
     this.formMaxPacientes = item.maxPacientes    ?? 1;
+    this.formAreaId       = item.area?.id ?? null;
+    this.formEspecialidad = item.especialidad || '';
+    this.formSesiones     = item.sesionesSugeridas ?? null;
+    this.formComentario   = item.comentario || '';
     this.modalAbierto     = true;
   }
 
@@ -155,8 +181,12 @@ export class ConfiguracionesComponent implements OnInit {
       base['simbolo'] = this.formSimbolo;
     } else if (this.esTerapia) {
       if (this.formKey) base['key'] = this.formKey;
-      base['duracionMinutos'] = this.formDuracion;
-      base['maxPacientes']    = this.formMaxPacientes;
+      base['duracionMinutos']   = this.formDuracion;
+      base['maxPacientes']      = this.formMaxPacientes;
+      base['area']              = this.formAreaId ? { id: this.formAreaId } : null;
+      base['especialidad']      = this.formEspecialidad || null;
+      base['sesionesSugeridas'] = this.formSesiones || null;
+      base['comentario']        = this.formComentario || null;
     }
     return base;
   }

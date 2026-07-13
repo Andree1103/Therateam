@@ -58,7 +58,7 @@
                 <div class="avatar avatar-ter">{{ iniciales(t) }}</div>
                 <div>
                   <div class="entity-name">{{ nombreCompleto(t) }}</div>
-                  <div class="entity-sub">{{ t.tipoTerapeuta?.nombre || '—' }}</div>
+                  <div class="entity-sub" *ngIf="t.especialidades?.length">{{ t.especialidades![0].nombre }}</div>
                 </div>
               </div>
             </td>
@@ -198,21 +198,12 @@
         </div>
       </div>
 
-      <div class="frow-2">
-        <div class="frow">
-          <label>Tipo de terapeuta</label>
-          <select [(ngModel)]="formData.tipoTerapeutaId" name="tipoTerapeutaId">
-            <option [ngValue]="null">Sin tipo</option>
-            <option *ngFor="let tt of tiposTerapeuta" [ngValue]="tt.id">{{ tt.nombre }}</option>
-          </select>
-        </div>
-        <div class="frow">
-          <label>Área</label>
-          <select [(ngModel)]="formData.areaId" name="areaId">
-            <option [ngValue]="null">Sin área</option>
-            <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
-          </select>
-        </div>
+      <div class="frow">
+        <label>Área</label>
+        <select [(ngModel)]="formData.areaId" name="areaId">
+          <option [ngValue]="null">Sin área</option>
+          <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
+        </select>
       </div>
 
       <div class="frow">
@@ -257,9 +248,7 @@
     <div class="modal-hdr">
       <div>
         <h2>Horario — {{ nombreCompleto(terapeutaHorarioActual!) }}</h2>
-        <p class="modal-sub">{{ terapeutaHorarioActual?.tipoTerapeuta?.nombre }}
-          <ng-container *ngIf="terapeutaHorarioActual?.area"> · {{ terapeutaHorarioActual?.area?.nombre }}</ng-container>
-        </p>
+        <p class="modal-sub" *ngIf="terapeutaHorarioActual?.area">{{ terapeutaHorarioActual?.area?.nombre }}</p>
       </div>
       <button class="modal-close" (click)="cerrarHorario()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

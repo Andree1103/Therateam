@@ -38,7 +38,6 @@ export interface TerapeutaForm {
   password: string;
   sedeId: number | null;
   // datos del terapeuta
-  tipoTerapeutaId: number | null;
   areaId: number | null;
   cmp: string;
   telefono: string;
@@ -55,7 +54,6 @@ export interface TerapeutaCompletoRequest {
   email?: string;
   password?: string;
   sedeId?: number | null;
-  tipoTerapeutaId?: number | null;
   areaId?: number | null;
   cmp?: string;
   telefono?: string;
