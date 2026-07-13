@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api.therateam.com'
+  apiUrl: 'https://therateamback-production.up.railway.app'
 };
