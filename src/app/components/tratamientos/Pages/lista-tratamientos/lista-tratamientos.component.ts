@@ -45,6 +45,16 @@ export class ListaTratamientosComponent implements OnInit {
   terapeutasDropdown: { id: number; nombre: string }[] = [];
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
+  areas: CatalogItem[] = [];
+
+  // ── Buscador de paciente ─────────────────────────────────────────────────
+  pacienteBusqueda = '';
+  pacienteDropdownAbierto = false;
+
+  // ── Área (filtra tipo de terapia) + buscador de tipo de terapia ─────────
+  fAreaId: number | null = null;
+  tipoBusqueda = '';
+  tipoDropdownAbierto = false;
 
   get total() { return this.tratamientos.length; }
   pacienteNombre = tratamientoPaciente;
@@ -64,6 +74,51 @@ export class ListaTratamientosComponent implements OnInit {
     this.terapeutaService.getParaDropdown().subscribe(d => this.terapeutasDropdown = d);
     this.catalogService.getTiposTerapia().subscribe(d => this.tiposTerapia = d);
     this.catalogService.getEstadosTratamiento().subscribe(d => this.estadosTratamiento = d);
+    this.catalogService.getAreas().subscribe(d => this.areas = d);
+  }
+
+  // ── Buscador de paciente ─────────────────────────────────────────────────
+
+  get pacientesFiltrados(): Paciente[] {
+    const q = this.pacienteBusqueda.toLowerCase().trim();
+    const lista = !q ? this.pacientes : this.pacientes.filter(p =>
+      `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) ||
+      (p.dni || '').toLowerCase().includes(q)
+    );
+    return lista.slice(0, 30);
+  }
+
+  abrirPacienteDropdown(): void { this.pacienteDropdownAbierto = true; }
+  cerrarPacienteDropdownDiferido(): void { setTimeout(() => this.pacienteDropdownAbierto = false, 150); }
+
+  seleccionarPaciente(p: Paciente): void {
+    this.formData.pacienteId = p.id ?? null;
+    this.pacienteBusqueda = `${p.nombre} ${p.apellido}`;
+    this.pacienteDropdownAbierto = false;
+  }
+
+  // ── Área → Tipo de terapia (cascada + buscador) ──────────────────────────
+
+  get tiposDeArea(): CatalogItem[] {
+    const porArea = this.fAreaId == null
+      ? this.tiposTerapia
+      : this.tiposTerapia.filter(t => t.area?.id === this.fAreaId);
+    const q = this.tipoBusqueda.toLowerCase().trim();
+    return !q ? porArea : porArea.filter(t => t.nombre.toLowerCase().includes(q));
+  }
+
+  onAreaChange(): void {
+    this.formData.tipoTerapiaId = null;
+    this.tipoBusqueda = '';
+  }
+
+  abrirTipoDropdown(): void { this.tipoDropdownAbierto = true; }
+  cerrarTipoDropdownDiferido(): void { setTimeout(() => this.tipoDropdownAbierto = false, 150); }
+
+  seleccionarTipo(t: CatalogItem): void {
+    this.formData.tipoTerapiaId = t.id;
+    this.tipoBusqueda = t.nombre;
+    this.tipoDropdownAbierto = false;
   }
 
   cargar(): void {
@@ -90,23 +145,29 @@ export class ListaTratamientosComponent implements OnInit {
   abrirNuevo(): void {
     this.editando = null;
     this.formData = this.emptyForm();
+    this.pacienteBusqueda = '';
+    this.tipoBusqueda = '';
+    this.fAreaId = null;
     this.modalAbierto = true;
   }
 
   abrirEditar(t: Tratamiento): void {
     this.editando = t;
+    const tipo = this.tiposTerapia.find(tt => tt.key === t.tipoTerapiaKey) ?? null;
     this.formData = {
       pacienteId:          t.pacienteId ?? null,
       terapeutaId:         t.terapeutaId ?? null,
-      tipoTerapiaId:       this.tiposTerapia.find(tt => tt.key === t.tipoTerapiaKey)?.id ?? null,
+      tipoTerapiaId:       tipo?.id ?? null,
       estadoTratamientoId: this.estadosTratamiento.find(e => e.key === t.estadoKey)?.id ?? null,
       fechaInicio:         t.fechaInicio || '',
-      fechaFin:            t.fechaFin    || '',
       sesionesTotal:       t.totalSesiones   ?? null,
       precioPorSesion:     t.precioPorSesion ?? null,
       notas:               t.notas          || '',
       activo:              t.activo         ?? true,
     };
+    this.pacienteBusqueda = `${t.pacienteNombre ?? ''} ${t.pacienteApellido ?? ''}`.trim();
+    this.fAreaId = tipo?.area?.id ?? null;
+    this.tipoBusqueda = tipo?.nombre ?? '';
     this.ultimaSesionFecha = null;
     this.modalAbierto = true;
 
@@ -148,10 +209,10 @@ export class ListaTratamientosComponent implements OnInit {
       : this.tratamientoService.create(body);
     op$.subscribe({
       next: () => {
-        this.toast.success(esEdicion ? 'Tratamiento actualizado correctamente' : 'Tratamiento creado correctamente');
+        this.toast.success(esEdicion ? 'Paquete actualizado correctamente' : 'Paquete creado correctamente');
         this.cerrarModal(); this.cargar(); this.guardando = false;
       },
-      error: () => { this.toast.error('Error al guardar el tratamiento'); this.guardando = false; }
+      error: () => { this.toast.error('Error al guardar el paquete'); this.guardando = false; }
     });
   }
 
@@ -163,10 +224,10 @@ export class ListaTratamientosComponent implements OnInit {
     this.eliminando = true;
     this.tratamientoService.delete(this.tratamientoAEliminar.id).subscribe({
       next: () => {
-        this.toast.success('Tratamiento eliminado correctamente');
+        this.toast.success('Paquete eliminado correctamente');
         this.cerrarEliminar(); this.cargar(); this.eliminando = false;
       },
-      error: () => { this.toast.error('Error al eliminar el tratamiento'); this.eliminando = false; }
+      error: () => { this.toast.error('Error al eliminar el paquete'); this.eliminando = false; }
     });
   }
 
@@ -195,7 +256,7 @@ export class ListaTratamientosComponent implements OnInit {
 
   private emptyForm(): TratamientoForm {
     return { pacienteId: null, terapeutaId: null, tipoTerapiaId: null,
-             estadoTratamientoId: null, fechaInicio: '', fechaFin: '',
+             estadoTratamientoId: null, fechaInicio: '',
              sesionesTotal: null, precioPorSesion: null, notas: '', activo: true };
   }
 
@@ -207,7 +268,6 @@ export class ListaTratamientosComponent implements OnInit {
       tipoTerapia:        f.tipoTerapiaId        ? { id: f.tipoTerapiaId } as any        : undefined,
       estadoTratamiento:  f.estadoTratamientoId  ? { id: f.estadoTratamientoId } as any  : undefined,
       fechaInicio:        f.fechaInicio || undefined,
-      fechaFin:           f.fechaFin    || undefined,
       sesionesTotal:      f.sesionesTotal   ?? undefined,
       precioPorSesion:    f.precioPorSesion ?? undefined,
       notas:              f.notas || undefined,

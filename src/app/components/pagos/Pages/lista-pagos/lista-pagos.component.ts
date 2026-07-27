@@ -39,6 +39,22 @@ export class ListaPagosComponent implements OnInit {
     return this.filtrados.reduce((s, p) => s + (p.montoRecibido || 0), 0);
   }
 
+  get tratamientoSeleccionado(): TratamientoBasico | null {
+    return this.tratamientos.find(t => t.id === this.formData.tratamientoId) ?? null;
+  }
+
+  /** Lo que falta para cubrir el paquete completo (monto total - ya cobrado - saldo a favor disponible). */
+  get restantePaquete(): number {
+    const t = this.tratamientoSeleccionado;
+    if (!t) return 0;
+    const restante = (t.montoTotal ?? 0) - (t.totalCobrado ?? 0) - (t.saldoAFavor ?? 0);
+    return Math.max(0, restante);
+  }
+
+  usarMontoPaquete(): void {
+    this.formData.montoRecibido = this.restantePaquete;
+  }
+
   constructor(
     private pagoService: PagoService,
     private pacienteService: PacienteService,

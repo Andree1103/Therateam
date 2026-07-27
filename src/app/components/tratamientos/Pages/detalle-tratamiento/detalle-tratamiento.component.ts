@@ -133,18 +133,17 @@ export class DetalleTratamientoComponent implements OnInit {
     }
   }
 
-  // ── Cálculos financieros (basados en estado real de sesiones) ─────────────
+  // ── Cálculos financieros (leídos del paquete real — mismos campos que mantiene
+  //    el motor de pagos: tratamiento.totalCobrado / saldoAFavor) ─────────────
 
   get totalCobradoReal(): number {
-    const precio = this.tratamiento?.precioPorSesion ?? 0;
-    return this.sesiones.filter(s => s.citaActiva?.estadoPagoKey === 'PAGADA').length * precio;
+    return this.tratamiento?.totalCobrado ?? 0;
   }
 
   get deuda(): number {
-    const precio = this.tratamiento?.precioPorSesion ?? 0;
-    return this.sesiones.filter(s =>
-      s.citaActiva && s.citaActiva.estadoPagoKey !== 'PAGADA'
-    ).length * precio;
+    const montoTotal = this.tratamiento?.montoTotal ?? 0;
+    const cobrado = this.tratamiento?.totalCobrado ?? 0;
+    return Math.max(0, montoTotal - cobrado);
   }
 
   get progreso(): number {

@@ -63,6 +63,13 @@ export class CitaService {
     return this.api.get<CitaApiDTO>(`${this.PATH}/${id}`).pipe(map(d => this.mapDTO(d)));
   }
 
+  /** Historial de citas de un paciente — directo, ya no depende de sesión/tratamiento. */
+  getByPaciente(pacienteId: number): Observable<Cita[]> {
+    return this.api.get<CitaApiDTO[]>(`${this.PATH}/paciente/${pacienteId}`).pipe(
+      map(list => list.map(d => this.mapDTO(d)))
+    );
+  }
+
   // ── Crear ──────────────────────────────────────────────────────────────────
   crearCitaLocal(req: CrearCitaLocalRequest): Observable<Cita> {
     return this.api.post<CitaApiDTO>(this.PATH, this.buildBody(req)).pipe(map(d => this.mapDTO(d)));

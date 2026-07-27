@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
-import { Tratamiento, TratamientoDetalle, Sesion } from '../Models/tratamiento.model';
+import { Tratamiento, TratamientoDetalle, Sesion, TratamientoCobertura } from '../Models/tratamiento.model';
 import { PageResponse } from '../../../core/models/page.model';
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +27,10 @@ export class TratamientoService {
 
   getSesiones(tratamientoId: number): Observable<Sesion[]> {
     return this.api.get<Sesion[]>(`${this.PATH}/${tratamientoId}/sesiones`);
+  }
+
+  getCobertura(tratamientoId: number): Observable<TratamientoCobertura> {
+    return this.api.get<TratamientoCobertura>(`${this.PATH}/${tratamientoId}/cobertura`);
   }
 
   getByPaciente(pacienteId: number): Observable<Tratamiento[]> {

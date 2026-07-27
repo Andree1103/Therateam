@@ -5,10 +5,10 @@
     <div class="header-left">
       <button class="btn-back" (click)="volver()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
-        Tratamientos
+        Paquetes
       </button>
       <div class="header-title" *ngIf="tratamiento">
-        <h1>{{ tratamiento.nombre || ('Tratamiento #' + tratamiento.id) }}</h1>
+        <h1>{{ tratamiento.nombre || ('Paquete #' + tratamiento.id) }}</h1>
         <p>{{ pacienteNombre(tratamiento) }} &middot; {{ terapeutaNombre(tratamiento) }} &middot; {{ tratamiento.tipoTerapiaNombre || '—' }}</p>
       </div>
     </div>
@@ -29,7 +29,7 @@
   <!-- ── LOADING ── -->
   <div class="state-box" *ngIf="loading">
     <div class="spinner"></div>
-    <p>Cargando tratamiento...</p>
+    <p>Cargando paquete...</p>
   </div>
 
   <!-- ── BODY ── -->
@@ -89,7 +89,7 @@
     <!-- Barra de progreso -->
     <div class="progress-card">
       <div class="progress-top">
-        <span class="progress-label">Progreso del tratamiento</span>
+        <span class="progress-label">Progreso del paquete</span>
         <span class="progress-fraction">{{ tratamiento.sesionesAtendidas ?? 0 }} / {{ tratamiento.totalSesiones ?? 0 }} sesiones</span>
       </div>
       <div class="progress-track">
@@ -100,7 +100,7 @@
 
     <!-- Notas -->
     <div class="info-card" *ngIf="tratamiento.notas">
-      <div class="info-card-hdr">Notas del tratamiento</div>
+      <div class="info-card-hdr">Notas del paquete</div>
       <p class="info-card-txt">{{ tratamiento.notas }}</p>
     </div>
 
@@ -119,7 +119,7 @@
 
       <div class="state-box" *ngIf="sesiones.length === 0">
         <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="36" height="36"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <p>No hay sesiones registradas para este tratamiento</p>
+        <p>No hay sesiones registradas para este paquete</p>
       </div>
 
       <table class="data-table" *ngIf="sesiones.length > 0">
@@ -308,7 +308,7 @@
 
         <div class="citas-all-paid" *ngIf="sesionesParaPagar.length === 0">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
-          Todas las citas de este tratamiento ya están pagadas
+          Todas las citas de este paquete ya están pagadas
         </div>
       </div>
 

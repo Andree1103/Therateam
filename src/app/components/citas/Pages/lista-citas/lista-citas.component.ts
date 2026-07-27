@@ -5,6 +5,7 @@ import { catchError } from 'rxjs/operators';
 import { CitaService } from '../../Services/cita.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
+import { Tratamiento, TratamientoCobertura } from '../../../tratamientos/Models/tratamiento.model';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -77,6 +78,10 @@ export class ListaCitasComponent implements OnInit {
   pac1: PacienteState = this.emptyPac();
   pac2: PacienteState = this.emptyPac();
   pac2habilitado = false;
+
+  // ── Tratamiento existente (sesiones pagadas por adelantado) ────────────────
+  pacienteTratamientos: Tratamiento[] = [];
+  fTratamientoExistenteId: number | null = null;
 
   fTer = '';
   fTipoId = '';
@@ -780,9 +785,11 @@ export class ListaCitasComponent implements OnInit {
           pac.id = encontrado.id; pac.nombre = encontrado.nombre;
           pac.apellido = encontrado.apellido; pac.telefono = encontrado.telefono ?? '';
           pac.correo = encontrado.correo ?? ''; pac.modo = 'encontrado'; pac.colapsado = true;
+          if (pac === this.pac1) this.cargarTratamientosPaciente(pac.id!);
         } else {
           pac.id = null; pac.nombre = ''; pac.apellido = '';
           pac.telefono = ''; pac.correo = ''; pac.modo = 'nuevo';
+          if (pac === this.pac1) this.limpiarTratamientoExistente();
         }
       },
       error: () => { pac.buscando = false; pac.modo = 'nuevo'; pac.id = null; }
@@ -793,6 +800,83 @@ export class ListaCitasComponent implements OnInit {
     pac.modo = 'buscar'; pac.id = null;
     pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = '';
     pac.colapsado = false;
+    if (pac === this.pac1) this.limpiarTratamientoExistente();
+  }
+
+  // ── Tratamiento existente (sesiones pagadas por adelantado) ────────────────
+
+  coberturaPorTratamiento = new Map<number, TratamientoCobertura>();
+
+  private cargarTratamientosPaciente(pacienteId: number): void {
+    this.tratamientoService.getByPaciente(pacienteId).subscribe({
+      next: lista => {
+        this.pacienteTratamientos = lista.filter(t => t.estadoKey === 'ACTIVO');
+        this.fTratamientoExistenteId = null;
+        this.cargarCoberturas();
+      },
+      error: () => { this.pacienteTratamientos = []; this.fTratamientoExistenteId = null; }
+    });
+  }
+
+  /** Trae, para cada tratamiento activo del paciente, cuántas sesiones ya tienen cita creada y cuántas pagadas. */
+  private cargarCoberturas(): void {
+    this.coberturaPorTratamiento.clear();
+    const ids = this.pacienteTratamientos.map(t => t.id).filter((id): id is number => id != null);
+    if (ids.length === 0) return;
+    const calls = ids.reduce((acc, id) => {
+      acc[id] = this.tratamientoService.getCobertura(id).pipe(catchError(() => of(null)));
+      return acc;
+    }, {} as Record<number, Observable<TratamientoCobertura | null>>);
+    forkJoin(calls).subscribe(resultado => {
+      Object.entries(resultado).forEach(([id, cob]) => { if (cob) this.coberturaPorTratamiento.set(Number(id), cob); });
+    });
+  }
+
+  coberturaDe(t: Tratamiento): TratamientoCobertura | null {
+    return t.id != null ? this.coberturaPorTratamiento.get(t.id) ?? null : null;
+  }
+
+  private limpiarTratamientoExistente(): void {
+    this.pacienteTratamientos = [];
+    this.fTratamientoExistenteId = null;
+    this.coberturaPorTratamiento.clear();
+  }
+
+  get tratamientoExistenteSeleccionado(): Tratamiento | null {
+    return this.pacienteTratamientos.find(t => t.id === this.fTratamientoExistenteId) ?? null;
+  }
+
+  get coberturaSeleccionada(): TratamientoCobertura | null {
+    const t = this.tratamientoExistenteSeleccionado;
+    return t ? this.coberturaDe(t) : null;
+  }
+
+  /** Cuántas sesiones del paquete ya están cubiertas por lo cobrado hasta ahora (totalCobrado / precioPorSesion). */
+  get sesionesCubiertasTratamiento(): number {
+    const t = this.tratamientoExistenteSeleccionado;
+    if (!t || !t.precioPorSesion) return 0;
+    return Math.floor((t.totalCobrado ?? 0) / t.precioPorSesion);
+  }
+
+  onTratamientoExistenteChange(): void {
+    const t = this.tratamientoExistenteSeleccionado;
+    if (!t) return;
+
+    // El tratamiento ya define área/tipo/terapeuta/precio — se sincronizan y se bloquean
+    // en el formulario (más abajo, con [disabled]) para que no queden desalineados.
+    if (t.tipoTerapiaKey) {
+      const tipoObj = this.tiposTerapia.find(x => x.id === t.tipoTerapiaKey);
+      if (tipoObj?.area_id != null) this.fAreaId = tipoObj.area_id;
+      this.fTipoId = t.tipoTerapiaKey;
+    }
+    if (t.terapeutaNombre) this.fTer = t.terapeutaNombre;
+    this.fPrecio = t.precioPorSesion ?? null;
+
+    // Ya viene pagado por adelantado: el backend marca PAGADA sola las sesiones ya cubiertas
+    // por lo cobrado. Ajustamos el default de cobro aquí solo para no pedirle de más a recepción.
+    const totalCitas = this.modoProgramacion === 'multiple' ? this.bulkPreview.length : 1;
+    this.bulkSesionesAPagar = Math.max(0, totalCitas - this.sesionesCubiertasTratamiento);
+    this.fPagado = this.sesionesCubiertasTratamiento >= totalCitas;
   }
 
   togglePac(pac: PacienteState): void {
@@ -844,6 +928,7 @@ export class ListaCitasComponent implements OnInit {
     this.pac1 = this.emptyPac();
     this.pac2 = this.emptyPac();
     this.pac2habilitado = false;
+    this.limpiarTratamientoExistente();
     this.fTer    = this.terapeutasNombres[0] ?? '';
     this.fAreaId = this.areas[0]?.id ?? null;
     const primerTipo = this.tiposDeArea[0] ?? this.tiposTerapia[0];
@@ -998,6 +1083,7 @@ export class ListaCitasComponent implements OnInit {
         observacion:     this.fObs || undefined,
         totalSesionesPlan: 1,
         precioPorSesion:   this.fPrecio ?? 0,
+        tratamientoId:     this.fTratamientoExistenteId,
       };
 
       this.citaService.crearConPaciente(req).subscribe({
@@ -1057,6 +1143,7 @@ export class ListaCitasComponent implements OnInit {
         observacion:     this.fObs || undefined,
         totalSesionesPlan: total,
         precioPorSesion:   this.fPrecio ?? 0,
+        tratamientoId:     this.fTratamientoExistenteId,
       };
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
@@ -1078,25 +1165,25 @@ export class ListaCitasComponent implements OnInit {
     crearSiguiente(0);
   }
 
+  /**
+   * Registra el pago de una cita recién creada. Si se eligió "usar paquete existente"
+   * (fTratamientoExistenteId), el pago se aplica contra ese paquete; si no, es un pago
+   * normal de la cita puntual, sin ningún tratamiento asociado.
+   */
   private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number): void {
-    this.tratamientoService.getByPaciente(pacienteId).subscribe({
-      next: tratamientos => {
-        if (tratamientos.length === 0) return;
-        const t = tratamientos.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
-        const body: any = {
-          tratamiento:   { id: t.id },
-          paciente:      { id: pacienteId },
-          montoRecibido: monto,
-          montoAplicado: monto,
-          saldoGenerado: 0,
-          saldoPrevio:   t.saldoAFavor ?? 0,
-          notas:         'Pagado al crear cita',
-        };
-        if (metodoId) body.metodo = { id: metodoId };
-        if (citaId)   body.cita   = { id: citaId };
-        this.pagoService.create(body).subscribe({ error: () => {} });
-      }
-    });
+    const t = this.tratamientoExistenteSeleccionado;
+    const body: any = {
+      tratamiento:   t ? { id: t.id } : undefined,
+      paciente:      { id: pacienteId },
+      montoRecibido: monto,
+      montoAplicado: monto,
+      saldoGenerado: 0,
+      saldoPrevio:   t?.saldoAFavor ?? 0,
+      notas:         'Pagado al crear cita',
+    };
+    if (metodoId) body.metodo = { id: metodoId };
+    if (citaId)   body.cita   = { id: citaId };
+    this.pagoService.create(body).subscribe({ error: () => {} });
   }
 
   eliminarCita(): void {

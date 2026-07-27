@@ -334,7 +334,7 @@
         <!-- Área — determina qué tipos de terapia se pueden elegir -->
         <div class="frow">
           <label>Área</label>
-          <select [(ngModel)]="fAreaId" (ngModelChange)="onAreaChange()">
+          <select [(ngModel)]="fAreaId" (ngModelChange)="onAreaChange()" [disabled]="fTratamientoExistenteId !== null">
             <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
           </select>
         </div>
@@ -403,6 +403,27 @@
                 <div class="frow"><label>Correo <span class="opc-tag">(opcional)</span></label><input [(ngModel)]="pac1.correo" placeholder="email@ejemplo.com" type="email"></div>
               </div>
             </ng-container>
+          </div>
+        </div>
+
+        <!-- ── Tratamiento existente (sesiones pagadas por adelantado) ──── -->
+        <div class="frow" *ngIf="pac1.modo === 'encontrado' && pacienteTratamientos.length > 0">
+          <label>Usar paquete existente <span class="opc-tag">(opcional)</span></label>
+          <select [(ngModel)]="fTratamientoExistenteId" (ngModelChange)="onTratamientoExistenteChange()">
+            <option [ngValue]="null">— Crear/usar paquete nuevo —</option>
+            <option *ngFor="let t of pacienteTratamientos" [ngValue]="t.id">
+              {{ t.tipoTerapiaNombre || t.nombre }} —
+              {{ coberturaDe(t)?.sesionesCreadas ?? 0 }}/{{ t.totalSesiones ?? 0 }} sesiones creadas
+              ({{ coberturaDe(t)?.sesionesPagadas ?? 0 }} pagada{{ coberturaDe(t)?.sesionesPagadas === 1 ? '' : 's' }})
+              · S/ {{ t.totalCobrado | number:'1.2-2' }} cobrado
+            </option>
+          </select>
+          <div class="tratamiento-cobertura" *ngIf="tratamientoExistenteSeleccionado as t">
+            <strong>{{ coberturaSeleccionada?.sesionesCreadas ?? 0 }}</strong> de {{ t.totalSesiones ?? 0 }} sesiones ya tienen cita creada
+            (<strong>{{ coberturaSeleccionada?.sesionesPagadas ?? 0 }}</strong> pagada{{ coberturaSeleccionada?.sesionesPagadas === 1 ? '' : 's' }},
+            {{ coberturaSeleccionada?.sesionesPendientesPago ?? 0 }} pendiente{{ coberturaSeleccionada?.sesionesPendientesPago === 1 ? '' : 's' }} de pago).
+            El saldo ya cobrado (S/ {{ t.totalCobrado | number:'1.2-2' }} de S/ {{ t.montoTotal | number:'1.2-2' }}) alcanza para
+            <strong>{{ sesionesCubiertasTratamiento }}</strong> sesión(es) más — esas nacerán ya pagadas, sin cobrar de nuevo.
           </div>
         </div>
 
@@ -476,7 +497,7 @@
         <div class="frow-2" style="margin-top:4px">
           <div class="frow">
             <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span></label>
-            <select [(ngModel)]="fTer">
+            <select [(ngModel)]="fTer" [disabled]="fTratamientoExistenteId !== null">
               <option value="">— Seleccionar —</option>
               <option *ngFor="let t of terapeutasDisponiblesModal" [value]="getNombreTerapeuta(t)">{{ getNombreTerapeuta(t) }}</option>
             </select>
@@ -484,12 +505,15 @@
           </div>
           <div class="frow">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()">
+            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()" [disabled]="fTratamientoExistenteId !== null">
               <option *ngFor="let t of tiposDeArea" [value]="t.id">{{ t.nombre }} ({{ t.duracion_minutos }}min)</option>
             </select>
             <div class="dur-info" *ngIf="tiposDeArea.length === 0">Esta área no tiene tipos de terapia configurados.</div>
           </div>
         </div>
+        <p class="pago-hint" *ngIf="fTratamientoExistenteId !== null">
+          🔒 Área, terapeuta, tipo de terapia y precio quedan fijados por el paquete seleccionado.
+        </p>
 
         <!-- Modalidad -->
         <div class="frow">
@@ -601,7 +625,7 @@
             <div class="frow">
               <label>Precio por sesión (S/)</label>
               <input type="number" min="0" step="0.01" [(ngModel)]="fPrecio"
-                     placeholder="0.00" class="precio-inp">
+                     placeholder="0.00" class="precio-inp" [disabled]="fTratamientoExistenteId !== null">
             </div>
             <div class="frow" *ngIf="fPrecio && fPrecio > 0">
               <label>Método de pago</label>

@@ -92,6 +92,7 @@ tbody tr{height:var(--slot-h)}
 .frow{margin-bottom:12px}
 .frow label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:4px}
 .frow input,.frow select{width:100%;padding:7px 10px;border:0.5px solid #e2e8f2;border-radius:var(--radius);font-size:13px;background:#f8fafc;color:#111827;font-family:inherit}
+.frow input:disabled,.frow select:disabled{opacity:.65;cursor:not-allowed;background:#eef1f5}
 .frow-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dur-info{font-size:11px;color:#6b7280;padding:6px 10px;background:#f8fafc;border-radius:4px;border-left:2px solid #93c5fd;margin-bottom:4px}
 .modal-footer{padding:12px 16px;border-top:0.5px solid #e2e8f2;display:flex;gap:8px;justify-content:flex-end;align-items:center}
@@ -337,5 +338,6 @@ tbody tr{height:var(--slot-h)}
 .bulk-pago-ctrl{margin-top:10px}
 .pago-total-lbl{font-size:14px;font-weight:700;color:#185FA5;padding:7px 10px;background:#fff;border:0.5px solid #e2e8f2;border-radius:8px;display:block}
 .pago-hint{font-size:11px;color:#6b7280;margin-top:8px;line-height:1.4}
+.tratamiento-cobertura{font-size:11px;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;margin-top:6px;line-height:1.4}
 .edit-pago-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px}
 .edit-pago-hdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}

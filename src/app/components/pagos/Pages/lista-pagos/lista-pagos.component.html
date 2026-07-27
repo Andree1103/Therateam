@@ -40,7 +40,7 @@
           <tr>
             <th>Fecha</th>
             <th>Paciente</th>
-            <th>Tratamiento</th>
+            <th>Paquete</th>
             <th>Método</th>
             <th>Monto</th>
             <th>Referencia</th>
@@ -101,18 +101,30 @@
         </div>
 
         <div class="frow">
-          <label>Tratamiento *</label>
+          <label>Paquete *</label>
           <select [(ngModel)]="formData.tratamientoId" name="tratamientoId" required #tratRef="ngModel"
                   [class.err-input]="tratRef.invalid && tratRef.touched"
                   [disabled]="!formData.pacienteId || cargandoTratamientos">
             <option [ngValue]="null">
-              {{ cargandoTratamientos ? 'Cargando...' : (formData.pacienteId ? 'Seleccionar tratamiento...' : 'Selecciona un paciente primero') }}
+              {{ cargandoTratamientos ? 'Cargando...' : (formData.pacienteId ? 'Seleccionar paquete...' : 'Selecciona un paciente primero') }}
             </option>
             <option *ngFor="let t of tratamientos" [ngValue]="t.id">
               {{ t.nombre }} · S/ {{ t.precioPorSesion | number:'1.2-2' }}/sesión
             </option>
           </select>
           <span class="err-msg" *ngIf="tratRef.invalid && tratRef.touched">Requerido</span>
+        </div>
+
+        <div class="paquete-resumen" *ngIf="tratamientoSeleccionado as t">
+          <div class="paquete-row">
+            <span>Paquete: S/ {{ (t.montoTotal ?? 0) | number:'1.2-2' }}</span>
+            <span>Cobrado: S/ {{ (t.totalCobrado ?? 0) | number:'1.2-2' }}</span>
+            <span *ngIf="(t.saldoAFavor ?? 0) > 0" class="txt-success">Saldo a favor: S/ {{ t.saldoAFavor | number:'1.2-2' }}</span>
+          </div>
+          <button type="button" class="btn-link-paquete" *ngIf="restantePaquete > 0" (click)="usarMontoPaquete()">
+            Usar monto restante del paquete (S/ {{ restantePaquete | number:'1.2-2' }})
+          </button>
+          <span class="txt-success" *ngIf="restantePaquete === 0">Paquete cubierto por completo.</span>
         </div>
 
         <div class="frow-2">

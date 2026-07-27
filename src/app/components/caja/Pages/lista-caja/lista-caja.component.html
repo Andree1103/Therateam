@@ -1,0 +1,109 @@
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Caja</h1>
+      <p>Cierre de caja diario por método de pago</p>
+    </div>
+    <div class="fecha-picker">
+      <label>Fecha</label>
+      <input type="date" [(ngModel)]="fecha" (ngModelChange)="onFechaChange()">
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <div class="state-box" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Cargando caja del día...</p>
+    </div>
+
+    <ng-container *ngIf="!loading && resumen">
+
+      <div class="estado-bar" [class.estado-bar--cerrado]="resumen.cerrado">
+        <span *ngIf="resumen.cerrado">
+          ✓ Caja cerrada{{ resumen.cerradoPorNombre ? ' por ' + resumen.cerradoPorNombre : '' }}
+        </span>
+        <span *ngIf="!resumen.cerrado">Caja abierta — aún no se cierra este día</span>
+      </div>
+
+      <div class="cards-row">
+        <div class="stat-card">
+          <span class="stat-lbl">Saldo inicial</span>
+          <span class="stat-val">S/ {{ resumen.saldoInicial | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-card stat-card--success">
+          <span class="stat-lbl">Ingresos del día</span>
+          <span class="stat-val">S/ {{ resumen.totalIngresos | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-card stat-card--danger">
+          <span class="stat-lbl">Egresos</span>
+          <span class="stat-val">S/ {{ (egresosForm ?? 0) | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-card stat-card--total">
+          <span class="stat-lbl">Saldo final</span>
+          <span class="stat-val">S/ {{ saldoFinalPreview | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">Ingresos por método de pago</div>
+        <div class="state-box small" *ngIf="resumen.ingresosPorMetodo.length === 0">
+          <p>Sin ingresos registrados este día</p>
+        </div>
+        <table class="data-table" *ngIf="resumen.ingresosPorMetodo.length > 0">
+          <thead>
+            <tr><th>Método</th><th>Monto</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of resumen.ingresosPorMetodo">
+              <td>{{ m.metodoNombre }}</td>
+              <td class="monto">S/ {{ m.monto | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">Egresos del día</div>
+        <div class="egresos-form">
+          <div class="frow">
+            <label>Monto de egresos (S/)</label>
+            <input type="number" min="0" step="0.01" [(ngModel)]="egresosForm" placeholder="0.00">
+          </div>
+          <div class="frow">
+            <label>Comentario</label>
+            <textarea [(ngModel)]="comentarioForm" rows="2" placeholder="Ej: compra de útiles de limpieza"></textarea>
+          </div>
+          <button class="btn-primary" (click)="cerrarCaja()" [disabled]="cerrando">
+            {{ cerrando ? 'Guardando...' : (resumen.cerrado ? 'Actualizar cierre' : 'Cerrar caja del día') }}
+          </button>
+        </div>
+      </div>
+
+    </ng-container>
+
+    <div class="card">
+      <div class="card-hdr">Historial (últimos 30 días)</div>
+      <div class="state-box small" *ngIf="!cargandoHistorial && historial.length === 0">
+        <p>Sin cierres registrados en este rango</p>
+      </div>
+      <table class="data-table" *ngIf="historial.length > 0">
+        <thead>
+          <tr><th>Fecha</th><th>Saldo inicial</th><th>Ingresos</th><th>Egresos</th><th>Saldo final</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of historial">
+            <td>{{ h.fecha | date:'d MMM yyyy' }}</td>
+            <td>S/ {{ h.saldoInicial | number:'1.2-2' }}</td>
+            <td class="txt-success">S/ {{ h.totalIngresos | number:'1.2-2' }}</td>
+            <td class="txt-danger">S/ {{ h.egresos | number:'1.2-2' }}</td>
+            <td class="monto">S/ {{ h.saldoFinal | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

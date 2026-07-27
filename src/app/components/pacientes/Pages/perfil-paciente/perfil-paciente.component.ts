@@ -6,13 +6,15 @@ import { PacienteService } from '../../Services/paciente.service';
 import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CitaService } from '../../../citas/Services/cita.service';
+import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Paciente } from '../../Models/paciente.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
+import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 
-type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'pagos';
+type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos';
 
 @Component({
   selector: 'app-perfil-paciente',
@@ -25,6 +27,7 @@ export class PerfilPacienteComponent implements OnInit {
   paciente: Paciente | null = null;
   tratamientos: Tratamiento[] = [];
   citas: Cita[] = [];
+  atenciones: AtencionClinica[] = [];
   pagos: Pago[] = [];
   tabActivo: TabPerfilKey = 'datos';
 
@@ -37,6 +40,7 @@ export class PerfilPacienteComponent implements OnInit {
     private tratamientoService: TratamientoService,
     private pagoService: PagoService,
     private citaService: CitaService,
+    private atencionService: AtencionClinicaService,
     private toast: ToastService
   ) {}
 
@@ -51,31 +55,34 @@ export class PerfilPacienteComponent implements OnInit {
       paciente:     this.pacienteService.getById(this.pacienteId),
       tratamientos: this.tratamientoService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Tratamiento[]))),
       pagos:        this.pagoService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Pago[]))),
-      citas:        this.citaService.getCitas().pipe(catchError(() => of([] as Cita[]))),
+      citas:        this.citaService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Cita[]))),
     }).subscribe({
       next: ({ paciente, tratamientos, pagos, citas }) => {
         this.paciente     = paciente;
         this.tratamientos = tratamientos;
         this.pagos        = pagos;
-        this.citas        = citas.filter(c =>
-          c.paciente_dni === paciente.dni ||
-          c.paciente_nombre?.toLowerCase() === paciente.nombre.toLowerCase()
-        );
+        this.citas        = citas;
         this.loading = false;
+        this.cargarAtenciones();
       },
       error: () => { this.loading = false; this.toast.error('Error al cargar el perfil'); }
     });
   }
 
+  /** Atenciones registradas para las citas de este paciente (una cita atendida se convierte en atención). */
+  private cargarAtenciones(): void {
+    const citasConId = this.citas.filter(c => c.id);
+    if (citasConId.length === 0) { this.atenciones = []; return; }
+    forkJoin(citasConId.map(c => this.atencionService.getByCita(Number(c.id)).pipe(catchError(() => of(null)))))
+      .subscribe(resultados => {
+        this.atenciones = resultados.filter((a): a is AtencionClinica => a != null);
+      });
+  }
+
   // ── Cálculos ──────────────────────────────────────────────────────────────
 
   get deudaTotal(): number {
-    return this.tratamientos.reduce((acc, t) => {
-      const atendidas = t.sesionesAtendidas ?? 0;
-      const precio    = t.precioPorSesion  ?? 0;
-      const cobrado   = t.totalCobrado     ?? 0;
-      return acc + Math.max(0, atendidas * precio - cobrado);
-    }, 0);
+    return this.tratamientos.reduce((acc, t) => acc + this.deudaTratamiento(t), 0);
   }
 
   get iniciales(): string {
@@ -110,11 +117,11 @@ export class PerfilPacienteComponent implements OnInit {
     return t.estadoNombre ?? '—';
   }
 
+  /** Deuda del paquete: precio total del paquete menos lo ya cobrado (no depende de asistencia). */
   deudaTratamiento(t: Tratamiento): number {
-    const atendidas = t.sesionesAtendidas ?? 0;
-    const precio    = t.precioPorSesion  ?? 0;
-    const cobrado   = t.totalCobrado     ?? 0;
-    return Math.max(0, atendidas * precio - cobrado);
+    const montoTotal = t.montoTotal ?? 0;
+    const cobrado     = t.totalCobrado ?? 0;
+    return Math.max(0, montoTotal - cobrado);
   }
 
   estadoColor(key?: string): string {
@@ -126,6 +133,10 @@ export class PerfilPacienteComponent implements OnInit {
   }
 
   // ── Navegación ────────────────────────────────────────────────────────────
+
+  citaDeAtencion(a: AtencionClinica): Cita | undefined {
+    return this.citas.find(c => Number(c.id) === a.citaId);
+  }
 
   volver(): void { this.router.navigate(['/pacientes']); }
   irTratamiento(id?: number): void { if (id) this.router.navigate(['/tratamientos', id]); }

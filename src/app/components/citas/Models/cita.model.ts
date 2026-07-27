@@ -100,6 +100,8 @@ export interface CrearCitaConPacienteRequest {
   observacion?: string;
   totalSesionesPlan?: number;
   precioPorSesion?: number;
+  /** Id de un tratamiento ya existente del paciente al que enganchar estas citas (sesiones pagadas por adelantado). */
+  tratamientoId?: number | null;
 }
 
 export interface PacienteResumen {

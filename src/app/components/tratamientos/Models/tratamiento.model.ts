@@ -39,13 +39,19 @@ export interface Tratamiento {
   sesionesPendientes?: number;
 }
 
+/** Cuántas sesiones ya tienen cita creada y cuántas de esas están pagadas/pendientes de pago. */
+export interface TratamientoCobertura {
+  sesionesCreadas: number;
+  sesionesPagadas: number;
+  sesionesPendientesPago: number;
+}
+
 export interface TratamientoForm {
   pacienteId: number | null;
   terapeutaId: number | null;
   tipoTerapiaId: number | null;
   estadoTratamientoId: number | null;
   fechaInicio: string;
-  fechaFin: string;
   sesionesTotal: number | null;
   precioPorSesion: number | null;
   notas: string;

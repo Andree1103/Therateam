@@ -2,12 +2,12 @@
 
   <div class="page-header">
     <div class="header-left">
-      <h1>Tratamientos</h1>
-      <p>{{ total }} tratamiento{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
+      <h1>Paquetes</h1>
+      <p>{{ total }} paquete{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
     </div>
     <button class="btn-primary" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nuevo tratamiento
+      Nuevo paquete
     </button>
   </div>
 
@@ -28,12 +28,12 @@
 
       <div class="state-box" *ngIf="loading">
         <div class="spinner"></div>
-        <p>Cargando tratamientos...</p>
+        <p>Cargando paquetes...</p>
       </div>
 
       <div class="state-box" *ngIf="!loading && filtrados.length === 0">
         <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="40" height="40"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-        <p>No se encontraron tratamientos</p>
+        <p>No se encontraron paquetes</p>
         <button class="btn-secondary" (click)="abrirNuevo()">+ Agregar el primero</button>
       </div>
 
@@ -138,7 +138,7 @@
                   </tbody>
                 </table>
                 <p class="ses-empty" *ngIf="!cargandoSes[t.id!] && !sesionesMap[t.id!]?.length">
-                  Sin sesiones registradas para este tratamiento
+                  Sin sesiones registradas para este paquete
                 </p>
               </td>
             </tr>
@@ -153,7 +153,7 @@
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
-        <h2>{{ editando ? 'Editar tratamiento' : 'Nuevo tratamiento' }}</h2>
+        <h2>{{ editando ? 'Editar paquete' : 'Nuevo paquete' }}</h2>
         <button class="modal-close" (click)="cerrarModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -162,14 +162,21 @@
       <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
 
         <div class="frow-2">
-          <div class="frow">
+          <div class="frow autocomplete-wrap">
             <label>Paciente *</label>
-            <select [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacRef="ngModel"
-                    [class.err-input]="pacRef.invalid && pacRef.touched">
-              <option [ngValue]="null">Seleccionar...</option>
-              <option *ngFor="let p of pacientes" [ngValue]="p.id">{{ p.nombre }} {{ p.apellido }}</option>
-            </select>
-            <span class="err-msg" *ngIf="pacRef.invalid && pacRef.touched">Requerido</span>
+            <input type="text" [(ngModel)]="pacienteBusqueda" name="pacienteBusqueda"
+                   (focus)="abrirPacienteDropdown()" (blur)="cerrarPacienteDropdownDiferido()"
+                   (ngModelChange)="formData.pacienteId = null; abrirPacienteDropdown()"
+                   placeholder="Buscar por nombre o DNI..." autocomplete="off"
+                   [class.err-input]="!formData.pacienteId && pacRef.touched">
+            <input type="hidden" [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacRef="ngModel">
+            <div class="autocomplete-dropdown" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length > 0">
+              <div class="autocomplete-item" *ngFor="let p of pacientesFiltrados" (mousedown)="seleccionarPaciente(p)">
+                <span class="ac-nombre">{{ p.nombre }} {{ p.apellido }}</span>
+                <span class="ac-sub" *ngIf="p.dni">DNI {{ p.dni }}</span>
+              </div>
+            </div>
+            <span class="err-msg" *ngIf="!formData.pacienteId && pacRef.touched">Requerido</span>
           </div>
           <div class="frow">
             <label>Terapeuta *</label>
@@ -184,10 +191,10 @@
 
         <div class="frow-2">
           <div class="frow">
-            <label>Tipo de terapia</label>
-            <select [(ngModel)]="formData.tipoTerapiaId" name="tipoTerapiaId">
-              <option [ngValue]="null">Sin tipo</option>
-              <option *ngFor="let tt of tiposTerapia" [ngValue]="tt.id">{{ tt.nombre }}</option>
+            <label>Área</label>
+            <select [(ngModel)]="fAreaId" name="areaId" (ngModelChange)="onAreaChange()">
+              <option [ngValue]="null">Todas las áreas</option>
+              <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
             </select>
           </div>
           <div class="frow">
@@ -199,15 +206,26 @@
           </div>
         </div>
 
-        <div class="frow-2">
-          <div class="frow">
-            <label>Fecha de inicio</label>
-            <input [(ngModel)]="formData.fechaInicio" name="fechaInicio" type="date">
+        <div class="frow autocomplete-wrap">
+          <label>Tipo de terapia</label>
+          <input type="text" [(ngModel)]="tipoBusqueda" name="tipoBusqueda"
+                 (focus)="abrirTipoDropdown()" (blur)="cerrarTipoDropdownDiferido()"
+                 (ngModelChange)="formData.tipoTerapiaId = null; abrirTipoDropdown()"
+                 placeholder="Buscar tipo de terapia..." autocomplete="off">
+          <div class="autocomplete-dropdown" *ngIf="tipoDropdownAbierto && tiposDeArea.length > 0">
+            <div class="autocomplete-item" *ngFor="let t of tiposDeArea" (mousedown)="seleccionarTipo(t)">
+              <span class="ac-nombre">{{ t.nombre }}</span>
+              <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
+            </div>
           </div>
-          <div class="frow">
-            <label>Fecha de fin</label>
-            <input [(ngModel)]="formData.fechaFin" name="fechaFin" type="date">
+          <div class="dur-info" *ngIf="tipoDropdownAbierto && tiposDeArea.length === 0">
+            Sin resultados{{ fAreaId ? ' en esta área' : '' }}.
           </div>
+        </div>
+
+        <div class="frow">
+          <label>Fecha de inicio</label>
+          <input [(ngModel)]="formData.fechaInicio" name="fechaInicio" type="date">
         </div>
 
         <!-- Última sesión programada (solo edición) -->
@@ -237,13 +255,13 @@
 
         <div class="frow">
           <label>Notas</label>
-          <textarea [(ngModel)]="formData.notas" name="notas" rows="2" placeholder="Observaciones del tratamiento..."></textarea>
+          <textarea [(ngModel)]="formData.notas" name="notas" rows="2" placeholder="Observaciones del paquete..."></textarea>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn-primary" [disabled]="guardando || form.invalid">
-            {{ guardando ? 'Guardando...' : (editando ? 'Actualizar' : 'Crear tratamiento') }}
+            {{ guardando ? 'Guardando...' : (editando ? 'Actualizar' : 'Crear paquete') }}
           </button>
         </div>
 
@@ -255,14 +273,14 @@
   <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
-        <h2>Eliminar tratamiento</h2>
+        <h2>Eliminar paquete</h2>
         <button class="modal-close" (click)="cerrarEliminar()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <p class="confirm-msg">
-          ¿Eliminar el tratamiento de <strong>{{ pacienteNombre(tratamientoAEliminar!) }}</strong>?
+          ¿Eliminar el paquete de <strong>{{ pacienteNombre(tratamientoAEliminar!) }}</strong>?
           Esta acción no se puede deshacer.
         </p>
       </div>
