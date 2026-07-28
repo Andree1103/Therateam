@@ -265,6 +265,8 @@ tbody tr{height:var(--slot-h)}
 .btn-primary-at:disabled{opacity:.6;cursor:not-allowed}
 .btn-atencion{padding:4px 10px;border:1px solid #16a34a40;border-radius:6px;background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;white-space:nowrap}
 .btn-atencion:hover{background:#dcfce7}
+.btn-atencion:disabled{opacity:.5;cursor:not-allowed;background:#f8fafc;color:#94a3b8;border-color:#e2e8f0}
+.btn-atencion:disabled:hover{background:#f8fafc}
 
 /* ── HOVER CARD ─────────────────────────────────────────────────────────── */
 .chip-hover-card{position:fixed;width:240px;max-height:340px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:150;padding:10px 12px;pointer-events:all;animation:hcFade .12s ease}
@@ -280,10 +282,14 @@ tbody tr{height:var(--slot-h)}
 .hc-footer{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;flex-wrap:wrap}
 .hc-btn-edit{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#374151;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .hc-btn-at{padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;color:#15803d;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.hc-btn-at:disabled{opacity:.5;cursor:not-allowed;background:#f8fafc;color:#94a3b8;border-color:#e2e8f0}
 .hc-btn-pagar{padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
 .hc-pago-form{margin-top:8px;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+.hc-pago-deuda{font-size:10.5px;color:#64748b;margin-bottom:6px}
+.hc-pago-deuda strong{color:#dc2626}
 .hc-pago-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
 .hc-pago-monto-display{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.hc-pago-monto-input{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
 .hc-pago-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
 .hc-pago-valor{font-size:14px;font-weight:700;color:#185FA5}
 .hc-pago-loading{font-size:11px;color:#94a3b8;font-style:italic}
@@ -318,6 +324,29 @@ tbody tr{height:var(--slot-h)}
 .bulk-dias{display:flex;gap:6px;flex-wrap:wrap}
 .bulk-dia-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1.5px solid #cbd5e1;border-radius:8px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;user-select:none;transition:all .15s}
 .bulk-dia-btn.activo{background:#185FA5;border-color:#185FA5;color:#fff}
+.bulk-dias-grid{display:flex;flex-direction:column;gap:6px}
+.bulk-dia-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 10px;border:1.5px solid #e2e8f2;border-radius:10px;background:#fff;
+  cursor:pointer;user-select:none;transition:border-color .15s,background .15s,box-shadow .15s;
+}
+.bulk-dia-row:hover{border-color:#93c5fd}
+.bulk-dia-row.activo{border-color:#185FA5;background:#f0f7ff;box-shadow:0 1px 2px rgba(24,95,165,.08)}
+.bulk-dia-check{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0}
+.bulk-dia-check input[type="checkbox"]{width:16px;height:16px;cursor:pointer;accent-color:#185FA5;flex-shrink:0}
+.bulk-dia-badge{
+  display:flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;
+  border-radius:7px;background:#eef2f7;color:#64748b;font-size:11px;font-weight:800;
+  transition:background .15s,color .15s;
+}
+.bulk-dia-row.activo .bulk-dia-badge{background:#185FA5;color:#fff}
+.bulk-dia-nombre{font-size:12.5px;font-weight:600;color:#475569}
+.bulk-dia-row.activo .bulk-dia-nombre{color:#0f172a}
+.bulk-dia-hora{
+  flex-shrink:0;padding:6px 10px;border:1px solid #bfdbfe;border-radius:7px;
+  font-size:12.5px;font-weight:600;color:#185FA5;background:#fff;font-family:inherit;
+}
+.bulk-dia-off{flex-shrink:0;font-size:11.5px;color:#b6bfcc;font-style:italic}
 .num-inp{width:100%;padding:7px 10px;border:0.5px solid #e2e8f2;border-radius:8px;font-size:13px;background:#f8fafc;color:#111827;font-family:inherit}
 .bulk-preview{background:#fff;border:1px solid #bae6fd;border-radius:8px;padding:10px 12px;margin-top:4px}
 .bp-title{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#0369a1;margin-bottom:8px}
@@ -338,6 +367,15 @@ tbody tr{height:var(--slot-h)}
 .bulk-pago-ctrl{margin-top:10px}
 .pago-total-lbl{font-size:14px;font-weight:700;color:#185FA5;padding:7px 10px;background:#fff;border:0.5px solid #e2e8f2;border-radius:8px;display:block}
 .pago-hint{font-size:11px;color:#6b7280;margin-top:8px;line-height:1.4}
+
+.paquete-banner{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:12px;
+  background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e40af;
+  cursor:pointer;transition:background .15s;
+}
+.paquete-banner:hover{background:#dbeafe}
+.paquete-banner-txt{flex:1;font-size:12px;line-height:1.4}
+.paquete-banner-link{font-size:11px;font-weight:700;white-space:nowrap}
 .tratamiento-cobertura{font-size:11px;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;margin-top:6px;line-height:1.4}
 .edit-pago-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px}
 .edit-pago-hdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}

@@ -35,6 +35,7 @@ export class CitaService {
         max_pacientes:    t.maxPacientes    ?? t.max_pacientes    ?? 1,
         area_id:          t.area?.id ?? null,
         area_nombre:      t.area?.nombre ?? null,
+        precio_recomendado: t.precioRecomendado ?? null,
       } as TipoTerapia))),
       catchError(() => of([
         { id: 'CONVENCIONAL', nombre: 'Convencional', duracion_minutos: 45, max_pacientes: 2 },
@@ -155,6 +156,7 @@ export class CitaService {
     if (req.sesion_id)     body['sesion']     = { id: req.sesion_id };
     if (req.estado_id)     body['estado']     = { id: req.estado_id };
     if (req.modalidad_id)  body['modalidad']  = { id: req.modalidad_id };
+    if (req.tipo_recurrencia) body['tipoRecurrencia'] = req.tipo_recurrencia;
     return body;
   }
 
@@ -190,6 +192,13 @@ export class CitaService {
       estado_pago_key:     dto.estado_pago_key,
       estado_pago_nombre:  dto.estado_pago_nombre,
       estado_pago_color:   dto.estado_pago_color,
+      tipo_recurrencia:    (dto.tipo_recurrencia as Cita['tipo_recurrencia']) ?? 'EVENTUAL',
+      precio:              dto.precio ?? null,
+      monto_pagado:        dto.monto_pagado ?? 0,
+      numero_sesion:       dto.numero_sesion ?? null,
+      total_sesiones:      dto.total_sesiones ?? null,
+      tratamiento_id:      dto.tratamiento_id ?? null,
+      tratamiento_nombre:  dto.tratamiento_nombre ?? null,
     };
   }
 

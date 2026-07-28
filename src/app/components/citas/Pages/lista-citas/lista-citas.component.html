@@ -107,6 +107,8 @@
                     </div>
                     <button class="btn-atencion"
                             *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA'"
+                            [disabled]="c.estado_pago_key !== 'PAGADA'"
+                            [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
                             (click)="abrirAtencion(c, $event)">
                       Registrar atención
                     </button>
@@ -149,13 +151,22 @@
                     </div>
                     <!-- Mini-formulario de pago inline -->
                     <div class="hc-pago-form" *ngIf="citaPagandoId === c.id" (click)="$event.stopPropagation()">
+                      <div class="hc-pago-deuda" *ngIf="!pagoEsPaquete && pagoPrecioCita > 0">
+                        Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
+                        Pagado S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }} ·
+                        <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>
+                      </div>
                       <div class="hc-pago-row">
-                        <div class="hc-pago-monto-display">
+                        <div class="hc-pago-monto-display" *ngIf="pagoEsPaquete">
                           <span class="hc-pago-lbl">Monto a cobrar</span>
                           <span *ngIf="pagoMontoCargando" class="hc-pago-loading">Cargando...</span>
                           <span *ngIf="!pagoMontoCargando" class="hc-pago-valor">
                             S/ {{ pagoMonto | number:'1.2-2' }}
                           </span>
+                        </div>
+                        <div class="hc-pago-monto-input" *ngIf="!pagoEsPaquete">
+                          <span class="hc-pago-lbl">Monto a pagar (adelanto u total)</span>
+                          <input type="number" min="0" step="0.01" [(ngModel)]="pagoMonto" class="hc-pago-inp" placeholder="0.00">
                         </div>
                         <select class="hc-pago-sel" [(ngModel)]="pagoMetodoId">
                           <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
@@ -180,6 +191,8 @@
                       </button>
                       <button class="hc-btn-at"
                               *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO'"
+                              [disabled]="c.estado_pago_key !== 'PAGADA'"
+                              [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
                               (click)="abrirAtencion(c, $event)">Registrar atención</button>
                     </div>
                   </div>
@@ -329,6 +342,18 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
             Programar grupo ({{ bulkPreview.length }} sesiones)
           </button>
+        </div>
+
+        <!-- Cita ligada a un paquete: aviso + qué sesión ocupa -->
+        <div class="paquete-banner" *ngIf="citaEditando && citaEditando.sesion_id" (click)="irAPaquete()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+          <span class="paquete-banner-txt">
+            Esta cita es parte del paquete <strong>{{ citaEditando.tratamiento_nombre || ('#' + citaEditando.tratamiento_id) }}</strong>
+            <ng-container *ngIf="citaEditando.numero_sesion && citaEditando.total_sesiones">
+              — sesión <strong>{{ citaEditando.numero_sesion }} de {{ citaEditando.total_sesiones }}</strong>
+            </ng-container>
+          </span>
+          <span class="paquete-banner-link">Ver paquete →</span>
         </div>
 
         <!-- Área — determina qué tipos de terapia se pueden elegir -->
@@ -531,12 +556,36 @@
           </div>
         </div>
 
+        <!-- Tipo de cita: fijo / eventual / solo por hoy -->
+        <div class="frow">
+          <label>Tipo de cita</label>
+          <div class="modalidad-opts">
+            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'FIJO'">
+              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="FIJO" style="display:none">
+              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.7V12a4 4 0 0 1 4-4h14"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.3V12a4 4 0 0 1-4 4H3"/></svg></span>
+              Fijo
+            </label>
+            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'EVENTUAL'">
+              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="EVENTUAL" style="display:none">
+              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+              Eventual
+            </label>
+            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'SOLO_HOY'">
+              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="SOLO_HOY" style="display:none">
+              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              Solo por hoy
+            </label>
+          </div>
+          <p class="pago-hint" *ngIf="fTipoRecurrencia === 'FIJO'">Horario recurrente permanente del paciente.</p>
+          <p class="pago-hint" *ngIf="fTipoRecurrencia === 'SOLO_HOY'">Cita única, sin intención de repetirse.</p>
+        </div>
+
         <!-- ── FECHA Y HORA (time picker libre) ─────────────────────── -->
         <div *ngIf="modoProgramacion === 'single'">
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
-              <input type="date" [(ngModel)]="fFecha" (ngModelChange)="onDatosCitaChange()" class="date-inp">
+              <input type="date" [(ngModel)]="fFecha" [min]="hoyISO" (ngModelChange)="onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora inicio <span class="opc-tag">libre</span></label>
@@ -562,32 +611,35 @@
             Programar sesiones recurrentes
           </div>
 
-          <div class="frow-2">
-            <div class="frow">
-              <label>Fecha inicio</label>
-              <input type="date" [(ngModel)]="bulkFechaInicio" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="date-inp">
-            </div>
-            <div class="frow">
-              <label>Hora</label>
-              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="time-inp">
-            </div>
+          <div class="frow">
+            <label>Fecha inicio</label>
+            <input type="date" [(ngModel)]="bulkFechaInicio" [min]="hoyISO" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="date-inp">
           </div>
 
           <div class="frow">
-            <label>Días de la semana</label>
-            <div class="bulk-dias">
-              <label class="bulk-dia-btn" *ngFor="let dia of DIAS_ABR; let i = index"
-                     [class.activo]="bulkDias[i]">
-                <input type="checkbox" [(ngModel)]="bulkDias[i]" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" style="display:none">
-                {{ dia }}
+            <label>Días de la semana <span class="opc-tag">hora individual por día</span></label>
+            <div class="bulk-dias-grid">
+              <label class="bulk-dia-row" *ngFor="let dia of DIAS_NOM; let i = index" [class.activo]="bulkDias[i]">
+                <span class="bulk-dia-check">
+                  <input type="checkbox" [(ngModel)]="bulkDias[i]" (ngModelChange)="onBulkDiaToggle(i)">
+                  <span class="bulk-dia-badge">{{ DIAS_ABR[i] }}</span>
+                  <span class="bulk-dia-nombre">{{ dia }}</span>
+                </span>
+                <input type="time" *ngIf="bulkDias[i]" [(ngModel)]="bulkHoras[i]" (click)="$event.stopPropagation()"
+                       (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="bulk-dia-hora">
+                <span class="bulk-dia-off" *ngIf="!bulkDias[i]">Sin sesión</span>
               </label>
             </div>
           </div>
 
           <div class="frow">
             <label>Número de sesiones (máx.)</label>
-            <input type="number" [(ngModel)]="bulkSesiones" min="1" max="52"
+            <input type="number" [(ngModel)]="bulkSesiones" min="1"
+                   [max]="cuposDisponiblesTratamiento ?? 52"
                    (ngModelChange)="calcularBulkDates()" class="num-inp" placeholder="10">
+            <div class="dur-info" *ngIf="cuposDisponiblesTratamiento !== null">
+              🔒 El paquete seleccionado solo tiene <strong>{{ cuposDisponiblesTratamiento }}</strong> cupo{{ cuposDisponiblesTratamiento === 1 ? '' : 's' }} libre{{ cuposDisponiblesTratamiento === 1 ? '' : 's' }} (sesiones sin cita creada aún).
+            </div>
           </div>
 
           <!-- Duración -->
@@ -704,13 +756,22 @@
             </button>
           </div>
           <div class="hc-pago-form" *ngIf="citaPagandoId === citaEditando.id">
+            <div class="hc-pago-deuda" *ngIf="!pagoEsPaquete && pagoPrecioCita > 0">
+              Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
+              Pagado S/ {{ (citaEditando.monto_pagado ?? 0) | number:'1.2-2' }} ·
+              <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>
+            </div>
             <div class="hc-pago-row">
-              <div class="hc-pago-monto-display">
+              <div class="hc-pago-monto-display" *ngIf="pagoEsPaquete">
                 <span class="hc-pago-lbl">Monto a cobrar</span>
                 <span *ngIf="pagoMontoCargando" class="hc-pago-loading">Cargando...</span>
                 <span *ngIf="!pagoMontoCargando" class="hc-pago-valor">
                   S/ {{ pagoMonto | number:'1.2-2' }}
                 </span>
+              </div>
+              <div class="hc-pago-monto-input" *ngIf="!pagoEsPaquete">
+                <span class="hc-pago-lbl">Monto a pagar (adelanto u total)</span>
+                <input type="number" min="0" step="0.01" [(ngModel)]="pagoMonto" class="hc-pago-inp" placeholder="0.00">
               </div>
               <select class="hc-pago-sel" [(ngModel)]="pagoMetodoId">
                 <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>

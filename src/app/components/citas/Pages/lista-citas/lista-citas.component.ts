@@ -92,6 +92,9 @@ export class ListaCitasComponent implements OnInit {
   fDur = 45;
   fObs = '';
 
+  // ── Tipo de recurrencia ─────────────────────────────────────────────────────
+  fTipoRecurrencia: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY' = 'EVENTUAL';
+
   // ── Precio / pago ────────────────────────────────────────────────────────
   fPrecio: number | null = null;
   fPagado = false;
@@ -100,6 +103,7 @@ export class ListaCitasComponent implements OnInit {
   // ── Programación múltiple ─────────────────────────────────────────────────
   modoProgramacion: 'single' | 'multiple' = 'single';
   bulkDias = [true, false, true, false, true, false, false]; // L M X J V S D
+  bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00']; // hora individual por día (L..D)
   bulkSesiones = 10;
   bulkFechaInicio = '';
   bulkPreview: Date[] = [];
@@ -111,6 +115,10 @@ export class ListaCitasComponent implements OnInit {
   pagoMetodoId: number | null = null;
   pagoTratamientoId: number | null = null;
   pagoSaldoPrevio: number = 0;
+  /** true si la cita en pago está ligada a un paquete (se paga contra el tratamiento); false = cita suelta (adelantos contra cita.precio). */
+  pagoEsPaquete = false;
+  pagoPrecioCita = 0;
+  pagoDeudaRestante = 0;
   pagoMontoCargando = false;
   guardandoPago = false;
 
@@ -150,6 +158,8 @@ export class ListaCitasComponent implements OnInit {
 
   /** Tipos de terapia del área seleccionada en el modal — reemplaza las pestañas fijas Regular/Kids/Consultas. */
   get tiposDeArea(): TipoTerapia[] { return this.tiposTerapia.filter(t => t.area_id === this.fAreaId); }
+  /** Fecha de hoy en formato ISO (yyyy-MM-dd) — usada como mínimo en los date-pickers para no permitir fechas pasadas. */
+  get hoyISO(): string { return this.fechaToISO(new Date()); }
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
 
@@ -161,6 +171,13 @@ export class ListaCitasComponent implements OnInit {
    * el miércoles siguiente porque el día de inicio no está seleccionado).
    */
   get terapeutasDisponiblesModal(): Terapeuta[] {
+    // Con un paquete seleccionado, el terapeuta ya viene fijado por el paquete (campo bloqueado
+    // más abajo) — no tiene sentido filtrarlo por disponibilidad de horario: siempre debe aparecer
+    // esa única opción para que el <select disabled> pueda mostrar su valor en vez de quedar vacío.
+    if (this.fTratamientoExistenteId !== null) {
+      return this.terapeutas.filter(t => terapeutaNombre(t) === this.fTer);
+    }
+
     let inicio: Date;
     if (this.modoProgramacion === 'multiple') {
       if (this.bulkPreview.length === 0) return this.terapeutas;
@@ -479,24 +496,34 @@ export class ListaCitasComponent implements OnInit {
     this.pagoSaldoPrevio   = 0;
     this.pagoMetodoId      = this.metodosPago[0]?.id ?? null;
     this.guardandoPago     = false;
-    this.pagoMontoCargando = true;
+    this.pagoEsPaquete     = !!cita.sesion_id;
 
-    const pacienteId = Number(cita.paciente_id);
-    if (pacienteId) {
-      this.tratamientoService.getByPaciente(pacienteId).subscribe({
-        next: ts => {
-          const t = ts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
-          if (t) {
-            this.pagoMonto         = t.precioPorSesion ?? null;
-            this.pagoTratamientoId = t.id ?? null;
-            this.pagoSaldoPrevio   = t.saldoAFavor ?? 0;
-          }
-          this.pagoMontoCargando = false;
-        },
-        error: () => { this.pagoMontoCargando = false; }
-      });
+    if (this.pagoEsPaquete) {
+      // Cita ligada a un paquete: se paga contra el tratamiento (precio fijo por sesión).
+      this.pagoMontoCargando = true;
+      const pacienteId = Number(cita.paciente_id);
+      if (pacienteId) {
+        this.tratamientoService.getByPaciente(pacienteId).subscribe({
+          next: ts => {
+            const t = ts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+            if (t) {
+              this.pagoMonto         = t.precioPorSesion ?? null;
+              this.pagoTratamientoId = t.id ?? null;
+              this.pagoSaldoPrevio   = t.saldoAFavor ?? 0;
+            }
+            this.pagoMontoCargando = false;
+          },
+          error: () => { this.pagoMontoCargando = false; }
+        });
+      } else {
+        this.pagoMontoCargando = false;
+      }
     } else {
+      // Cita suelta: se puede pagar completo o en adelantos contra cita.precio.
       this.pagoMontoCargando = false;
+      this.pagoPrecioCita    = cita.precio ?? 0;
+      this.pagoDeudaRestante = Math.max(0, this.pagoPrecioCita - (cita.monto_pagado ?? 0));
+      this.pagoMonto         = this.pagoDeudaRestante > 0 ? this.pagoDeudaRestante : null;
     }
   }
 
@@ -506,31 +533,43 @@ export class ListaCitasComponent implements OnInit {
     if (!this.pagoMonto || this.pagoMonto <= 0) {
       this.toast.warning('Ingresa un monto válido'); return;
     }
-    if (!this.pagoTratamientoId) {
-      this.toast.error('No se encontró tratamiento para este paciente'); return;
+    if (this.pagoEsPaquete && !this.pagoTratamientoId) {
+      this.toast.error('No se encontró paquete para este paciente'); return;
     }
     const pacienteId = Number(cita.paciente_id);
     const citaId     = Number(cita.id);
     if (!pacienteId || !citaId) return;
 
+    if (!this.pagoEsPaquete && !this.pagoPrecioCita) {
+      this.toast.error('Esta cita no tiene un precio definido — edítala para fijar un precio antes de cobrar'); return;
+    }
+
     this.guardandoPago = true;
     const body: any = {
-      tratamiento:   { id: this.pagoTratamientoId },
       paciente:      { id: pacienteId },
       cita:          { id: citaId },
       montoRecibido: this.pagoMonto,
       montoAplicado: this.pagoMonto,
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
-      notas:         'Pago por cita individual',
+      notas:         this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta',
     };
+    if (this.pagoEsPaquete) body.tratamiento = { id: this.pagoTratamientoId };
     if (this.pagoMetodoId) body.metodo = { id: this.pagoMetodoId };
     this.pagoService.create(body).subscribe({
       next: () => {
-        this.toast.success('Pago registrado — cita marcada como pagada');
+        this.toast.success('Pago registrado correctamente');
         this.citaPagandoId = null;
         this.guardandoPago = false;
         this.recargarSilencioso();
+        // `citaEditando` es una copia separada de `citas` — si no se resincroniza tras el pago,
+        // el modal sigue mostrando el estado_pago viejo (ej. SIN_PAGO) y el botón "Registrar pago"
+        // reaparece, invitando a pagar de nuevo la misma cita por error.
+        if (this.citaEditando?.id === cita.id) {
+          this.citaService.getCitaById(cita.id).subscribe(actualizada => {
+            if (this.citaEditando?.id === cita.id) this.citaEditando = actualizada;
+          });
+        }
       },
       error: () => { this.toast.error('Error al registrar el pago'); this.guardandoPago = false; }
     });
@@ -763,6 +802,10 @@ export class ListaCitasComponent implements OnInit {
     const tipo = this.tipoSeleccionado;
     if (tipo && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
     if (tipo && !this.esMultipaciente) this.pac2habilitado = false;
+    // Precio sugerido para citas sueltas (sin paquete) — solo un default, sigue siendo editable.
+    if (tipo?.precio_recomendado != null && this.fTratamientoExistenteId === null) {
+      this.fPrecio = tipo.precio_recomendado;
+    }
     this.onDatosCitaChange();
   }
 
@@ -858,9 +901,19 @@ export class ListaCitasComponent implements OnInit {
     return Math.floor((t.totalCobrado ?? 0) / t.precioPorSesion);
   }
 
+  /** Cupos que quedan libres en el paquete seleccionado (sesiones totales - sesiones que ya tienen cita creada). Null = sin paquete, sin límite. */
+  get cuposDisponiblesTratamiento(): number | null {
+    const t = this.tratamientoExistenteSeleccionado;
+    if (!t) return null;
+    const cob = this.coberturaDe(t);
+    const creadas = cob?.sesionesCreadas ?? 0;
+    const total = t.totalSesiones ?? 0;
+    return Math.max(0, total - creadas);
+  }
+
   onTratamientoExistenteChange(): void {
     const t = this.tratamientoExistenteSeleccionado;
-    if (!t) return;
+    if (!t) { this.calcularBulkDates(); return; }
 
     // El tratamiento ya define área/tipo/terapeuta/precio — se sincronizan y se bloquean
     // en el formulario (más abajo, con [disabled]) para que no queden desalineados.
@@ -871,6 +924,11 @@ export class ListaCitasComponent implements OnInit {
     }
     if (t.terapeutaNombre) this.fTer = t.terapeutaNombre;
     this.fPrecio = t.precioPorSesion ?? null;
+
+    // El paquete no puede generar más citas que cupos le quedan libres.
+    const cupos = this.cuposDisponiblesTratamiento;
+    if (cupos !== null && this.bulkSesiones > cupos) this.bulkSesiones = cupos;
+    this.calcularBulkDates();
 
     // Ya viene pagado por adelantado: el backend marca PAGADA sola las sesiones ya cubiertas
     // por lo cobrado. Ajustamos el default de cobro aquí solo para no pedirle de más a recepción.
@@ -917,12 +975,18 @@ export class ListaCitasComponent implements OnInit {
     this.fHoraInicio = `${String(ini.getHours()).padStart(2,'0')}:${String(ini.getMinutes()).padStart(2,'0')}`;
     this.fDur       = cita.duracion_minutos;
     this.fObs       = cita.observacion ?? cita.notas_previas ?? '';
+    this.fTipoRecurrencia = cita.tipo_recurrencia ?? 'EVENTUAL';
     this.fAreaId    = this.tiposTerapia.find(t => t.id === this.fTipoId)?.area_id ?? null;
     this.modoProgramacion = 'single';
     this.modalAbierto = true;
   }
 
   cerrarModal(): void { this.modalAbierto = false; this.citaEditando = null; }
+
+  irAPaquete(): void {
+    const id = this.citaEditando?.tratamiento_id;
+    if (id) { this.cerrarModal(); this.router.navigate(['/tratamientos', id]); }
+  }
 
   resetForm(): void {
     this.pac1 = this.emptyPac();
@@ -940,11 +1004,13 @@ export class ListaCitasComponent implements OnInit {
     this.fEstKey    = this.estadosCita[0]?.key  ?? 'PROGRAMADA';
     this.fModalidad = this.modalidades[0]?.key  ?? 'PRESENCIAL';
     this.fObs       = '';
-    this.fPrecio    = null;
+    this.fTipoRecurrencia = 'EVENTUAL';
+    this.fPrecio    = primerTipo?.precio_recomendado ?? null;
     this.fPagado    = false;
     this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
     this.modoProgramacion = 'single';
     this.bulkDias   = [true, false, true, false, true, false, false];
+    this.bulkHoras  = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
     this.bulkSesiones        = 10;
     this.bulkFechaInicio     = this.fechaToISO(hoy);
     this.bulkPreview         = [];
@@ -954,14 +1020,25 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Programación múltiple ──────────────────────────────────────────────────
 
+  /** Al activar un día, si no tenía hora propia asignada la hereda de "Hora inicio" como default editable. */
+  onBulkDiaToggle(i: number): void {
+    if (this.bulkDias[i] && !this.bulkHoras[i]) this.bulkHoras[i] = this.fHoraInicio || '08:00';
+    this.calcularBulkDates();
+    this.onDatosCitaChange();
+  }
+
   calcularBulkDates(): void {
     this.bulkPreview = [];
-    if (!this.bulkFechaInicio || !this.fHoraInicio) return;
+
+    // El paquete seleccionado (si hay) limita cuántas citas nuevas se pueden crear.
+    const cupos = this.cuposDisponiblesTratamiento;
+    if (cupos !== null && this.bulkSesiones > cupos) this.bulkSesiones = cupos;
+
+    if (!this.bulkFechaInicio) return;
     const diasActivos = this.bulkDias.map((v, i) => v ? i : -1).filter(i => i >= 0);
     if (diasActivos.length === 0 || this.bulkSesiones < 1) return;
 
     const [y, mo, d] = this.bulkFechaInicio.split('-').map(Number);
-    const [fH, fM]   = this.fHoraInicio.split(':').map(Number);
 
     let cursor = new Date(y, mo - 1, d);
     let count = 0;
@@ -971,6 +1048,7 @@ export class ListaCitasComponent implements OnInit {
       tries++;
       const dow = (cursor.getDay() + 6) % 7; // 0=Lunes … 6=Domingo
       if (diasActivos.includes(dow)) {
+        const [fH, fM] = (this.bulkHoras[dow] || this.fHoraInicio || '08:00').split(':').map(Number);
         const date = new Date(cursor);
         date.setHours(fH, fM, 0, 0);
         this.bulkPreview.push(date);
@@ -993,6 +1071,13 @@ export class ListaCitasComponent implements OnInit {
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
     if (!this.fFecha || !this.fHoraInicio) { this.toast.warning('Selecciona fecha y hora'); return; }
+
+    if (!this.citaEditando) {
+      const chequear = this.modoProgramacion === 'multiple' ? this.bulkPreview : [this.parseFechaHora(this.fFecha, this.fHoraInicio)];
+      if (chequear.some(f => f < new Date())) {
+        this.toast.warning('No se pueden crear citas en una fecha u hora que ya pasó'); return;
+      }
+    }
 
     if (this.modoProgramacion === 'multiple' && !this.citaEditando) {
       this.guardarBulk(); return;
@@ -1052,6 +1137,7 @@ export class ListaCitasComponent implements OnInit {
         paciente_telefono: this.pac1.telefono || undefined,
         paciente_correo:   this.pac1.correo   || undefined,
         observacion:       this.fObs || undefined,
+        tipo_recurrencia:  this.fTipoRecurrencia,
       };
       this.citaService.actualizarCitaLocal(this.citaEditando.id, req).subscribe({
         next: () => {
@@ -1084,6 +1170,7 @@ export class ListaCitasComponent implements OnInit {
         totalSesionesPlan: 1,
         precioPorSesion:   this.fPrecio ?? 0,
         tratamientoId:     this.fTratamientoExistenteId,
+        tipoRecurrencia:   this.fTipoRecurrencia,
       };
 
       this.citaService.crearConPaciente(req).subscribe({
@@ -1139,6 +1226,7 @@ export class ListaCitasComponent implements OnInit {
         fechaInicio:     this.toLocalDT(fecha),
         duracionMinutos: dur,
         estadoKey:       this.fEstKey,
+        tipoRecurrencia: this.fTipoRecurrencia,
         modalidadKey:    this.fModalidad,
         observacion:     this.fObs || undefined,
         totalSesionesPlan: total,
@@ -1199,6 +1287,9 @@ export class ListaCitasComponent implements OnInit {
 
   abrirAtencion(cita: Cita, e: Event): void {
     e.stopPropagation();
+    if (cita.estado_pago_key !== 'PAGADA') {
+      this.toast.warning('La cita debe estar pagada por completo para registrar atención'); return;
+    }
     this.citaParaAtencion = cita;
     this.atencionNotas    = cita.notas_previas ?? '';
     this.atencionMetricas = METRICAS_DEFAULT.map(m => ({ ...m }));

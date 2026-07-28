@@ -5,6 +5,7 @@ export interface TipoTerapia {
   max_pacientes: number;
   area_id?: number | null;   // área del terapeuta requerida para este tipo (ej: Física, Kids, Consultas Médicas)
   area_nombre?: string | null;
+  precio_recomendado?: number | null;   // precio sugerido para una cita suelta (fuera de paquete) de este tipo
 }
 
 export interface Cita {
@@ -40,6 +41,13 @@ export interface Cita {
   estado_pago_key?: string;
   estado_pago_nombre?: string;
   estado_pago_color?: string;
+  tipo_recurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
+  precio?: number | null;
+  monto_pagado?: number | null;
+  numero_sesion?: number | null;
+  total_sesiones?: number | null;
+  tratamiento_id?: number | null;
+  tratamiento_nombre?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -77,6 +85,7 @@ export interface CrearCitaLocalRequest {
   tipo_key: string;
   tipo_nombre: string;
   observacion?: string;
+  tipo_recurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
 }
 
 export interface PacienteEnCita {
@@ -102,6 +111,8 @@ export interface CrearCitaConPacienteRequest {
   precioPorSesion?: number;
   /** Id de un tratamiento ya existente del paciente al que enganchar estas citas (sesiones pagadas por adelantado). */
   tratamientoId?: number | null;
+  /** Clasificación de la cita: FIJO (horario recurrente permanente), EVENTUAL (ocasional) o SOLO_HOY (única vez). */
+  tipoRecurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
 }
 
 export interface PacienteResumen {
@@ -153,4 +164,11 @@ export interface CitaApiDTO {
   estado_pago_key?: string;
   estado_pago_nombre?: string;
   estado_pago_color?: string;
+  tipo_recurrencia?: string;
+  precio?: number | null;
+  monto_pagado?: number | null;
+  numero_sesion?: number | null;
+  total_sesiones?: number | null;
+  tratamiento_id?: number | null;
+  tratamiento_nombre?: string | null;
 }
