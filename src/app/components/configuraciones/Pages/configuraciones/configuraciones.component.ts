@@ -58,16 +58,19 @@ export class ConfiguracionesComponent implements OnInit {
   formDuracion       = 60;
   formMaxPacientes   = 1;
   formAreaId: number | null = null;
-  formEspecialidad   = '';
+  formEspecialidadId: number | null = null;
   formSesiones: number | null = null;
   formComentario     = '';
   formPrecioRecomendado: number | null = null;
   // Plantillas de paquete
   formCategoria      = '';
+  formTipoTerapiaId: number | null = null;
   formTotalSesiones: number | null = null;
   formPrecioTotal: number | null = null;
 
   areas: CatalogItem[] = [];
+  especialidades: CatalogItem[] = [];
+  tiposTerapia: CatalogItem[] = [];
   filtroAreaTerapia: number | null = null;
 
   get esEstado()  { return this.tabActivo.tipo === 'estado'; }
@@ -99,6 +102,14 @@ export class ConfiguracionesComponent implements OnInit {
       next: d => this.areas = d,
       error: () => {}
     });
+    this.api.get<CatalogItem[]>('/api/cat-especialidades').subscribe({
+      next: d => this.especialidades = d,
+      error: () => {}
+    });
+    this.api.get<CatalogItem[]>('/api/tipos-terapia').subscribe({
+      next: d => this.tiposTerapia = d,
+      error: () => {}
+    });
   }
 
   seleccionarTab(tab: CatalogoTab): void {
@@ -127,11 +138,12 @@ export class ConfiguracionesComponent implements OnInit {
     this.formDuracion  = 60;
     this.formMaxPacientes = 1;
     this.formAreaId    = null;
-    this.formEspecialidad = '';
+    this.formEspecialidadId = null;
     this.formSesiones  = null;
     this.formComentario = '';
     this.formPrecioRecomendado = null;
     this.formCategoria = '';
+    this.formTipoTerapiaId = null;
     this.formTotalSesiones = null;
     this.formPrecioTotal = null;
     this.modalAbierto  = true;
@@ -149,11 +161,12 @@ export class ConfiguracionesComponent implements OnInit {
     this.formDuracion     = item.duracionMinutos ?? 60;
     this.formMaxPacientes = item.maxPacientes    ?? 1;
     this.formAreaId       = item.area?.id ?? null;
-    this.formEspecialidad = item.especialidad || '';
+    this.formEspecialidadId = item.especialidad?.id ?? null;
     this.formSesiones     = item.sesionesSugeridas ?? null;
     this.formComentario   = item.comentario || '';
     this.formPrecioRecomendado = item.precioRecomendado ?? null;
     this.formCategoria      = item.categoria || '';
+    this.formTipoTerapiaId  = item.tipoTerapia?.id ?? null;
     this.formTotalSesiones  = item.totalSesiones ?? null;
     this.formPrecioTotal    = item.precioTotal ?? null;
     this.modalAbierto     = true;
@@ -215,12 +228,14 @@ export class ConfiguracionesComponent implements OnInit {
       base['duracionMinutos']   = this.formDuracion;
       base['maxPacientes']      = this.formMaxPacientes;
       base['area']              = this.formAreaId ? { id: this.formAreaId } : null;
-      base['especialidad']      = this.formEspecialidad || null;
+      base['especialidad']      = this.formEspecialidadId ? { id: this.formEspecialidadId } : null;
       base['sesionesSugeridas'] = this.formSesiones || null;
       base['comentario']        = this.formComentario || null;
       base['precioRecomendado'] = this.formPrecioRecomendado || null;
     } else if (this.esPaquete) {
       base['categoria']      = this.formCategoria || null;
+      base['especialidad']   = this.formEspecialidadId ? { id: this.formEspecialidadId } : null;
+      base['tipoTerapia']    = this.formTipoTerapiaId ? { id: this.formTipoTerapiaId } : null;
       base['totalSesiones']  = this.formTotalSesiones;
       base['precioTotal']    = this.formPrecioTotal;
     }

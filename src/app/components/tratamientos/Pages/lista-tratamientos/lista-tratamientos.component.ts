@@ -6,7 +6,18 @@ import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Tratamiento, TratamientoForm, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
-import { Paciente } from '../../../pacientes/Models/paciente.model';
+export interface PacienteState {
+  colapsado: boolean;
+  modo: 'buscar' | 'encontrado' | 'nuevo';
+  buscando: boolean;
+  id: number | null;
+  dni: string;
+  nombre: string;
+  apellido: string;
+  telefono: string;
+  correo: string;
+}
+import { Terapeuta, terapeutaNombre as nombreDeTerapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 
@@ -50,22 +61,25 @@ export class ListaTratamientosComponent implements OnInit {
   ultimaSesionFecha: string | null = null;
   cargandoUltimaSesion = false;
 
-  pacientes: Paciente[] = [];
-  terapeutasDropdown: { id: number; nombre: string }[] = [];
+  terapeutasTodos: Terapeuta[] = [];
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
-  areas: CatalogItem[] = [];
+  especialidades: CatalogItem[] = [];
   plantillas: CatalogItem[] = [];
   plantillaSeleccionadaId: number | null = null;
 
-  // ── Buscador de paciente ─────────────────────────────────────────────────
-  pacienteBusqueda = '';
-  pacienteDropdownAbierto = false;
+  // ── Paciente por DNI (igual que en Citas): buscar → encontrado / nuevo ────
+  pac: PacienteState = this.emptyPac();
 
-  // ── Área (filtra tipo de terapia) + buscador de tipo de terapia ─────────
-  fAreaId: number | null = null;
+  // ── Buscador de plantilla del catálogo ────────────────────────────────────
+  plantillaBusqueda = '';
+  plantillaDropdownAbierto = false;
+
+  // ── Cascada: Especialidad → Tipo de terapia → Terapeuta (área automática) ──
+  fEspecialidadId: number | null = null;
   tipoBusqueda = '';
   tipoDropdownAbierto = false;
+  nombreDeTerapeuta = nombreDeTerapeuta;
 
   get total() { return this.totalElementos; }
   pacienteNombre = tratamientoPaciente;
@@ -86,15 +100,18 @@ export class ListaTratamientosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.pacienteService.getAll().subscribe(d => this.pacientes = d);
-    this.terapeutaService.getParaDropdown().subscribe(d => this.terapeutasDropdown = d);
+    this.terapeutaService.getAll().subscribe(d => this.terapeutasTodos = d);
     this.catalogService.getTiposTerapia().subscribe(d => this.tiposTerapia = d);
     this.catalogService.getEstadosTratamiento().subscribe(d => this.estadosTratamiento = d);
-    this.catalogService.getAreas().subscribe(d => this.areas = d);
+    this.catalogService.getEspecialidades().subscribe(d => this.especialidades = d);
     this.catalogService.getPlantillasPaquete().subscribe(d => this.plantillas = d.filter(p => p.activo !== false));
   }
 
-  /** Autocompleta sesiones/precio desde el catálogo — sigue siendo editable después. */
+  /**
+   * Autocompleta sesiones/precio desde el catálogo — sigue siendo editable después. Si la
+   * plantilla ya trae su tipo de terapia asociado, también se autocompleta el resto de la
+   * cascada (tipo de terapia → área → terapeutas filtrados) para no repetir la selección a mano.
+   */
   onPlantillaChange(): void {
     const p = this.plantillas.find(x => x.id === this.plantillaSeleccionadaId);
     if (!p) return;
@@ -103,41 +120,106 @@ export class ListaTratamientosComponent implements OnInit {
       this.formData.precioPorSesion = Math.round((p.precioTotal / p.totalSesiones) * 100) / 100;
     }
     if (!this.formData.notas) this.formData.notas = p.nombre;
+    if (p.tipoTerapia?.id) {
+      const tipoCompleto = this.tiposTerapia.find(t => t.id === p.tipoTerapia!.id);
+      if (tipoCompleto) this.seleccionarTipo(tipoCompleto);
+    }
   }
 
-  // ── Buscador de paciente ─────────────────────────────────────────────────
+  // ── Buscador de plantilla del catálogo (autocompletar sesiones/precio) ───
 
-  get pacientesFiltrados(): Paciente[] {
-    const q = this.pacienteBusqueda.toLowerCase().trim();
-    const lista = !q ? this.pacientes : this.pacientes.filter(p =>
-      `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) ||
-      (p.dni || '').toLowerCase().includes(q)
+  get plantillasFiltradas(): CatalogItem[] {
+    const q = this.plantillaBusqueda.toLowerCase().trim();
+    const lista = !q ? this.plantillas : this.plantillas.filter(p =>
+      p.nombre.toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q)
     );
     return lista.slice(0, 30);
   }
 
-  abrirPacienteDropdown(): void { this.pacienteDropdownAbierto = true; }
-  cerrarPacienteDropdownDiferido(): void { setTimeout(() => this.pacienteDropdownAbierto = false, 150); }
+  abrirPlantillaDropdown(): void { this.plantillaDropdownAbierto = true; }
+  cerrarPlantillaDropdownDiferido(): void { setTimeout(() => this.plantillaDropdownAbierto = false, 150); }
 
-  seleccionarPaciente(p: Paciente): void {
-    this.formData.pacienteId = p.id ?? null;
-    this.pacienteBusqueda = `${p.nombre} ${p.apellido}`;
-    this.pacienteDropdownAbierto = false;
+  seleccionarPlantilla(p: CatalogItem): void {
+    this.plantillaSeleccionadaId = p.id;
+    this.plantillaBusqueda = p.nombre;
+    this.plantillaDropdownAbierto = false;
+    this.onPlantillaChange();
   }
 
-  // ── Área → Tipo de terapia (cascada + buscador) ──────────────────────────
+  limpiarPlantilla(): void {
+    this.plantillaSeleccionadaId = null;
+    this.plantillaBusqueda = '';
+  }
 
-  get tiposDeArea(): CatalogItem[] {
-    const porArea = this.fAreaId == null
+  // ── Paciente por DNI: busca uno existente o deja capturar uno nuevo ──────
+
+  private emptyPac(): PacienteState {
+    return { colapsado: false, modo: 'buscar', buscando: false, id: null,
+             dni: '', nombre: '', apellido: '', telefono: '', correo: '' };
+  }
+
+  buscarDni(): void {
+    const dni = this.pac.dni.trim();
+    if (!dni) { this.toast.warning('Ingresa un DNI para buscar'); return; }
+    this.pac.buscando = true;
+    this.pacienteService.buscarPorDni(dni).subscribe({
+      next: encontrado => {
+        this.pac.buscando = false;
+        if (encontrado) {
+          this.pac.id = encontrado.id ?? null;
+          this.pac.nombre = encontrado.nombre;
+          this.pac.apellido = encontrado.apellido;
+          this.pac.telefono = encontrado.telefono ?? '';
+          this.pac.correo = encontrado.correo ?? '';
+          this.pac.modo = 'encontrado';
+          this.formData.pacienteId = this.pac.id;
+        } else {
+          this.pac.id = null; this.pac.nombre = ''; this.pac.apellido = '';
+          this.pac.telefono = ''; this.pac.correo = '';
+          this.pac.modo = 'nuevo';
+          this.formData.pacienteId = null;
+        }
+      },
+      error: () => { this.pac.buscando = false; this.pac.modo = 'nuevo'; this.pac.id = null; }
+    });
+  }
+
+  cambiarPaciente(): void {
+    this.pac = this.emptyPac();
+    this.formData.pacienteId = null;
+  }
+
+  // ── Especialidad → Tipo de terapia → Terapeuta (el área sale sola) ───────
+
+  /** Tipos de terapia filtrados por la especialidad elegida (si hay) + lo que se esté buscando. */
+  get tiposFiltrados(): CatalogItem[] {
+    const porEspecialidad = this.fEspecialidadId == null
       ? this.tiposTerapia
-      : this.tiposTerapia.filter(t => t.area?.id === this.fAreaId);
+      : this.tiposTerapia.filter(t => t.especialidad?.id === this.fEspecialidadId);
     const q = this.tipoBusqueda.toLowerCase().trim();
-    return !q ? porArea : porArea.filter(t => t.nombre.toLowerCase().includes(q));
+    return !q ? porEspecialidad : porEspecialidad.filter(t => t.nombre.toLowerCase().includes(q));
   }
 
-  onAreaChange(): void {
+  get tipoSeleccionado(): CatalogItem | null {
+    return this.tiposTerapia.find(t => t.id === this.formData.tipoTerapiaId) ?? null;
+  }
+
+  /** Solo terapeutas cuya área coincide con la del tipo de terapia elegido — si no hay tipo elegido, se ven todos. */
+  get terapeutasFiltrados(): Terapeuta[] {
+    const areaId = this.tipoSeleccionado?.area?.id ?? null;
+    return areaId == null ? this.terapeutasTodos : this.terapeutasTodos.filter(t => t.area?.id === areaId);
+  }
+
+  /** Área que se muestra (solo lectura): la del terapeuta elegido, o si aún no hay terapeuta, la del tipo de terapia. */
+  get areaMostrada(): string {
+    const terapeuta = this.terapeutasTodos.find(t => t.id === this.formData.terapeutaId);
+    return terapeuta?.area?.nombre ?? this.tipoSeleccionado?.area?.nombre ?? '—';
+  }
+
+  onEspecialidadChange(): void {
     this.formData.tipoTerapiaId = null;
     this.tipoBusqueda = '';
+    this.formData.terapeutaId = null;
   }
 
   abrirTipoDropdown(): void { this.tipoDropdownAbierto = true; }
@@ -147,6 +229,14 @@ export class ListaTratamientosComponent implements OnInit {
     this.formData.tipoTerapiaId = t.id;
     this.tipoBusqueda = t.nombre;
     this.tipoDropdownAbierto = false;
+    // Refleja la especialidad de este tipo en el selector, aunque haya llegado por catálogo
+    // (elegido a mano o autocompletado) — es solo informativo/filtro, no bloquea nada.
+    this.fEspecialidadId = t.especialidad?.id ?? this.fEspecialidadId;
+    // El terapeuta ya elegido puede no pertenecer a la nueva área — se limpia para forzar re-selección.
+    const terapeutaActual = this.terapeutasTodos.find(x => x.id === this.formData.terapeutaId);
+    if (terapeutaActual && terapeutaActual.area?.id !== t.area?.id) {
+      this.formData.terapeutaId = null;
+    }
   }
 
   cargar(): void {
@@ -198,10 +288,11 @@ export class ListaTratamientosComponent implements OnInit {
     if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
-    this.pacienteBusqueda = '';
+    this.pac = this.emptyPac();
     this.tipoBusqueda = '';
-    this.fAreaId = null;
+    this.fEspecialidadId = null;
     this.plantillaSeleccionadaId = null;
+    this.plantillaBusqueda = '';
     this.modalAbierto = true;
   }
 
@@ -220,8 +311,16 @@ export class ListaTratamientosComponent implements OnInit {
       notas:               t.notas          || '',
       activo:              t.activo         ?? true,
     };
-    this.pacienteBusqueda = `${t.pacienteNombre ?? ''} ${t.pacienteApellido ?? ''}`.trim();
-    this.fAreaId = tipo?.area?.id ?? null;
+    this.pac = {
+      colapsado: true, modo: 'encontrado', buscando: false,
+      id: t.pacienteId ?? null,
+      nombre: t.pacienteNombre ?? '',
+      apellido: t.pacienteApellido ?? '',
+      dni: t.pacienteDni ?? '',
+      telefono: t.pacienteTelefono ?? '',
+      correo: '',
+    };
+    this.fEspecialidadId = tipo?.especialidad?.id ?? null;
     this.tipoBusqueda = tipo?.nombre ?? '';
     this.ultimaSesionFecha = null;
     this.modalAbierto = true;
@@ -256,6 +355,27 @@ export class ListaTratamientosComponent implements OnInit {
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
+    if (this.pac.modo === 'nuevo') {
+      if (!this.pac.nombre || !this.pac.apellido || !this.pac.dni || !this.pac.correo) {
+        this.toast.warning('Completa nombre, apellido, DNI y correo del paciente nuevo'); return;
+      }
+      this.guardando = true;
+      const { nombre, apellido, dni, telefono, correo } = this.pac;
+      this.pacienteService.create({ nombre, apellido, dni, telefono, correo }).subscribe({
+        next: creado => {
+          this.pac.id = creado.id ?? null;
+          this.pac.modo = 'encontrado';
+          this.formData.pacienteId = creado.id ?? null;
+          this.guardarTratamiento();
+        },
+        error: () => { this.toast.error('Error al crear el paciente'); this.guardando = false; }
+      });
+      return;
+    }
+    this.guardarTratamiento();
+  }
+
+  private guardarTratamiento(): void {
     this.guardando = true;
     const body = this.buildBody();
     const esEdicion = !!this.editando;

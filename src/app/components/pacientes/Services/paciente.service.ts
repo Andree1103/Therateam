@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { Paciente } from '../Models/paciente.model';
 import { PageResponse } from '../../../core/models/page.model';
@@ -39,6 +39,13 @@ export class PacienteService {
 
   getById(id: number): Observable<Paciente> {
     return this.api.get<Paciente>(`${this.PATH}/${id}`);
+  }
+
+  /** Búsqueda exacta por DNI — null si no existe (usado para vincular o dar de alta al vuelo). */
+  buscarPorDni(dni: string): Observable<Paciente | null> {
+    return this.api.get<Paciente>(`${this.PATH}/buscar`, { dni }).pipe(
+      catchError(() => of(null))
+    );
   }
 
   create(paciente: Partial<Paciente>): Observable<Paciente> {

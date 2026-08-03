@@ -74,6 +74,8 @@
             <!-- Paquetes (catálogo) -->
             <ng-container *ngIf="tabActivo.tipo === 'paquete'">
               <th>Categoría</th>
+              <th>Especialidad</th>
+              <th>Tipo de terapia</th>
               <th>Sesiones</th>
               <th>Precio total</th>
             </ng-container>
@@ -106,7 +108,7 @@
             <!-- Terapia: especialidad + duración + max + área + sesiones -->
             <ng-container *ngIf="tabActivo.tipo === 'terapia'">
               <td>
-                <span *ngIf="item.especialidad">{{ item.especialidad }}</span>
+                <span *ngIf="item.especialidad">{{ item.especialidad.nombre }}</span>
                 <span class="text-muted" *ngIf="!item.especialidad">—</span>
               </td>
               <td>{{ item.duracionMinutos ?? '—' }} min</td>
@@ -130,6 +132,14 @@
               <td>
                 <span *ngIf="item.categoria">{{ item.categoria }}</span>
                 <span class="text-muted" *ngIf="!item.categoria">—</span>
+              </td>
+              <td>
+                <span *ngIf="item.especialidad">{{ item.especialidad.nombre }}</span>
+                <span class="text-muted" *ngIf="!item.especialidad">—</span>
+              </td>
+              <td>
+                <span *ngIf="item.tipoTerapia">{{ item.tipoTerapia.nombre }}</span>
+                <span class="text-muted" *ngIf="!item.tipoTerapia">—</span>
               </td>
               <td>{{ item.totalSesiones ?? '—' }}</td>
               <td><strong>S/ {{ (item.precioTotal ?? 0) | number:'1.2-2' }}</strong></td>
@@ -225,7 +235,10 @@
         <ng-container *ngIf="esTerapia">
           <div class="frow">
             <label>Especialidad</label>
-            <input [(ngModel)]="formEspecialidad" name="especialidad" placeholder="Ej: Psicología, Ocupacional, Traumatología">
+            <select [(ngModel)]="formEspecialidadId" name="especialidad">
+              <option [ngValue]="null">Sin especialidad</option>
+              <option *ngFor="let e of especialidades" [ngValue]="e.id">{{ e.nombre }}</option>
+            </select>
           </div>
           <div class="frow-2">
             <div class="frow">
@@ -268,6 +281,21 @@
           <div class="frow">
             <label>Categoría (opcional)</label>
             <input [(ngModel)]="formCategoria" name="categoria" placeholder="Ej: Paquete Terapia Física">
+          </div>
+          <div class="frow">
+            <label>Especialidad</label>
+            <select [(ngModel)]="formEspecialidadId" name="especialidadPaquete">
+              <option [ngValue]="null">Sin especialidad</option>
+              <option *ngFor="let e of especialidades" [ngValue]="e.id">{{ e.nombre }}</option>
+            </select>
+          </div>
+          <div class="frow">
+            <label>Tipo de terapia</label>
+            <select [(ngModel)]="formTipoTerapiaId" name="tipoTerapiaPaquete">
+              <option [ngValue]="null">Sin tipo de terapia</option>
+              <option *ngFor="let t of tiposTerapia" [ngValue]="t.id">{{ t.nombre }}</option>
+            </select>
+            <span class="hint-msg">Al elegir esta plantilla en "Nuevo paquete", autocompleta el tipo de terapia (y con eso, el área y los terapeutas disponibles).</span>
           </div>
           <div class="frow-2">
             <div class="frow">

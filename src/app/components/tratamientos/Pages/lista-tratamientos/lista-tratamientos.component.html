@@ -172,61 +172,96 @@
 
       <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
 
-        <!-- Elegir plantilla del catálogo (opcional) — autocompleta sesiones/precio, sigue editable -->
-        <div class="frow" *ngIf="!editando && plantillas.length > 0">
-          <label>Elegir del catálogo <span class="opc-tag">(opcional)</span></label>
-          <select [(ngModel)]="plantillaSeleccionadaId" name="plantillaId" (ngModelChange)="onPlantillaChange()">
-            <option [ngValue]="null">— Sin plantilla, llenar manualmente —</option>
-            <option *ngFor="let p of plantillas" [ngValue]="p.id">
-              {{ p.nombre }} — {{ p.totalSesiones }} sesiones — S/ {{ p.precioTotal | number:'1.2-2' }}
-            </option>
-          </select>
+        <!-- Elegir plantilla del catálogo (opcional, buscable) — autocompleta sesiones/precio, sigue editable -->
+        <div class="frow autocomplete-wrap" *ngIf="!editando && plantillas.length > 0">
+          <label>Elegir del catálogo <span class="opc-tag">(opcional)</span>
+            <button type="button" class="btn-link" *ngIf="plantillaSeleccionadaId" (mousedown)="limpiarPlantilla()" style="margin-left:8px">Quitar</button>
+          </label>
+          <input type="text" [(ngModel)]="plantillaBusqueda" name="plantillaBusqueda"
+                 (focus)="abrirPlantillaDropdown()" (blur)="cerrarPlantillaDropdownDiferido()"
+                 (ngModelChange)="plantillaSeleccionadaId = null"
+                 placeholder="Buscar plantilla por nombre o categoría..." autocomplete="off">
+          <div class="autocomplete-dropdown" *ngIf="plantillaDropdownAbierto && plantillasFiltradas.length > 0">
+            <div class="autocomplete-item" *ngFor="let p of plantillasFiltradas" (mousedown)="seleccionarPlantilla(p)">
+              <span class="ac-nombre">{{ p.nombre }}</span>
+              <span class="ac-sub">{{ p.totalSesiones }} sesiones — S/ {{ p.precioTotal | number:'1.2-2' }}</span>
+            </div>
+          </div>
           <span class="hint-msg">Autocompleta sesiones y precio por sesión — puedes editarlos después.</span>
         </div>
 
-        <div class="frow-2">
-          <div class="frow autocomplete-wrap">
-            <label>Paciente *</label>
-            <input type="text" [(ngModel)]="pacienteBusqueda" name="pacienteBusqueda"
-                   (focus)="abrirPacienteDropdown()" (blur)="cerrarPacienteDropdownDiferido()"
-                   (ngModelChange)="formData.pacienteId = null; abrirPacienteDropdown()"
-                   placeholder="Buscar por nombre o DNI..." autocomplete="off"
-                   [class.err-input]="!formData.pacienteId && pacRef.touched">
-            <input type="hidden" [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacRef="ngModel">
-            <div class="autocomplete-dropdown" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length > 0">
-              <div class="autocomplete-item" *ngFor="let p of pacientesFiltrados" (mousedown)="seleccionarPaciente(p)">
-                <span class="ac-nombre">{{ p.nombre }} {{ p.apellido }}</span>
-                <span class="ac-sub" *ngIf="p.dni">DNI {{ p.dni }}</span>
-              </div>
+        <!-- Paciente por DNI: busca uno existente o permite darlo de alta ahí mismo -->
+        <div class="pac-card">
+          <div class="pac-card-hdr" (click)="pac.colapsado = !pac.colapsado">
+            <div class="pac-hdr-left">
+              <span class="pac-card-title">Paciente *</span>
+              <span class="pac-summary" *ngIf="pac.colapsado">{{ pac.nombre }} {{ pac.apellido }}</span>
             </div>
-            <span class="err-msg" *ngIf="!formData.pacienteId && pacRef.touched">Requerido</span>
+            <div class="pac-hdr-right">
+              <span class="pac-modo-badge pac-encontrado-badge" *ngIf="pac.modo === 'encontrado' && !pac.colapsado">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                Encontrado
+              </span>
+              <span class="pac-modo-badge pac-nuevo-badge" *ngIf="pac.modo === 'nuevo' && !pac.colapsado">Nuevo</span>
+            </div>
           </div>
-          <div class="frow">
-            <label>Terapeuta *</label>
-            <select [(ngModel)]="formData.terapeutaId" name="terapeutaId" required #terRef="ngModel"
-                    [class.err-input]="terRef.invalid && terRef.touched">
-              <option [ngValue]="null">Seleccionar...</option>
-              <option *ngFor="let t of terapeutasDropdown" [ngValue]="t.id">{{ t.nombre }}</option>
-            </select>
-            <span class="err-msg" *ngIf="terRef.invalid && terRef.touched">Requerido</span>
+
+          <div class="pac-card-body" *ngIf="!pac.colapsado">
+            <ng-container *ngIf="pac.modo === 'buscar'">
+              <div class="dni-search-row">
+                <div class="frow" style="flex:1;margin:0">
+                  <label>DNI del paciente</label>
+                  <input [(ngModel)]="pac.dni" name="pacDni" placeholder="Ej: 12345678" (keyup.enter)="buscarDni()" maxlength="12">
+                </div>
+                <button type="button" class="btn-buscar" (click)="buscarDni()" [disabled]="pac.buscando">
+                  <span *ngIf="pac.buscando" class="mini-spin"></span>
+                  <span *ngIf="!pac.buscando">Buscar</span>
+                </button>
+              </div>
+              <p class="pac-hint">Busca por DNI para vincular un paciente existente o ingresar uno nuevo.</p>
+              <input type="hidden" [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacRef="ngModel">
+              <span class="err-msg" *ngIf="!formData.pacienteId && pacRef.touched">Requerido</span>
+            </ng-container>
+
+            <ng-container *ngIf="pac.modo === 'encontrado'">
+              <div class="pac-encontrado-row">
+                <div class="pac-enc-info">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                  <div>
+                    <span class="pac-enc-nombre">{{ pac.nombre }} {{ pac.apellido }}</span>
+                    <span class="pac-enc-sub">DNI: {{ pac.dni }}{{ pac.telefono ? ' · ' + pac.telefono : '' }}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-link" (click)="cambiarPaciente()">Cambiar</button>
+              </div>
+            </ng-container>
+
+            <ng-container *ngIf="pac.modo === 'nuevo'">
+              <div class="pac-no-encontrado">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                DNI <strong>{{ pac.dni }}</strong> no encontrado — completa los datos.
+                <button type="button" class="btn-link" (click)="cambiarPaciente()" style="margin-left:8px">Buscar otro</button>
+              </div>
+              <div class="frow-2">
+                <div class="frow"><label>Nombre *</label><input [(ngModel)]="pac.nombre" name="pacNombre" placeholder="Nombre"></div>
+                <div class="frow"><label>Apellido *</label><input [(ngModel)]="pac.apellido" name="pacApellido" placeholder="Apellido"></div>
+              </div>
+              <div class="frow-2">
+                <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac.telefono" name="pacTelefono" placeholder="999 000 111"></div>
+                <div class="frow"><label>Correo *</label><input [(ngModel)]="pac.correo" name="pacCorreo" type="email" placeholder="email@ejemplo.com"></div>
+              </div>
+              <span class="hint-msg">DNI y correo se usan para crear su cuenta de acceso.</span>
+            </ng-container>
           </div>
         </div>
 
-        <div class="frow-2">
-          <div class="frow">
-            <label>Área</label>
-            <select [(ngModel)]="fAreaId" name="areaId" (ngModelChange)="onAreaChange()">
-              <option [ngValue]="null">Todas las áreas</option>
-              <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
-            </select>
-          </div>
-          <div class="frow">
-            <label>Estado</label>
-            <select [(ngModel)]="formData.estadoTratamientoId" name="estadoTratamientoId">
-              <option [ngValue]="null">Sin estado</option>
-              <option *ngFor="let e of estadosTratamiento" [ngValue]="e.id">{{ e.nombre }}</option>
-            </select>
-          </div>
+        <!-- Cascada: Especialidad → Tipo de terapia → Terapeuta (área sale sola) -->
+        <div class="frow">
+          <label>Especialidad</label>
+          <select [(ngModel)]="fEspecialidadId" name="especialidadId" (ngModelChange)="onEspecialidadChange()">
+            <option [ngValue]="null">Todas las especialidades</option>
+            <option *ngFor="let e of especialidades" [ngValue]="e.id">{{ e.nombre }}</option>
+          </select>
         </div>
 
         <div class="frow autocomplete-wrap">
@@ -235,20 +270,46 @@
                  (focus)="abrirTipoDropdown()" (blur)="cerrarTipoDropdownDiferido()"
                  (ngModelChange)="formData.tipoTerapiaId = null; abrirTipoDropdown()"
                  placeholder="Buscar tipo de terapia..." autocomplete="off">
-          <div class="autocomplete-dropdown" *ngIf="tipoDropdownAbierto && tiposDeArea.length > 0">
-            <div class="autocomplete-item" *ngFor="let t of tiposDeArea" (mousedown)="seleccionarTipo(t)">
+          <div class="autocomplete-dropdown" *ngIf="tipoDropdownAbierto && tiposFiltrados.length > 0">
+            <div class="autocomplete-item" *ngFor="let t of tiposFiltrados" (mousedown)="seleccionarTipo(t)">
               <span class="ac-nombre">{{ t.nombre }}</span>
               <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
             </div>
           </div>
-          <div class="dur-info" *ngIf="tipoDropdownAbierto && tiposDeArea.length === 0">
-            Sin resultados{{ fAreaId ? ' en esta área' : '' }}.
+          <div class="dur-info" *ngIf="tipoDropdownAbierto && tiposFiltrados.length === 0">
+            Sin resultados{{ fEspecialidadId ? ' en esta especialidad' : '' }}.
           </div>
         </div>
 
-        <div class="frow">
-          <label>Fecha de inicio</label>
-          <input [(ngModel)]="formData.fechaInicio" name="fechaInicio" type="date">
+        <div class="frow-2">
+          <div class="frow">
+            <label>Terapeuta *</label>
+            <select [(ngModel)]="formData.terapeutaId" name="terapeutaId" required #terRef="ngModel"
+                    [class.err-input]="terRef.invalid && terRef.touched">
+              <option [ngValue]="null">Seleccionar...</option>
+              <option *ngFor="let t of terapeutasFiltrados" [ngValue]="t.id">{{ nombreDeTerapeuta(t) }}</option>
+            </select>
+            <span class="err-msg" *ngIf="terRef.invalid && terRef.touched">Requerido</span>
+            <span class="hint-msg" *ngIf="tipoSeleccionado">Filtrado por el área de "{{ tipoSeleccionado.nombre }}".</span>
+          </div>
+          <div class="frow">
+            <label>Área</label>
+            <input type="text" [value]="areaMostrada" disabled placeholder="Se completa según el terapeuta">
+          </div>
+        </div>
+
+        <div class="frow-2">
+          <div class="frow">
+            <label>Estado</label>
+            <select [(ngModel)]="formData.estadoTratamientoId" name="estadoTratamientoId">
+              <option [ngValue]="null">Sin estado</option>
+              <option *ngFor="let e of estadosTratamiento" [ngValue]="e.id">{{ e.nombre }}</option>
+            </select>
+          </div>
+          <div class="frow">
+            <label>Fecha de inicio</label>
+            <input [(ngModel)]="formData.fechaInicio" name="fechaInicio" type="date">
+          </div>
         </div>
 
         <!-- Última sesión programada (solo edición) -->

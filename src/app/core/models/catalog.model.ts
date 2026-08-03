@@ -9,12 +9,13 @@ export interface CatalogItem {
   duracionMinutos?: number;
   maxPacientes?: number;
   area?: { id: number; nombre?: string; key?: string } | null;
-  especialidad?: string | null;
+  especialidad?: { id: number; nombre?: string; key?: string } | null;
   sesionesSugeridas?: number | null;
   comentario?: string | null;
   precioRecomendado?: number | null;
   // Plantillas de paquete (catálogo)
   categoria?: string | null;
+  tipoTerapia?: { id: number; nombre?: string; key?: string; area?: { id: number; nombre?: string } | null } | null;
   totalSesiones?: number | null;
   precioTotal?: number | null;
 }

@@ -65,6 +65,29 @@
 .ac-nombre{font-size:13px;font-weight:600;color:#0f172a}
 .ac-sub{font-size:11px;color:#94a3b8}
 .dur-info{font-size:11px;color:#6b7280;padding:6px 10px;background:#f8fafc;border-radius:4px;border-left:2px solid #93c5fd;margin-top:4px}
+.btn-link{background:none;border:none;color:#185FA5;font-size:12px;font-weight:600;cursor:pointer;padding:0}
+.btn-link:hover{text-decoration:underline}
+.pac-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;flex-shrink:0}
+.pac-card-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;user-select:none;background:transparent;transition:background .12s}
+.pac-card-hdr:hover{background:#f1f5f9}
+.pac-hdr-left{display:flex;align-items:center;gap:10px;min-width:0}
+.pac-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;flex-shrink:0}
+.pac-summary{font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pac-hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pac-modo-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.pac-encontrado-badge{background:#dcfce7;color:#15803d}
+.pac-nuevo-badge{background:#fef3c7;color:#92400e}
+.pac-card-body{padding:12px;background:#fff;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:10px}
+.dni-search-row{display:flex;align-items:flex-end;gap:8px}
+.btn-buscar{padding:7px 14px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;height:36px;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.btn-buscar:disabled{opacity:.6;cursor:not-allowed}
+.mini-spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.pac-hint{font-size:11px;color:#94a3b8;line-height:1.4}
+.pac-encontrado-row{display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px}
+.pac-enc-info{display:flex;align-items:center;gap:8px}
+.pac-enc-nombre{display:block;font-size:13px;font-weight:700;color:#15803d}
+.pac-enc-sub{display:block;font-size:11px;color:#6b7280;margin-top:1px}
+.pac-no-encontrado{display:flex;align-items:center;gap:6px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px}
 /* ── Expand column ─────────────────────────────────────────────────────── */
 .th-exp{width:36px;padding:0!important}
 .td-exp{width:36px;padding:0 4px!important;text-align:center}
