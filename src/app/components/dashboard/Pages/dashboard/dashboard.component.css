@@ -25,7 +25,7 @@
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
 /* Card */
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;flex-shrink:0}
 .card-hdr{padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px}
 .card-hdr h2{font-size:14px;font-weight:700;color:#0f172a;margin:0}
 .badge-count{background:#f1f5f9;color:#64748b;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px}

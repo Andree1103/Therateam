@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../Services/auth.service';
+import { MODULO_RUTA } from '../../modulo-rutas';
 
 @Component({
   selector: 'app-login',
@@ -27,16 +28,16 @@ export class LoginComponent {
     this.loading = true;
     this.errorMessage = '';
 
-    setTimeout(() => {
-      const success = this.authService.login(this.email, this.password);
-      
-      if (success) {
-        this.router.navigate(['/citas']);
-      } else {
+    this.authService.login(this.email, this.password).subscribe({
+      next: (user) => {
+        this.loading = false;
+        const ruta = user.modulos.includes('CITAS') ? 'citas' : MODULO_RUTA[user.modulos[0]] ?? 'citas';
+        this.router.navigate([`/${ruta}`]);
+      },
+      error: () => {
+        this.loading = false;
         this.errorMessage = 'Email o contraseña incorrectos';
       }
-      
-      this.loading = false;
-    }, 500);
+    });
   }
 }

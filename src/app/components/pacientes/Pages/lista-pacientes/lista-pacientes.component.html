@@ -3,10 +3,11 @@
   <!-- ── HEADER ────────────────────────────────────────────────────────── -->
   <div class="page-header">
     <div class="header-left">
-      <h1>Pacientes</h1>
-      <p>{{ total }} paciente{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
+      <h1>{{ tituloPagina }}</h1>
+      <p *ngIf="!vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
+      <p *ngIf="vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} con citas contigo</p>
     </div>
-    <button class="btn-primary" (click)="abrirNuevo()">
+    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo paciente
     </button>
@@ -15,17 +16,22 @@
   <!-- ── BODY ──────────────────────────────────────────────────────────── -->
   <div class="page-body">
 
-    <!-- Filtros -->
+    <!-- Filtros: cada campo es independiente, la búsqueda solo se dispara al hacer clic en Buscar -->
     <div class="filters-bar">
-      <div class="search-wrap">
-        <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-inp" [(ngModel)]="busqueda" (ngModelChange)="filtrar()" placeholder="Buscar por nombre, DNI o correo...">
-      </div>
-      <select class="filter-sel" [(ngModel)]="filtroActivo" (ngModelChange)="filtrar()">
+      <input class="search-inp" [(ngModel)]="filtroNombre" (keyup.enter)="buscar()" placeholder="Nombre o apellido...">
+      <input class="search-inp" [(ngModel)]="filtroDni" (keyup.enter)="buscar()" placeholder="DNI...">
+      <input class="search-inp" [(ngModel)]="filtroCorreo" (keyup.enter)="buscar()" placeholder="Correo...">
+      <select class="filter-sel" [(ngModel)]="filtroSedeId">
+        <option [ngValue]="null">Todas las sedes</option>
+        <option *ngFor="let s of sedes" [ngValue]="s.id">{{ s.nombre }}</option>
+      </select>
+      <select class="filter-sel" [(ngModel)]="filtroActivo">
         <option value="">Todos</option>
         <option value="true">Activos</option>
         <option value="false">Inactivos</option>
       </select>
+      <button class="btn-secondary" (click)="buscar()">Buscar</button>
+      <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
     </div>
 
     <!-- Tabla -->
@@ -36,13 +42,13 @@
         <p>Cargando pacientes...</p>
       </div>
 
-      <div class="state-box" *ngIf="!loading && filtrados.length === 0">
+      <div class="state-box" *ngIf="!loading && pacientes.length === 0">
         <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="40" height="40"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         <p>No se encontraron pacientes</p>
-        <button class="btn-secondary" (click)="abrirNuevo()">+ Agregar el primero</button>
+        <button class="btn-secondary" *ngIf="puedeCrear" (click)="abrirNuevo()">+ Agregar el primero</button>
       </div>
 
-      <table class="data-table" *ngIf="!loading && filtrados.length > 0">
+      <table class="data-table" *ngIf="!loading && pacientes.length > 0">
         <thead>
           <tr>
             <th>Paciente</th>
@@ -55,7 +61,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of filtrados">
+          <tr *ngFor="let p of pacientes">
             <td>
               <div class="entity-cell">
                 <div class="avatar">{{ iniciales(p) }}</div>
@@ -82,10 +88,10 @@
                 <a class="btn-icon" [routerLink]="['/pacientes', p.id]" title="Ver perfil">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </a>
-                <button class="btn-icon" (click)="abrirEditar(p)" title="Editar">
+                <button class="btn-icon" *ngIf="puedeEditar" (click)="abrirEditar(p)" title="Editar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon btn-icon-danger" (click)="abrirEliminar(p)" title="Eliminar">
+                <button class="btn-icon btn-icon-danger" *ngIf="puedeEliminar" (click)="abrirEliminar(p)" title="Eliminar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
               </div>
@@ -93,6 +99,13 @@
           </tr>
         </tbody>
       </table>
+
+      <app-paginator *ngIf="!loading"
+        [pagina]="paginaActual" [tamanioPagina]="tamanioPagina"
+        [totalElementos]="totalElementos" [totalPaginas]="totalPaginas"
+        [itemsEnPagina]="pacientes.length" [opciones]="tamanioPaginaOpciones"
+        (paginaChange)="irAPagina($event)" (tamanioPaginaChange)="cambiarTamanioPagina($event)">
+      </app-paginator>
 
     </div>
   </div>
@@ -129,8 +142,11 @@
 
         <div class="frow-2">
           <div class="frow">
-            <label>DNI</label>
-            <input [(ngModel)]="formData.dni" name="dni" placeholder="12345678" maxlength="20">
+            <label>DNI *</label>
+            <input [(ngModel)]="formData.dni" name="dni" required #dniRef="ngModel"
+                   [class.err-input]="dniRef.invalid && dniRef.touched"
+                   placeholder="12345678" maxlength="20">
+            <span class="err-msg" *ngIf="dniRef.invalid && dniRef.touched">Requerido — se usa como contraseña inicial de su cuenta</span>
           </div>
           <div class="frow">
             <label>Teléfono</label>
@@ -139,11 +155,11 @@
         </div>
 
         <div class="frow">
-          <label>Correo electrónico</label>
-          <input [(ngModel)]="formData.correo" name="correo" type="email" #correoRef="ngModel"
+          <label>Correo electrónico *</label>
+          <input [(ngModel)]="formData.correo" name="correo" type="email" required #correoRef="ngModel"
                  [class.err-input]="correoRef.invalid && correoRef.touched"
                  placeholder="correo@ejemplo.com">
-          <span class="err-msg" *ngIf="correoRef.invalid && correoRef.touched">Correo inválido</span>
+          <span class="err-msg" *ngIf="correoRef.invalid && correoRef.touched">Requerido — se usa para crear su cuenta de acceso</span>
         </div>
 
         <div class="frow-2">

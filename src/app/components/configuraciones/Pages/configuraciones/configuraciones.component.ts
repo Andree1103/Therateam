@@ -2,9 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { ApiService } from '../../../../core/services/api.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { CatalogService } from '../../../../core/services/catalog.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
-type TabTipo = 'estandar' | 'estado' | 'moneda' | 'terapia';
+type TabTipo = 'estandar' | 'estado' | 'moneda' | 'terapia' | 'paquete';
 
 interface CatalogoTab {
   key: string;
@@ -34,6 +36,7 @@ export class ConfiguracionesComponent implements OnInit {
     { key: 'estados-cita',         label: 'Estados de cita',        path: '/api/cat-estados-cita',         tipo: 'estado',   items: [], loading: false, cargado: false },
     { key: 'estados-sesion',       label: 'Estados de sesión',      path: '/api/cat-estados-sesion',       tipo: 'estado',   items: [], loading: false, cargado: false },
     { key: 'estados-tratamiento',  label: 'Estados de tratamiento', path: '/api/cat-estados-tratamiento',  tipo: 'estado',   items: [], loading: false, cargado: false },
+    { key: 'paquetes',             label: 'Paquetes (catálogo)',    path: '/api/plantillas-paquete',       tipo: 'paquete',  items: [], loading: false, cargado: false },
   ];
 
   tabActivo: CatalogoTab = this.tabs[0];
@@ -58,6 +61,11 @@ export class ConfiguracionesComponent implements OnInit {
   formEspecialidad   = '';
   formSesiones: number | null = null;
   formComentario     = '';
+  formPrecioRecomendado: number | null = null;
+  // Plantillas de paquete
+  formCategoria      = '';
+  formTotalSesiones: number | null = null;
+  formPrecioTotal: number | null = null;
 
   areas: CatalogItem[] = [];
   filtroAreaTerapia: number | null = null;
@@ -65,7 +73,8 @@ export class ConfiguracionesComponent implements OnInit {
   get esEstado()  { return this.tabActivo.tipo === 'estado'; }
   get esMoneda()  { return this.tabActivo.tipo === 'moneda'; }
   get esTerapia() { return this.tabActivo.tipo === 'terapia'; }
-  get tieneKey()  { return this.tabActivo.tipo !== 'moneda'; }
+  get esPaquete() { return this.tabActivo.tipo === 'paquete'; }
+  get tieneKey()  { return this.tabActivo.tipo !== 'moneda' && this.tabActivo.tipo !== 'paquete'; }
 
   /** Items del tab activo, filtrados por área si estamos en "Tipos de terapia" y hay un filtro elegido. */
   get itemsFiltrados(): CatalogItem[] {
@@ -73,7 +82,16 @@ export class ConfiguracionesComponent implements OnInit {
     return this.tabActivo.items.filter(i => i.area?.id === this.filtroAreaTerapia);
   }
 
-  constructor(private api: ApiService, private toast: ToastService) {}
+  constructor(
+    private api: ApiService,
+    private toast: ToastService,
+    private authService: AuthService,
+    private catalogService: CatalogService,
+  ) {}
+
+  get puedeCrear(): boolean { return this.authService.puedeCrear('CONFIGURACIONES'); }
+  get puedeEditar(): boolean { return this.authService.puedeEditar('CONFIGURACIONES'); }
+  get puedeEliminar(): boolean { return this.authService.puedeEliminar('CONFIGURACIONES'); }
 
   ngOnInit(): void {
     this.seleccionarTab(this.tabs[0]);
@@ -98,6 +116,7 @@ export class ConfiguracionesComponent implements OnInit {
   }
 
   abrirNuevo(): void {
+    if (!this.puedeCrear) return;
     this.editandoItem  = null;
     this.formNombre    = '';
     this.formKey       = '';
@@ -111,10 +130,15 @@ export class ConfiguracionesComponent implements OnInit {
     this.formEspecialidad = '';
     this.formSesiones  = null;
     this.formComentario = '';
+    this.formPrecioRecomendado = null;
+    this.formCategoria = '';
+    this.formTotalSesiones = null;
+    this.formPrecioTotal = null;
     this.modalAbierto  = true;
   }
 
   abrirEditar(item: CatalogItem): void {
+    if (!this.puedeEditar) return;
     this.editandoItem     = item;
     this.formNombre       = item.nombre;
     this.formKey          = item.key      || '';
@@ -128,6 +152,10 @@ export class ConfiguracionesComponent implements OnInit {
     this.formEspecialidad = item.especialidad || '';
     this.formSesiones     = item.sesionesSugeridas ?? null;
     this.formComentario   = item.comentario || '';
+    this.formPrecioRecomendado = item.precioRecomendado ?? null;
+    this.formCategoria      = item.categoria || '';
+    this.formTotalSesiones  = item.totalSesiones ?? null;
+    this.formPrecioTotal    = item.precioTotal ?? null;
     this.modalAbierto     = true;
   }
 
@@ -151,7 +179,10 @@ export class ConfiguracionesComponent implements OnInit {
     });
   }
 
-  abrirEliminar(item: CatalogItem): void { this.itemAEliminar = item; this.modalEliminar = true; }
+  abrirEliminar(item: CatalogItem): void {
+    if (!this.puedeEliminar) return;
+    this.itemAEliminar = item; this.modalEliminar = true;
+  }
   cerrarEliminar(): void { this.modalEliminar = false; this.itemAEliminar = null; }
 
   eliminar(): void {
@@ -187,6 +218,11 @@ export class ConfiguracionesComponent implements OnInit {
       base['especialidad']      = this.formEspecialidad || null;
       base['sesionesSugeridas'] = this.formSesiones || null;
       base['comentario']        = this.formComentario || null;
+      base['precioRecomendado'] = this.formPrecioRecomendado || null;
+    } else if (this.esPaquete) {
+      base['categoria']      = this.formCategoria || null;
+      base['totalSesiones']  = this.formTotalSesiones;
+      base['precioTotal']    = this.formPrecioTotal;
     }
     return base;
   }
@@ -194,5 +230,8 @@ export class ConfiguracionesComponent implements OnInit {
   private recargarTab(tab: CatalogoTab): void {
     tab.cargado = false;
     this.cargarTab(tab);
+    // El resto de la app puede tener este catálogo cacheado (CatalogService) — se invalida para
+    // que el próximo que lo pida traiga la versión recién guardada, no la vieja en memoria.
+    this.catalogService.invalidate(tab.path);
   }
 }

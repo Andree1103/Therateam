@@ -1,0 +1,330 @@
+<div class="page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Seguridad</h1>
+      <p>Roles, permisos por módulo y usuarios del sistema</p>
+    </div>
+    <button class="btn-primary" *ngIf="tab === 'roles'" (click)="abrirNuevoRol()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo rol
+    </button>
+    <button class="btn-primary" *ngIf="tab === 'usuarios'" (click)="abrirNuevoUsuario()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo usuario
+    </button>
+  </div>
+
+  <div class="page-body">
+
+    <div class="tab-bar">
+      <button class="tab-btn" [class.active]="tab === 'roles'" (click)="cambiarTab('roles')">
+        Roles <span class="tab-count">{{ roles.length }}</span>
+      </button>
+      <button class="tab-btn" [class.active]="tab === 'usuarios'" (click)="cambiarTab('usuarios')">
+        Usuarios <span class="tab-count">{{ totalElementos }}</span>
+      </button>
+    </div>
+
+    <!-- Filtros de usuarios (todo server-side, campos separados; se aplican solo con Buscar) -->
+    <div class="filters-row" *ngIf="tab === 'usuarios'">
+      <input type="text" class="search-inp" placeholder="Nombre o apellido..."
+             [(ngModel)]="filtroNombre" name="filtroNombre" (keyup.enter)="buscarUsuarios()">
+      <input type="text" class="search-inp" placeholder="Correo..."
+             [(ngModel)]="filtroCorreo" name="filtroCorreo" (keyup.enter)="buscarUsuarios()">
+      <select class="filter-sel" [(ngModel)]="filtroRolId" name="filtroRolId">
+        <option [ngValue]="null">Todos los roles</option>
+        <option *ngFor="let r of roles" [ngValue]="r.id">{{ r.nombre }}</option>
+      </select>
+      <select class="filter-sel" [(ngModel)]="filtroEstado" name="filtroEstado">
+        <option value="">Todos los estados</option>
+        <option value="true">Activos</option>
+        <option value="false">Inactivos</option>
+      </select>
+      <button class="btn-secondary" (click)="buscarUsuarios()">Buscar</button>
+      <button class="btn-secondary" (click)="limpiarFiltrosUsuarios()">Limpiar</button>
+    </div>
+
+    <!-- ── TAB ROLES ── -->
+    <div class="card" *ngIf="tab === 'roles'">
+      <div class="state-box" *ngIf="loading"><div class="spinner"></div><p>Cargando roles...</p></div>
+      <div class="state-box" *ngIf="!loading && roles.length === 0"><p>Sin roles registrados</p></div>
+      <div class="table-scroll" *ngIf="!loading && roles.length > 0">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nombre</th><th>Key</th><th>Módulos con acceso</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of roles">
+              <td><span class="item-nombre">{{ r.nombre }}</span></td>
+              <td><span class="key-badge">{{ r.key }}</span></td>
+              <td>
+                <div class="modulos-chips">
+                  <span class="modulo-chip" *ngFor="let p of r.permisos" [title]="(p.crear ? 'Crear ' : '') + (p.editar ? 'Editar ' : '') + (p.eliminar ? 'Eliminar' : '') || 'Solo lectura'">
+                    {{ p.modulo.nombre }}<span class="text-muted" *ngIf="!p.crear && !p.editar && !p.eliminar"> (solo ver)</span>
+                  </span>
+                  <span class="text-muted" *ngIf="!r.permisos?.length">Sin módulos</span>
+                </div>
+              </td>
+              <td>
+                <span class="badge" [class.badge-active]="r.activo !== false" [class.badge-inactive]="r.activo === false">
+                  {{ r.activo !== false ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td>
+                <div class="actions">
+                  <button class="btn-icon" (click)="abrirEditarRol(r)" title="Editar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="btn-icon btn-icon-danger" (click)="abrirEliminarRol(r)" title="Eliminar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── TAB USUARIOS ── -->
+    <div class="card" *ngIf="tab === 'usuarios'">
+      <div class="state-box" *ngIf="loading"><div class="spinner"></div><p>Cargando usuarios...</p></div>
+      <div class="state-box" *ngIf="!loading && usuarios.length === 0">
+        <p>{{ (filtroNombre.trim() || filtroCorreo.trim()) ? 'Sin resultados para los filtros aplicados' : 'Sin usuarios registrados' }}</p>
+      </div>
+      <div class="table-scroll" *ngIf="!loading && usuarios.length > 0">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-sort" (click)="ordenarPor('nombre')">
+                Nombre
+                <svg *ngIf="ordenCampo === 'nombre'" class="sort-ic" [class.sort-desc]="ordenDir === 'desc'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><polyline points="18 15 12 9 6 15"/></svg>
+              </th>
+              <th class="th-sort" (click)="ordenarPor('email')">
+                Email
+                <svg *ngIf="ordenCampo === 'email'" class="sort-ic" [class.sort-desc]="ordenDir === 'desc'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><polyline points="18 15 12 9 6 15"/></svg>
+              </th>
+              <th>Rol</th>
+              <th>Citas</th>
+              <th>Estado</th>
+              <th class="th-sort" (click)="ordenarPor('createdAt')">
+                Registrado
+                <svg *ngIf="ordenCampo === 'createdAt'" class="sort-ic" [class.sort-desc]="ordenDir === 'desc'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><polyline points="18 15 12 9 6 15"/></svg>
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of usuarios">
+              <td><span class="item-nombre">{{ u.nombre }} {{ u.apellido }}</span></td>
+              <td>{{ u.email }}</td>
+              <td>
+                <span class="key-badge" *ngIf="u.rol">{{ u.rol.nombre }}</span>
+                <span class="text-muted" *ngIf="!u.rol">Sin rol</span>
+              </td>
+              <td>
+                <div class="modulos-chips">
+                  <span class="modulo-chip" *ngIf="u.citasSoloPropias">Solo propias</span>
+                  <span class="modulo-chip" *ngIf="u.citasPuedeCrear === false">No crea</span>
+                  <span class="text-muted" *ngIf="!u.citasSoloPropias && u.citasPuedeCrear !== false">—</span>
+                </div>
+              </td>
+              <td>
+                <span class="badge" [class.badge-active]="u.activo !== false" [class.badge-inactive]="u.activo === false">
+                  {{ u.activo !== false ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td class="text-muted small">{{ u.createdAt | date:'d MMM yyyy' }}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn-icon" (click)="abrirEditarUsuario(u)" title="Editar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="btn-icon btn-icon-danger" (click)="abrirEliminarUsuario(u)" title="Eliminar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator *ngIf="!loading"
+        [pagina]="paginaActual" [tamanioPagina]="tamanioPagina"
+        [totalElementos]="totalElementos" [totalPaginas]="totalPaginas"
+        [itemsEnPagina]="usuarios.length" [opciones]="tamanioPaginaOpciones"
+        (paginaChange)="irAPagina($event)" (tamanioPaginaChange)="cambiarTamanioPagina($event)">
+      </app-paginator>
+    </div>
+
+  </div>
+
+  <!-- ══ MODAL ROL ══ -->
+  <div class="modal-overlay" *ngIf="modalRolAbierto" (click)="cerrarModalRol()">
+    <div class="modal modal-lg" (click)="$event.stopPropagation()">
+      <div class="modal-hdr">
+        <h2>{{ editandoRol ? 'Editar rol' : 'Nuevo rol' }}</h2>
+        <button class="modal-close" (click)="cerrarModalRol()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form #formRol="ngForm" (ngSubmit)="guardarRol(formRol)" class="modal-body" autocomplete="off">
+        <div class="frow">
+          <label>Nombre *</label>
+          <input [(ngModel)]="formRolNombre" name="nombre" required #nomRef="ngModel"
+                 [class.err-input]="nomRef.invalid && nomRef.touched" placeholder="Ej: Cajero">
+          <span class="err-msg" *ngIf="nomRef.invalid && nomRef.touched">Requerido</span>
+        </div>
+        <div class="frow">
+          <label>Key / código interno *</label>
+          <input [(ngModel)]="formRolKey" name="key" required #keyRef="ngModel"
+                 [class.err-input]="keyRef.invalid && keyRef.touched"
+                 style="text-transform:uppercase" (input)="formRolKey = formRolKey.toUpperCase()"
+                 placeholder="Ej: CAJERO">
+          <span class="err-msg" *ngIf="keyRef.invalid && keyRef.touched">Requerido</span>
+        </div>
+        <div class="frow">
+          <label>Módulos y permisos</label>
+          <div class="permisos-table-wrap">
+            <table class="permisos-table">
+              <thead>
+                <tr><th>Módulo</th><th>Acceso</th><th>Crear</th><th>Editar</th><th>Eliminar</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let m of modulos">
+                  <td class="permisos-modulo-nombre">{{ m.nombre }}</td>
+                  <td class="permisos-check-cell">
+                    <input type="checkbox" [checked]="formRolAccesoIds.has(m.id)" (change)="toggleAccesoModulo(m.id)">
+                  </td>
+                  <td class="permisos-check-cell">
+                    <input type="checkbox" [disabled]="!formRolAccesoIds.has(m.id)"
+                           [checked]="formRolPermisos[m.id]?.crear" (change)="toggleAccionModulo(m.id, 'crear')">
+                  </td>
+                  <td class="permisos-check-cell">
+                    <input type="checkbox" [disabled]="!formRolAccesoIds.has(m.id)"
+                           [checked]="formRolPermisos[m.id]?.editar" (change)="toggleAccionModulo(m.id, 'editar')">
+                  </td>
+                  <td class="permisos-check-cell">
+                    <input type="checkbox" [disabled]="!formRolAccesoIds.has(m.id)"
+                           [checked]="formRolPermisos[m.id]?.eliminar" (change)="toggleAccionModulo(m.id, 'eliminar')">
+                  </td>
+                  <td>
+                    <button type="button" class="btn-link-sm" (click)="darAccesoCompleto(m.id)">Todo</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <span class="hint-msg">"Acceso" deja entrar y ver el listado del módulo. Sin marcar ninguna acción de escritura, el rol queda solo-lectura ahí. Las lecturas de datos de referencia compartidos entre módulos (catálogos para formularios/dropdowns) siguen abiertas a cualquier autenticado.</span>
+        </div>
+        <div class="frow">
+          <label>Estado</label>
+          <select [(ngModel)]="formRolActivo" name="activo">
+            <option [ngValue]="true">Activo</option>
+            <option [ngValue]="false">Inactivo</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="cerrarModalRol()">Cancelar</button>
+          <button type="submit" class="btn-primary" [disabled]="guardandoRol || formRol.invalid">
+            {{ guardandoRol ? 'Guardando...' : (editandoRol ? 'Actualizar' : 'Crear') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══ MODAL USUARIO ══ -->
+  <div class="modal-overlay" *ngIf="modalUsuarioAbierto" (click)="cerrarModalUsuario()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-hdr">
+        <h2>{{ editandoUsuario ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
+        <button class="modal-close" (click)="cerrarModalUsuario()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form #formUsu="ngForm" (ngSubmit)="guardarUsuario(formUsu)" class="modal-body" autocomplete="off">
+        <div class="frow-2">
+          <div class="frow">
+            <label>Nombre *</label>
+            <input [(ngModel)]="formUsuNombre" name="nombre" required #unRef="ngModel"
+                   [class.err-input]="unRef.invalid && unRef.touched">
+            <span class="err-msg" *ngIf="unRef.invalid && unRef.touched">Requerido</span>
+          </div>
+          <div class="frow">
+            <label>Apellido *</label>
+            <input [(ngModel)]="formUsuApellido" name="apellido" required #uaRef="ngModel"
+                   [class.err-input]="uaRef.invalid && uaRef.touched">
+            <span class="err-msg" *ngIf="uaRef.invalid && uaRef.touched">Requerido</span>
+          </div>
+        </div>
+        <div class="frow">
+          <label>Email *</label>
+          <input [(ngModel)]="formUsuEmail" name="email" type="email" required #ueRef="ngModel"
+                 [class.err-input]="ueRef.invalid && ueRef.touched" placeholder="usuario@therateam.com">
+          <span class="err-msg" *ngIf="ueRef.invalid && ueRef.touched">Email válido requerido</span>
+        </div>
+        <div class="frow">
+          <label>{{ editandoUsuario ? 'Nueva contraseña (opcional)' : 'Contraseña *' }}</label>
+          <input [(ngModel)]="formUsuPassword" name="password" type="password"
+                 placeholder="{{ editandoUsuario ? 'Dejar vacío para no cambiarla' : 'Mínimo 6 caracteres' }}">
+        </div>
+        <div class="frow">
+          <label>Rol</label>
+          <select [(ngModel)]="formUsuRolId" name="rolId" (ngModelChange)="onRolChangeNuevoUsuario()">
+            <option [ngValue]="null">Sin rol</option>
+            <option *ngFor="let r of roles" [ngValue]="r.id">{{ r.nombre }}</option>
+          </select>
+        </div>
+        <div class="frow">
+          <label>Estado</label>
+          <select [(ngModel)]="formUsuActivo" name="activo">
+            <option [ngValue]="true">Activo</option>
+            <option [ngValue]="false">Inactivo</option>
+          </select>
+        </div>
+        <div class="frow">
+          <label>Citas (solo aplica si el usuario es terapeuta)</label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formUsuCitasSoloPropias" name="citasSoloPropias">
+            Solo puede ver sus propias citas (no las de otros terapeutas)
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formUsuCitasPuedeCrear" name="citasPuedeCrear">
+            Puede crear citas nuevas
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="cerrarModalUsuario()">Cancelar</button>
+          <button type="submit" class="btn-primary" [disabled]="guardandoUsuario || formUsu.invalid">
+            {{ guardandoUsuario ? 'Guardando...' : (editandoUsuario ? 'Actualizar' : 'Crear') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══ MODAL ELIMINAR ══ -->
+  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-hdr">
+        <h2>Eliminar</h2>
+        <button class="modal-close" (click)="cerrarEliminar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-msg">¿Eliminar <strong>{{ eliminandoNombre }}</strong>? Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
+        <button class="btn-danger" (click)="confirmarEliminar()" [disabled]="eliminando">
+          {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

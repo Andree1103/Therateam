@@ -5,7 +5,7 @@
       <h1>Configuraciones</h1>
       <p>Gestión de catálogos del sistema</p>
     </div>
-    <button class="btn-primary" (click)="abrirNuevo()">
+    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo elemento
     </button>
@@ -46,7 +46,7 @@
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
         <p>Sin elementos en {{ tabActivo.label | lowercase }}</p>
-        <button class="btn-secondary" (click)="abrirNuevo()">+ Agregar el primero</button>
+        <button class="btn-secondary" *ngIf="puedeCrear" (click)="abrirNuevo()">+ Agregar el primero</button>
       </div>
 
       <div class="table-scroll" *ngIf="!tabActivo.loading && tabActivo.items.length > 0">
@@ -69,9 +69,16 @@
               <th>Max. pacientes</th>
               <th>Área</th>
               <th>Sesiones</th>
+              <th>Precio recomendado</th>
+            </ng-container>
+            <!-- Paquetes (catálogo) -->
+            <ng-container *ngIf="tabActivo.tipo === 'paquete'">
+              <th>Categoría</th>
+              <th>Sesiones</th>
+              <th>Precio total</th>
             </ng-container>
             <!-- Estándar y terapia: key -->
-            <th *ngIf="tabActivo.tipo !== 'moneda'">Key / Código</th>
+            <th *ngIf="tabActivo.tipo !== 'moneda' && tabActivo.tipo !== 'paquete'">Key / Código</th>
             <th>Estado</th>
             <th></th>
           </tr>
@@ -112,10 +119,24 @@
                 <span *ngIf="item.sesionesSugeridas">{{ item.sesionesSugeridas }}</span>
                 <span class="text-muted" *ngIf="!item.sesionesSugeridas">—</span>
               </td>
+              <td>
+                <span *ngIf="item.precioRecomendado">S/ {{ item.precioRecomendado | number:'1.2-2' }}</span>
+                <span class="text-muted" *ngIf="!item.precioRecomendado">—</span>
+              </td>
+            </ng-container>
+
+            <!-- Paquetes (catálogo) -->
+            <ng-container *ngIf="tabActivo.tipo === 'paquete'">
+              <td>
+                <span *ngIf="item.categoria">{{ item.categoria }}</span>
+                <span class="text-muted" *ngIf="!item.categoria">—</span>
+              </td>
+              <td>{{ item.totalSesiones ?? '—' }}</td>
+              <td><strong>S/ {{ (item.precioTotal ?? 0) | number:'1.2-2' }}</strong></td>
             </ng-container>
 
             <!-- Key -->
-            <td *ngIf="tabActivo.tipo !== 'moneda'">
+            <td *ngIf="tabActivo.tipo !== 'moneda' && tabActivo.tipo !== 'paquete'">
               <span class="key-badge" *ngIf="item.key">{{ item.key }}</span>
               <span class="text-muted" *ngIf="!item.key">—</span>
             </td>
@@ -127,10 +148,10 @@
             </td>
             <td>
               <div class="actions">
-                <button class="btn-icon" (click)="abrirEditar(item)" title="Editar">
+                <button class="btn-icon" *ngIf="puedeEditar" (click)="abrirEditar(item)" title="Editar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon btn-icon-danger" (click)="abrirEliminar(item)" title="Eliminar">
+                <button class="btn-icon btn-icon-danger" *ngIf="puedeEliminar" (click)="abrirEliminar(item)" title="Eliminar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
               </div>
@@ -234,6 +255,33 @@
             <label>Comentario / reglas (opcional)</label>
             <textarea [(ngModel)]="formComentario" name="comentario" rows="2"
                       placeholder="Ej: Niños menores de 18 meses pasan por una evaluación previa"></textarea>
+          </div>
+          <div class="frow">
+            <label>Precio recomendado por sesión (opcional)</label>
+            <input type="number" min="0" step="0.01" [(ngModel)]="formPrecioRecomendado" name="precioRecomendado" placeholder="0.00">
+            <span class="hint-msg">Se usa como default editable al crear una cita suelta (sin paquete) de este tipo.</span>
+          </div>
+        </ng-container>
+
+        <!-- Paquetes (catálogo): categoría + sesiones + precio total -->
+        <ng-container *ngIf="esPaquete">
+          <div class="frow">
+            <label>Categoría (opcional)</label>
+            <input [(ngModel)]="formCategoria" name="categoria" placeholder="Ej: Paquete Terapia Física">
+          </div>
+          <div class="frow-2">
+            <div class="frow">
+              <label>Total de sesiones *</label>
+              <input type="number" [(ngModel)]="formTotalSesiones" name="totalSesiones" min="1" required
+                     #sesRef="ngModel" [class.err-input]="sesRef.invalid && sesRef.touched" placeholder="Ej: 10">
+              <span class="err-msg" *ngIf="sesRef.invalid && sesRef.touched">Requerido</span>
+            </div>
+            <div class="frow">
+              <label>Precio total (S/) *</label>
+              <input type="number" [(ngModel)]="formPrecioTotal" name="precioTotal" min="0" step="0.01" required
+                     #precRef="ngModel" [class.err-input]="precRef.invalid && precRef.touched" placeholder="Ej: 450.00">
+              <span class="err-msg" *ngIf="precRef.invalid && precRef.touched">Requerido</span>
+            </div>
           </div>
         </ng-container>
 

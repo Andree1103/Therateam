@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { TerapeutaService } from '../../Services/terapeuta.service';
+import { TerapeutaService, TerapeutaFiltros } from '../../Services/terapeuta.service';
 import { TerapeutaHorarioService } from '../../Services/terapeuta-horario.service';
 import { TerapeutaExcepcionService } from '../../Services/terapeuta-excepcion.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
@@ -17,6 +17,7 @@ import {
   DIAS_SEMANA, TIPOS_EXCEPCION, diaNombre
 } from '../../Models/terapeuta-horario.model';
 import { CatalogItem, Sede } from '../../../../core/models/catalog.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-lista-terapeutas',
@@ -27,12 +28,20 @@ export class ListaTerapeutasComponent implements OnInit {
 
   // ── Lista principal ───────────────────────────────────────────────────────
   terapeutas: Terapeuta[] = [];
-  filtrados: Terapeuta[] = [];
   loading = false;
   guardando = false;
   eliminando = false;
-  busqueda = '';
+  filtroNombre = '';
+  filtroCmp = '';
+  filtroAreaId: number | null = null;
   filtroActivo = '';
+
+  // ── Paginación server-side ───────────────────────────────────────────────
+  readonly tamanioPaginaOpciones = [5, 10, 15, 20];
+  paginaActual = 0;
+  tamanioPagina = 10;
+  totalElementos = 0;
+  totalPaginas = 0;
 
   // ── Modal crear/editar terapeuta ─────────────────────────────────────────
   modalAbierto = false;
@@ -79,15 +88,20 @@ export class ListaTerapeutasComponent implements OnInit {
   readonly dias = DIAS_SEMANA;
   readonly tiposExcepcion = TIPOS_EXCEPCION;
   nombreCompleto = terapeutaNombre;
-  get total() { return this.terapeutas.length; }
+  get total() { return this.totalElementos; }
 
   constructor(
     private terapeutaService: TerapeutaService,
     private horarioService: TerapeutaHorarioService,
     private excepcionService: TerapeutaExcepcionService,
     private catalogService: CatalogService,
-    private toast: ToastService
+    private toast: ToastService,
+    private authService: AuthService
   ) {}
+
+  get puedeCrear(): boolean { return this.authService.puedeCrear('TERAPEUTAS'); }
+  get puedeEditar(): boolean { return this.authService.puedeEditar('TERAPEUTAS'); }
+  get puedeEliminar(): boolean { return this.authService.puedeEliminar('TERAPEUTAS'); }
 
   ngOnInit(): void {
     this.cargar();
@@ -108,25 +122,53 @@ export class ListaTerapeutasComponent implements OnInit {
 
   cargar(): void {
     this.loading = true;
-    this.terapeutaService.getAll().subscribe({
-      next: data => { this.terapeutas = data; this.filtrar(); this.loading = false; },
+    const filtros: TerapeutaFiltros = {
+      nombre: this.filtroNombre,
+      cmp: this.filtroCmp,
+      areaId: this.filtroAreaId,
+      activo: this.filtroActivo === '' ? null : this.filtroActivo === 'true',
+    };
+    this.terapeutaService.getAllPaged(this.paginaActual, this.tamanioPagina, filtros).subscribe({
+      next: res => {
+        this.terapeutas = res.content;
+        this.totalElementos = res.totalElements;
+        this.totalPaginas = res.totalPages;
+        this.loading = false;
+      },
       error: () => { this.loading = false; }
     });
   }
 
-  filtrar(): void {
-    const q = this.busqueda.toLowerCase().trim();
-    this.filtrados = this.terapeutas.filter(t => {
-      const nombre = terapeutaNombre(t).toLowerCase();
-      const matchQ = !q || nombre.includes(q) || (t.cmp || '').toLowerCase().includes(q);
-      const matchActivo = !this.filtroActivo || String(t.activo ?? true) === this.filtroActivo;
-      return matchQ && matchActivo;
-    });
+  /** Los filtros solo se aplican al clic en "Buscar" (o Enter) — nunca mientras se tipea. */
+  buscar(): void {
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  limpiarFiltros(): void {
+    this.filtroNombre = '';
+    this.filtroCmp = '';
+    this.filtroAreaId = null;
+    this.filtroActivo = '';
+    this.buscar();
+  }
+
+  cambiarTamanioPagina(size: number): void {
+    this.tamanioPagina = size;
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  irAPagina(p: number): void {
+    if (p < 0 || p >= this.totalPaginas || p === this.paginaActual) return;
+    this.paginaActual = p;
+    this.cargar();
   }
 
   // ── Modal crear/editar terapeuta ──────────────────────────────────────────
 
   abrirNuevo(): void {
+    if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
     this.cargandoUsuarios = true;
@@ -138,6 +180,7 @@ export class ListaTerapeutasComponent implements OnInit {
   }
 
   abrirEditar(t: Terapeuta): void {
+    if (!this.puedeEditar) return;
     // Precargar con datos del DTO para abrir el modal inmediatamente
     this.editando = t;
     this.formData = this.formDataFromTerapeuta(t);
@@ -173,13 +216,23 @@ export class ListaTerapeutasComponent implements OnInit {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
     this.guardando = true;
     const body = this.buildCompletoBody();
-    const op$ = this.editando
-      ? this.terapeutaService.updateCompleto(this.editando.id!, body)
+    const esEdicion = !!this.editando;
+    const op$ = esEdicion
+      ? this.terapeutaService.updateCompleto(this.editando!.id!, body)
       : this.terapeutaService.createCompleto(body);
     op$.subscribe({
-      next: () => {
-        this.toast.success(this.editando ? 'Terapeuta actualizado' : 'Terapeuta creado');
-        this.cerrarModal(); this.cargar(); this.guardando = false;
+      next: actualizado => {
+        this.toast.success(esEdicion ? 'Terapeuta actualizado' : 'Terapeuta creado');
+        this.cerrarModal();
+        // Editar solo cambia una fila ya visible: se actualiza en el array local en vez de
+        // repetir el GET paginado. Crear sí necesita recargar (posición según orden/filtro).
+        if (esEdicion) {
+          const idx = this.terapeutas.findIndex(t => t.id === actualizado.id);
+          if (idx !== -1) this.terapeutas[idx] = actualizado;
+        } else {
+          this.cargar();
+        }
+        this.guardando = false;
       },
       error: () => { this.toast.error('Error al guardar el terapeuta'); this.guardando = false; }
     });
@@ -197,16 +250,25 @@ export class ListaTerapeutasComponent implements OnInit {
 
   // ── Modal eliminar ────────────────────────────────────────────────────────
 
-  abrirEliminar(t: Terapeuta): void { this.terapeutaAEliminar = t; this.modalEliminar = true; }
+  abrirEliminar(t: Terapeuta): void {
+    if (!this.puedeEliminar) return;
+    this.terapeutaAEliminar = t; this.modalEliminar = true;
+  }
   cerrarEliminar(): void { this.modalEliminar = false; this.terapeutaAEliminar = null; }
 
   eliminar(): void {
     if (!this.terapeutaAEliminar?.id) return;
     this.eliminando = true;
-    this.terapeutaService.delete(this.terapeutaAEliminar.id).subscribe({
+    const id = this.terapeutaAEliminar.id;
+    this.terapeutaService.delete(id).subscribe({
       next: () => {
         this.toast.success('Terapeuta eliminado');
-        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+        this.cerrarEliminar(); this.eliminando = false;
+        this.terapeutas = this.terapeutas.filter(t => t.id !== id);
+        this.totalElementos = Math.max(0, this.totalElementos - 1);
+        if (this.terapeutas.length === 0 && this.paginaActual > 0) {
+          this.paginaActual--; this.cargar();
+        }
       },
       error: () => { this.toast.error('Error al eliminar'); this.eliminando = false; }
     });

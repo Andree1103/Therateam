@@ -12,6 +12,11 @@ export interface CatalogItem {
   especialidad?: string | null;
   sesionesSugeridas?: number | null;
   comentario?: string | null;
+  precioRecomendado?: number | null;
+  // Plantillas de paquete (catálogo)
+  categoria?: string | null;
+  totalSesiones?: number | null;
+  precioTotal?: number | null;
 }
 
 export interface Sede {

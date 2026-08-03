@@ -1,12 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
-import { PagoService } from '../../Services/pago.service';
+import { PagoService, PagoFiltros } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Pago, PagoForm, TratamientoBasico } from '../../Models/pago.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-lista-pagos',
@@ -16,13 +17,26 @@ import { CatalogItem } from '../../../../core/models/catalog.model';
 export class ListaPagosComponent implements OnInit {
 
   pagos: Pago[] = [];
-  filtrados: Pago[] = [];
   loading = false;
   guardando = false;
   eliminando = false;
   cargandoTratamientos = false;
 
-  busqueda = '';
+  filtroPaciente = '';
+  filtroReferencia = '';
+  filtroMetodoId: number | null = null;
+  filtroTienePaquete = '';   // '' | 'true' | 'false'
+  filtroMontoMin: number | null = null;
+  filtroMontoMax: number | null = null;
+  filtroFechaDesde = '';     // yyyy-MM-dd (input date)
+  filtroFechaHasta = '';
+
+  // ── Paginación server-side ───────────────────────────────────────────────
+  readonly tamanioPaginaOpciones = [5, 10, 15, 20];
+  paginaActual = 0;
+  tamanioPagina = 10;
+  totalElementos = 0;
+  totalPaginas = 0;
 
   modalAbierto = false;
   formData: PagoForm = this.emptyForm();
@@ -34,10 +48,7 @@ export class ListaPagosComponent implements OnInit {
   tratamientos: TratamientoBasico[] = [];
   metodosPago: CatalogItem[] = [];
 
-  get total() { return this.pagos.length; }
-  get totalMonto(): number {
-    return this.filtrados.reduce((s, p) => s + (p.montoRecibido || 0), 0);
-  }
+  get total() { return this.totalElementos; }
 
   get tratamientoSeleccionado(): TratamientoBasico | null {
     return this.tratamientos.find(t => t.id === this.formData.tratamientoId) ?? null;
@@ -59,8 +70,13 @@ export class ListaPagosComponent implements OnInit {
     private pagoService: PagoService,
     private pacienteService: PacienteService,
     private catalogService: CatalogService,
-    private toast: ToastService
+    private toast: ToastService,
+    private authService: AuthService
   ) {}
+
+  get puedeCrear(): boolean { return this.authService.puedeCrear('PAGOS'); }
+  get puedeEditar(): boolean { return this.authService.puedeEditar('PAGOS'); }
+  get puedeEliminar(): boolean { return this.authService.puedeEliminar('PAGOS'); }
 
   ngOnInit(): void {
     this.cargar();
@@ -70,23 +86,59 @@ export class ListaPagosComponent implements OnInit {
 
   cargar(): void {
     this.loading = true;
-    this.pagoService.getAll().subscribe({
-      next: data => { this.pagos = data; this.filtrar(); this.loading = false; },
-      error: ()   => { this.loading = false; }
+    const filtros: PagoFiltros = {
+      paciente: this.filtroPaciente,
+      referencia: this.filtroReferencia,
+      metodoId: this.filtroMetodoId,
+      tienePaquete: this.filtroTienePaquete === '' ? null : this.filtroTienePaquete === 'true',
+      montoMin: this.filtroMontoMin,
+      montoMax: this.filtroMontoMax,
+      fechaInicio: this.filtroFechaDesde ? `${this.filtroFechaDesde}T00:00:00` : undefined,
+      fechaFin: this.filtroFechaHasta ? `${this.filtroFechaHasta}T23:59:59` : undefined,
+    };
+    this.pagoService.getAllPaged(this.paginaActual, this.tamanioPagina, filtros).subscribe({
+      next: res => {
+        this.pagos = res.content;
+        this.totalElementos = res.totalElements;
+        this.totalPaginas = res.totalPages;
+        this.loading = false;
+      },
+      error: () => { this.loading = false; }
     });
   }
 
-  filtrar(): void {
-    const q = this.busqueda.toLowerCase().trim();
-    this.filtrados = this.pagos.filter(p => {
-      const nombre = `${p.paciente?.nombre || ''} ${p.paciente?.apellido || ''}`.toLowerCase();
-      return !q || nombre.includes(q) ||
-        (p.referencia || '').toLowerCase().includes(q) ||
-        (p.metodo?.nombre || '').toLowerCase().includes(q);
-    });
+  /** Los filtros solo se aplican al clic en "Buscar" (o Enter) — nunca mientras se tipea/selecciona. */
+  buscar(): void {
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  limpiarFiltros(): void {
+    this.filtroPaciente = '';
+    this.filtroReferencia = '';
+    this.filtroMetodoId = null;
+    this.filtroTienePaquete = '';
+    this.filtroMontoMin = null;
+    this.filtroMontoMax = null;
+    this.filtroFechaDesde = '';
+    this.filtroFechaHasta = '';
+    this.buscar();
+  }
+
+  cambiarTamanioPagina(size: number): void {
+    this.tamanioPagina = size;
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  irAPagina(p: number): void {
+    if (p < 0 || p >= this.totalPaginas || p === this.paginaActual) return;
+    this.paginaActual = p;
+    this.cargar();
   }
 
   abrirNuevo(): void {
+    if (!this.puedeCrear) return;
     this.formData = this.emptyForm();
     this.tratamientos = [];
     this.modalAbierto = true;
@@ -128,6 +180,7 @@ export class ListaPagosComponent implements OnInit {
   }
 
   abrirEliminar(p: Pago): void {
+    if (!this.puedeEliminar) return;
     this.pagoAEliminar = p;
     this.modalEliminar = true;
   }
@@ -137,10 +190,16 @@ export class ListaPagosComponent implements OnInit {
   eliminar(): void {
     if (!this.pagoAEliminar?.id) return;
     this.eliminando = true;
-    this.pagoService.delete(this.pagoAEliminar.id).subscribe({
+    const id = this.pagoAEliminar.id;
+    this.pagoService.delete(id).subscribe({
       next: () => {
         this.toast.success('Pago eliminado correctamente');
-        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+        this.cerrarEliminar(); this.eliminando = false;
+        this.pagos = this.pagos.filter(p => p.id !== id);
+        this.totalElementos = Math.max(0, this.totalElementos - 1);
+        if (this.pagos.length === 0 && this.paginaActual > 0) {
+          this.paginaActual--; this.cargar();
+        }
       },
       error: () => { this.toast.error('Error al eliminar el pago'); this.eliminando = false; }
     });

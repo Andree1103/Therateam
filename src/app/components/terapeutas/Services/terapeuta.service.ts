@@ -5,6 +5,13 @@ import { ApiService } from '../../../core/services/api.service';
 import { Terapeuta, TerapeutaCompletoRequest, terapeutaNombre, UsuarioBasico } from '../Models/terapeuta.model';
 import { PageResponse } from '../../../core/models/page.model';
 
+export interface TerapeutaFiltros {
+  nombre?: string;
+  cmp?: string;
+  areaId?: number | null;
+  activo?: boolean | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TerapeutaService {
   private readonly PATH = '/api/terapeutas';
@@ -15,6 +22,17 @@ export class TerapeutaService {
     return this.api.get<PageResponse<Terapeuta> | Terapeuta[]>(this.PATH, { size: '1000' }).pipe(
       map(r => Array.isArray(r) ? r : r.content)
     );
+  }
+
+  /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
+  getAllPaged(page: number, size: number, filtros: TerapeutaFiltros = {}): Observable<PageResponse<Terapeuta>> {
+    return this.api.get<PageResponse<Terapeuta>>(this.PATH, {
+      page: String(page), size: String(size),
+      nombre: filtros.nombre?.trim() || undefined,
+      cmp: filtros.cmp?.trim() || undefined,
+      areaId: filtros.areaId != null ? String(filtros.areaId) : undefined,
+      activo: filtros.activo == null ? undefined : String(filtros.activo),
+    });
   }
 
   getById(id: number): Observable<Terapeuta> {

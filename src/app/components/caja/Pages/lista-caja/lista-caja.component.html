@@ -76,7 +76,7 @@
             <label>Comentario</label>
             <textarea [(ngModel)]="comentarioForm" rows="2" placeholder="Ej: compra de útiles de limpieza"></textarea>
           </div>
-          <button class="btn-primary" (click)="cerrarCaja()" [disabled]="cerrando">
+          <button class="btn-primary" *ngIf="puedeCerrarCaja" (click)="cerrarCaja()" [disabled]="cerrando">
             {{ cerrando ? 'Guardando...' : (resumen.cerrado ? 'Actualizar cierre' : 'Cerrar caja del día') }}
           </button>
         </div>

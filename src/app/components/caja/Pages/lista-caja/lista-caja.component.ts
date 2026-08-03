@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CajaService } from '../../Services/caja.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CajaResumen, CierreCaja } from '../../Models/caja.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-lista-caja',
@@ -23,8 +24,18 @@ export class ListaCajaComponent implements OnInit {
 
   constructor(
     private cajaService: CajaService,
-    private toast: ToastService
+    private toast: ToastService,
+    private authService: AuthService
   ) {}
+
+  get puedeCrear(): boolean { return this.authService.puedeCrear('CAJA'); }
+  get puedeEditar(): boolean { return this.authService.puedeEditar('CAJA'); }
+  get puedeEliminar(): boolean { return this.authService.puedeEliminar('CAJA'); }
+
+  /** El cierre de caja crea el registro la primera vez y lo edita en cierres posteriores. */
+  get puedeCerrarCaja(): boolean {
+    return this.resumen?.cerrado ? this.puedeEditar : this.puedeCrear;
+  }
 
   ngOnInit(): void {
     this.cargar();
@@ -71,6 +82,7 @@ export class ListaCajaComponent implements OnInit {
   }
 
   cerrarCaja(): void {
+    if (!this.puedeCerrarCaja) return;
     this.cerrando = true;
     this.cajaService.cerrar({
       fecha: this.fecha,

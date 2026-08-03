@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
-import { TratamientoService } from '../../Services/tratamiento.service';
+import { TratamientoService, TratamientoFiltros } from '../../Services/tratamiento.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
@@ -8,6 +8,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { Tratamiento, TratamientoForm, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-lista-tratamientos',
@@ -17,13 +18,21 @@ import { CatalogItem } from '../../../../core/models/catalog.model';
 export class ListaTratamientosComponent implements OnInit {
 
   tratamientos: Tratamiento[] = [];
-  filtrados: Tratamiento[] = [];
   loading = false;
   guardando = false;
   eliminando = false;
 
-  busqueda = '';
+  filtroPaciente = '';
+  filtroTerapeuta = '';
+  filtroTipoTerapiaId: number | null = null;
   filtroEstado = '';
+
+  // ── Paginación server-side ───────────────────────────────────────────────
+  readonly tamanioPaginaOpciones = [5, 10, 15, 20];
+  paginaActual = 0;
+  tamanioPagina = 10;
+  totalElementos = 0;
+  totalPaginas = 0;
 
   modalAbierto = false;
   editando: Tratamiento | null = null;
@@ -46,6 +55,8 @@ export class ListaTratamientosComponent implements OnInit {
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
   areas: CatalogItem[] = [];
+  plantillas: CatalogItem[] = [];
+  plantillaSeleccionadaId: number | null = null;
 
   // ── Buscador de paciente ─────────────────────────────────────────────────
   pacienteBusqueda = '';
@@ -56,7 +67,7 @@ export class ListaTratamientosComponent implements OnInit {
   tipoBusqueda = '';
   tipoDropdownAbierto = false;
 
-  get total() { return this.tratamientos.length; }
+  get total() { return this.totalElementos; }
   pacienteNombre = tratamientoPaciente;
   terapeutaNombre = tratamientoTerapeuta;
 
@@ -65,8 +76,13 @@ export class ListaTratamientosComponent implements OnInit {
     private pacienteService: PacienteService,
     private terapeutaService: TerapeutaService,
     private catalogService: CatalogService,
-    private toast: ToastService
+    private toast: ToastService,
+    private authService: AuthService
   ) {}
+
+  get puedeCrear(): boolean { return this.authService.puedeCrear('PAQUETES'); }
+  get puedeEditar(): boolean { return this.authService.puedeEditar('PAQUETES'); }
+  get puedeEliminar(): boolean { return this.authService.puedeEliminar('PAQUETES'); }
 
   ngOnInit(): void {
     this.cargar();
@@ -75,6 +91,18 @@ export class ListaTratamientosComponent implements OnInit {
     this.catalogService.getTiposTerapia().subscribe(d => this.tiposTerapia = d);
     this.catalogService.getEstadosTratamiento().subscribe(d => this.estadosTratamiento = d);
     this.catalogService.getAreas().subscribe(d => this.areas = d);
+    this.catalogService.getPlantillasPaquete().subscribe(d => this.plantillas = d.filter(p => p.activo !== false));
+  }
+
+  /** Autocompleta sesiones/precio desde el catálogo — sigue siendo editable después. */
+  onPlantillaChange(): void {
+    const p = this.plantillas.find(x => x.id === this.plantillaSeleccionadaId);
+    if (!p) return;
+    this.formData.sesionesTotal = p.totalSesiones ?? this.formData.sesionesTotal;
+    if (p.precioTotal != null && p.totalSesiones) {
+      this.formData.precioPorSesion = Math.round((p.precioTotal / p.totalSesiones) * 100) / 100;
+    }
+    if (!this.formData.notas) this.formData.notas = p.nombre;
   }
 
   // ── Buscador de paciente ─────────────────────────────────────────────────
@@ -123,35 +151,62 @@ export class ListaTratamientosComponent implements OnInit {
 
   cargar(): void {
     this.loading = true;
-    this.tratamientoService.getAll().subscribe({
-      next: data => { this.tratamientos = data; this.filtrar(); this.loading = false; },
-      error: ()   => { this.loading = false; }
+    const filtros: TratamientoFiltros = {
+      paciente: this.filtroPaciente,
+      terapeuta: this.filtroTerapeuta,
+      tipoTerapiaId: this.filtroTipoTerapiaId,
+      estado: this.filtroEstado,
+    };
+    this.tratamientoService.getAllPaged(this.paginaActual, this.tamanioPagina, filtros).subscribe({
+      next: res => {
+        this.tratamientos = res.content;
+        this.totalElementos = res.totalElements;
+        this.totalPaginas = res.totalPages;
+        this.loading = false;
+      },
+      error: () => { this.loading = false; }
     });
   }
 
-  filtrar(): void {
-    const q = this.busqueda.toLowerCase().trim();
-    this.filtrados = this.tratamientos.filter(t => {
-      const pac = tratamientoPaciente(t).toLowerCase();
-      const ter = tratamientoTerapeuta(t).toLowerCase();
-      const matchQ = !q || pac.includes(q) || ter.includes(q) ||
-        (t.tipoTerapiaNombre || '').toLowerCase().includes(q);
-      const matchEst = !this.filtroEstado ||
-        (t.estadoKey || '') === this.filtroEstado;
-      return matchQ && matchEst;
-    });
+  /** Los filtros solo se aplican al clic en "Buscar" (o Enter) — nunca mientras se tipea. */
+  buscar(): void {
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  limpiarFiltros(): void {
+    this.filtroPaciente = '';
+    this.filtroTerapeuta = '';
+    this.filtroTipoTerapiaId = null;
+    this.filtroEstado = '';
+    this.buscar();
+  }
+
+  cambiarTamanioPagina(size: number): void {
+    this.tamanioPagina = size;
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  irAPagina(p: number): void {
+    if (p < 0 || p >= this.totalPaginas || p === this.paginaActual) return;
+    this.paginaActual = p;
+    this.cargar();
   }
 
   abrirNuevo(): void {
+    if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
     this.pacienteBusqueda = '';
     this.tipoBusqueda = '';
     this.fAreaId = null;
+    this.plantillaSeleccionadaId = null;
     this.modalAbierto = true;
   }
 
   abrirEditar(t: Tratamiento): void {
+    if (!this.puedeEditar) return;
     this.editando = t;
     const tipo = this.tiposTerapia.find(tt => tt.key === t.tipoTerapiaKey) ?? null;
     this.formData = {
@@ -216,16 +271,25 @@ export class ListaTratamientosComponent implements OnInit {
     });
   }
 
-  abrirEliminar(t: Tratamiento): void { this.tratamientoAEliminar = t; this.modalEliminar = true; }
+  abrirEliminar(t: Tratamiento): void {
+    if (!this.puedeEliminar) return;
+    this.tratamientoAEliminar = t; this.modalEliminar = true;
+  }
   cerrarEliminar(): void { this.modalEliminar = false; this.tratamientoAEliminar = null; }
 
   eliminar(): void {
     if (!this.tratamientoAEliminar?.id) return;
     this.eliminando = true;
-    this.tratamientoService.delete(this.tratamientoAEliminar.id).subscribe({
+    const id = this.tratamientoAEliminar.id;
+    this.tratamientoService.delete(id).subscribe({
       next: () => {
         this.toast.success('Paquete eliminado correctamente');
-        this.cerrarEliminar(); this.cargar(); this.eliminando = false;
+        this.cerrarEliminar(); this.eliminando = false;
+        this.tratamientos = this.tratamientos.filter(t => t.id !== id);
+        this.totalElementos = Math.max(0, this.totalElementos - 1);
+        if (this.tratamientos.length === 0 && this.paginaActual > 0) {
+          this.paginaActual--; this.cargar();
+        }
       },
       error: () => { this.toast.error('Error al eliminar el paquete'); this.eliminando = false; }
     });

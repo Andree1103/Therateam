@@ -35,7 +35,7 @@
       <button class="filtro-clear" (click)="limpiarFiltros()">✕</button>
     </span>
 
-    <button class="btn-nueva ml-auto" (click)="abrirNueva()">+ Nueva cita</button>
+    <button class="btn-nueva ml-auto" *ngIf="puedeCrearCitas" (click)="abrirNueva()">+ Nueva cita</button>
   </div>
 
   <!-- ═══ VISTA SEMANA ═══════════════════════════════════════════════════════ -->
@@ -184,7 +184,7 @@
                     <div class="hc-footer">
                       <button class="hc-btn-edit" (click)="abrirEditar(c, $event)">Editar</button>
                       <button class="hc-btn-pagar"
-                              *ngIf="c.estado_pago_key !== 'PAGADA' && citaPagandoId !== c.id"
+                              *ngIf="c.estado_pago_key !== 'PAGADA' && citaPagandoId !== c.id && puedeRegistrarPago"
                               (click)="abrirPagoCita(c, $event)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                         Registrar pago
@@ -214,12 +214,14 @@
               </ng-container>
 
               <!-- Huecos libres dentro de la hora: cada uno abre "Nueva cita" en su minuto exacto ── -->
-              <div class="slot-libre" *ngFor="let g of getFranjasLibresHora(di, s.h); trackBy: trackByFranja"
-                   [style.top.px]="g.top" [style.height.px]="g.height"
-                   [title]="'Agregar cita a las ' + g.horaInicio"
-                   (click)="abrirSlotExacto(di, g.minutoInicio)">
-                <span *ngIf="g.height >= 14">+ {{ g.horaInicio }}</span>
-              </div>
+              <ng-container *ngIf="puedeCrearCitas">
+                <div class="slot-libre" *ngFor="let g of getFranjasLibresHora(di, s.h); trackBy: trackByFranja"
+                     [style.top.px]="g.top" [style.height.px]="g.height"
+                     [title]="'Agregar cita a las ' + g.horaInicio"
+                     (click)="abrirSlotExacto(di, g.minutoInicio)">
+                  <span *ngIf="g.height >= 14">+ {{ g.horaInicio }}</span>
+                </div>
+              </ng-container>
             </td>
           </tr>
         </tbody>
@@ -425,7 +427,7 @@
               </div>
               <div class="frow-2">
                 <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac1.telefono" placeholder="999 000 111"></div>
-                <div class="frow"><label>Correo <span class="opc-tag">(opcional)</span></label><input [(ngModel)]="pac1.correo" placeholder="email@ejemplo.com" type="email"></div>
+                <div class="frow"><label>Correo <span class="opc-tag" *ngIf="pac1.modo !== 'nuevo'">(opcional)</span><span *ngIf="pac1.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac1.correo" placeholder="email@ejemplo.com" type="email"></div>
               </div>
             </ng-container>
           </div>
@@ -511,7 +513,7 @@
                 </div>
                 <div class="frow-2">
                   <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac2.telefono" placeholder="999 000 111"></div>
-                  <div class="frow"><label>Correo</label><input [(ngModel)]="pac2.correo" placeholder="email@ejemplo.com" type="email"></div>
+                  <div class="frow"><label>Correo<span *ngIf="pac2.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac2.correo" placeholder="email@ejemplo.com" type="email"></div>
                 </div>
               </ng-container>
             </div>
@@ -749,7 +751,7 @@
             </span>
           </div>
           <!-- Mini-form si no está pagada y citaPagandoId apunta a esta cita -->
-          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id">
+          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id && puedeRegistrarPago">
             <button class="hc-btn-pagar" style="margin-top:6px" (click)="abrirPagoCita(citaEditando, $event)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               Registrar pago
@@ -790,9 +792,10 @@
       </div>
 
       <div class="modal-footer">
-        <button *ngIf="citaEditando" class="btn-eliminar" (click)="eliminarCita()">Eliminar</button>
+        <button *ngIf="citaEditando && puedeEliminarCitas" class="btn-eliminar" (click)="eliminarCita()">Eliminar</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
-        <button class="btn-save" (click)="guardarCita()" [disabled]="guardando">
+        <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"
+                *ngIf="citaEditando ? puedeEditarCitas : puedeCrearCitas">
           {{ guardando ? 'Guardando...' :
              citaEditando ? 'Actualizar' :
              modoProgramacion === 'multiple' ? ('Crear ' + bulkPreview.length + ' sesiones') :

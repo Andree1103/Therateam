@@ -16,6 +16,7 @@ import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta
 import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -145,7 +146,8 @@ export class ListaCitasComponent implements OnInit {
     private toast: ToastService,
     private router: Router,
     private atencionService: AtencionClinicaService,
-    private disponibilidadService: DisponibilidadService
+    private disponibilidadService: DisponibilidadService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -153,6 +155,15 @@ export class ListaCitasComponent implements OnInit {
     this.irHoy();
     this.cargarCatalogos();
   }
+
+  /** Requiere el permiso granular CREAR del módulo Citas Y no estar restringido a nivel de usuario (ambos configurables en Seguridad). */
+  get puedeCrearCitas(): boolean {
+    return this.authService.puedeCrear('CITAS') && this.authService.puedeCrearCitas();
+  }
+  get puedeEditarCitas(): boolean { return this.authService.puedeEditar('CITAS'); }
+  get puedeEliminarCitas(): boolean { return this.authService.puedeEliminar('CITAS'); }
+  /** Registrar pago desde el modal de cita usa el mismo permiso que el módulo Pagos. */
+  get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -284,9 +295,14 @@ export class ListaCitasComponent implements OnInit {
         this.estadosCita       = estados;
         this.modalidades       = modalidades;
         this.metodosPago       = metodosPago;
-        this.areas             = areas;
-        this.terapeutas        = terapeutas;
-        this.terapeutasNombres = terapeutas.map(t => terapeutaNombre(t)).filter(Boolean);
+        this.areas              = areas;
+        const usuario = this.authService.currentUserValue;
+        // Si el usuario está restringido a solo sus propias citas, ni siquiera ve al resto
+        // de terapeutas en el sidebar/filtros — no solo se le ocultan sus citas.
+        this.terapeutas          = (usuario?.citasSoloPropias && usuario.terapeutaId != null)
+          ? terapeutas.filter(t => t.id === usuario.terapeutaId)
+          : terapeutas;
+        this.terapeutasNombres = this.terapeutas.map(t => terapeutaNombre(t)).filter(Boolean);
         this.fMetodoPagoId     = metodosPago[0]?.id ?? null;
         this.cargandoCatalogos = false;
         this.resetForm();
@@ -943,9 +959,13 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Modal ────────────────────────────────────────────────────────────────────
 
-  abrirNueva(): void { this.citaEditando = null; this.resetForm(); this.modalAbierto = true; }
+  abrirNueva(): void {
+    if (!this.puedeCrearCitas) return;
+    this.citaEditando = null; this.resetForm(); this.modalAbierto = true;
+  }
 
   abrirSlot(diaIdx: number, s: Slot): void {
+    if (!this.puedeCrearCitas) return;
     this.citaEditando = null; this.resetForm();
     const fecha = this.diasSemana[diaIdx].fecha;
     this.fFecha = this.fechaToISO(fecha);
@@ -1068,6 +1088,14 @@ export class ListaCitasComponent implements OnInit {
     if (!this.pac1.nombre.trim() || !this.pac1.apellido.trim()) {
       this.toast.warning('Completa los datos del paciente 1'); return;
     }
+    // El correo es obligatorio solo para pacientes NUEVOS (se usa para crearles su cuenta de acceso) —
+    // uno ya encontrado por DNI no necesita tocarse aquí.
+    if (this.pac1.modo === 'nuevo' && !this.pac1.correo.trim()) {
+      this.toast.warning('El correo del paciente 1 es obligatorio (se usa para crear su cuenta de acceso)'); return;
+    }
+    if (this.esMultipaciente && this.pac2habilitado && this.pac2.modo === 'nuevo' && this.pac2.nombre.trim() && !this.pac2.correo.trim()) {
+      this.toast.warning('El correo del paciente 2 es obligatorio (se usa para crear su cuenta de acceso)'); return;
+    }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
     if (!this.fFecha || !this.fHoraInicio) { this.toast.warning('Selecciona fecha y hora'); return; }
@@ -1089,9 +1117,17 @@ export class ListaCitasComponent implements OnInit {
     const fechaFin  = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
 
-    // Validación best-effort de horario (el backend es la autoridad final)
+    // Validación best-effort de horario (el backend es la autoridad final). La grilla de
+    // disponibilidad cacheada (this.disponibilidadPorTerapeuta) resta TODAS las citas ya
+    // agendadas del terapeuta — incluida esta misma, si estamos editándola. Sin este chequeo,
+    // guardar una cita sin tocar ni terapeuta ni fecha/hora la marcaría como "fuera de horario"
+    // porque ese slot aparece ocupado... por ella misma.
     const terapeutaSel = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
-    if (terapeutaSel?.id != null) {
+    const sinCambioDeHorario = !!this.citaEditando
+      && terapeutaSel?.id != null
+      && String(terapeutaSel.id) === this.citaEditando.terapeuta_id
+      && fechaSlot.getTime() === new Date(this.citaEditando.fecha_inicio).getTime();
+    if (terapeutaSel?.id != null && !sinCambioDeHorario) {
       const inicioMin = fechaSlot.getHours() * 60 + fechaSlot.getMinutes();
       const finMin    = fechaFin.getHours()  * 60 + fechaFin.getMinutes();
       if (!this.cubreFranja(terapeutaSel.id, this.fFecha, inicioMin, finMin)) {

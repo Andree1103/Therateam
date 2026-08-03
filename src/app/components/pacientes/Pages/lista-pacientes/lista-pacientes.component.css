@@ -12,14 +12,12 @@
 
 /* Filters */
 .filters-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.search-wrap{position:relative;flex:1;min-width:200px}
-.search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8}
-.search-inp{width:100%;padding:8px 10px 8px 34px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff;font-family:inherit;color:#0f172a;box-sizing:border-box}
+.search-inp{flex:1;min-width:160px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff;font-family:inherit;color:#0f172a;box-sizing:border-box}
 .search-inp:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
 .filter-sel{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff;font-family:inherit;color:#374151;cursor:pointer}
 
 /* Card */
-.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden}
+.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;flex-shrink:0}
 
 /* States */
 .state-box{padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8}

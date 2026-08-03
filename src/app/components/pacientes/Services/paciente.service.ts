@@ -5,6 +5,14 @@ import { ApiService } from '../../../core/services/api.service';
 import { Paciente } from '../Models/paciente.model';
 import { PageResponse } from '../../../core/models/page.model';
 
+export interface PacienteFiltros {
+  nombre?: string;
+  dni?: string;
+  correo?: string;
+  sedeId?: number | null;
+  activo?: boolean | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PacienteService {
   private readonly PATH = '/api/pacientes';
@@ -15,6 +23,18 @@ export class PacienteService {
     return this.api.get<PageResponse<Paciente> | Paciente[]>(this.PATH, { size: '1000' }).pipe(
       map(r => Array.isArray(r) ? r : r.content)
     );
+  }
+
+  /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
+  getAllPaged(page: number, size: number, filtros: PacienteFiltros = {}): Observable<PageResponse<Paciente>> {
+    return this.api.get<PageResponse<Paciente>>(this.PATH, {
+      page: String(page), size: String(size),
+      nombre: filtros.nombre?.trim() || undefined,
+      dni: filtros.dni?.trim() || undefined,
+      correo: filtros.correo?.trim() || undefined,
+      sedeId: filtros.sedeId != null ? String(filtros.sedeId) : undefined,
+      activo: filtros.activo == null ? undefined : String(filtros.activo),
+    });
   }
 
   getById(id: number): Observable<Paciente> {

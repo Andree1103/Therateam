@@ -5,7 +5,7 @@
       <h1>Paquetes</h1>
       <p>{{ total }} paquete{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
     </div>
-    <button class="btn-primary" (click)="abrirNuevo()">
+    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo paquete
     </button>
@@ -14,14 +14,18 @@
   <div class="page-body">
 
     <div class="filters-bar">
-      <div class="search-wrap">
-        <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-inp" [(ngModel)]="busqueda" (ngModelChange)="filtrar()" placeholder="Buscar por paciente, terapeuta o tipo...">
-      </div>
-      <select class="filter-sel" [(ngModel)]="filtroEstado" (ngModelChange)="filtrar()">
+      <input class="search-inp" [(ngModel)]="filtroPaciente" (keyup.enter)="buscar()" placeholder="Paciente...">
+      <input class="search-inp" [(ngModel)]="filtroTerapeuta" (keyup.enter)="buscar()" placeholder="Terapeuta...">
+      <select class="filter-sel" [(ngModel)]="filtroTipoTerapiaId">
+        <option [ngValue]="null">Todos los tipos</option>
+        <option *ngFor="let t of tiposTerapia" [ngValue]="t.id">{{ t.nombre }}</option>
+      </select>
+      <select class="filter-sel" [(ngModel)]="filtroEstado">
         <option value="">Todos los estados</option>
         <option *ngFor="let e of estadosTratamiento" [value]="e.key">{{ e.nombre }}</option>
       </select>
+      <button class="btn-secondary" (click)="buscar()">Buscar</button>
+      <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
     </div>
 
     <div class="card">
@@ -31,13 +35,13 @@
         <p>Cargando paquetes...</p>
       </div>
 
-      <div class="state-box" *ngIf="!loading && filtrados.length === 0">
+      <div class="state-box" *ngIf="!loading && tratamientos.length === 0">
         <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" width="40" height="40"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
         <p>No se encontraron paquetes</p>
-        <button class="btn-secondary" (click)="abrirNuevo()">+ Agregar el primero</button>
+        <button class="btn-secondary" *ngIf="puedeCrear" (click)="abrirNuevo()">+ Agregar el primero</button>
       </div>
 
-      <table class="data-table" *ngIf="!loading && filtrados.length > 0">
+      <table class="data-table" *ngIf="!loading && tratamientos.length > 0">
         <thead>
           <tr>
             <th class="th-exp"></th>
@@ -52,7 +56,7 @@
           </tr>
         </thead>
         <tbody>
-          <ng-container *ngFor="let t of filtrados">
+          <ng-container *ngFor="let t of tratamientos">
             <tr [class.tr-open]="expandidas[t.id!]">
               <td class="td-exp">
                 <button class="btn-expand" (click)="toggleExpansion(t.id!)">
@@ -86,10 +90,10 @@
                   <a class="btn-icon" [routerLink]="['/tratamientos', t.id]" title="Ver detalle">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   </a>
-                  <button class="btn-icon" (click)="abrirEditar(t)" title="Editar">
+                  <button class="btn-icon" *ngIf="puedeEditar" (click)="abrirEditar(t)" title="Editar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
-                  <button class="btn-icon btn-icon-danger" (click)="abrirEliminar(t)" title="Eliminar">
+                  <button class="btn-icon btn-icon-danger" *ngIf="puedeEliminar" (click)="abrirEliminar(t)" title="Eliminar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                   </button>
                 </div>
@@ -145,6 +149,13 @@
           </ng-container>
         </tbody>
       </table>
+
+      <app-paginator *ngIf="!loading"
+        [pagina]="paginaActual" [tamanioPagina]="tamanioPagina"
+        [totalElementos]="totalElementos" [totalPaginas]="totalPaginas"
+        [itemsEnPagina]="tratamientos.length" [opciones]="tamanioPaginaOpciones"
+        (paginaChange)="irAPagina($event)" (tamanioPaginaChange)="cambiarTamanioPagina($event)">
+      </app-paginator>
     </div>
   </div>
 
@@ -160,6 +171,18 @@
       </div>
 
       <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
+
+        <!-- Elegir plantilla del catálogo (opcional) — autocompleta sesiones/precio, sigue editable -->
+        <div class="frow" *ngIf="!editando && plantillas.length > 0">
+          <label>Elegir del catálogo <span class="opc-tag">(opcional)</span></label>
+          <select [(ngModel)]="plantillaSeleccionadaId" name="plantillaId" (ngModelChange)="onPlantillaChange()">
+            <option [ngValue]="null">— Sin plantilla, llenar manualmente —</option>
+            <option *ngFor="let p of plantillas" [ngValue]="p.id">
+              {{ p.nombre }} — {{ p.totalSesiones }} sesiones — S/ {{ p.precioTotal | number:'1.2-2' }}
+            </option>
+          </select>
+          <span class="hint-msg">Autocompleta sesiones y precio por sesión — puedes editarlos después.</span>
+        </div>
 
         <div class="frow-2">
           <div class="frow autocomplete-wrap">

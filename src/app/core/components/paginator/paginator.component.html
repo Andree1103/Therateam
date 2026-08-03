@@ -1,0 +1,19 @@
+<div class="paginator" *ngIf="totalElementos > 0">
+  <div class="paginator-size">
+    <label>Mostrar</label>
+    <select [ngModel]="tamanioPagina" (ngModelChange)="cambiarTamanio($event)" name="tamanioPagina">
+      <option *ngFor="let n of opciones" [ngValue]="n">{{ n }}</option>
+    </select>
+    <span>por página</span>
+  </div>
+  <div class="paginator-info">{{ desde }}–{{ hasta }} de {{ totalElementos }}</div>
+  <div class="paginator-nav">
+    <button class="btn-icon" type="button" [disabled]="pagina === 0" (click)="anterior()" title="Anterior">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="paginator-page">Página {{ pagina + 1 }} de {{ totalPaginas }}</span>
+    <button class="btn-icon" type="button" [disabled]="pagina >= totalPaginas - 1" (click)="siguiente()" title="Siguiente">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+</div>
