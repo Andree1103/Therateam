@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { AuthService } from '../../Services/auth.service';
 
 @Component({
   selector: 'app-sin-acceso',
@@ -19,6 +19,12 @@ import { Router } from '@angular/router';
   `]
 })
 export class SinAccesoComponent {
-  constructor(private router: Router) {}
-  volver(): void { this.router.navigate(['/']); }
+  constructor(private authService: AuthService) {}
+
+  /**
+   * "Volver" cierra sesión en vez de solo navegar a '/' — si el token guardado quedó desactualizado
+   * (ej. tras un cambio de roles/permisos en el back), navegar a '/' vuelve a caer en el mismo guard
+   * y regresa aquí en loop. Cerrar sesión fuerza un login limpio con permisos frescos.
+   */
+  volver(): void { this.authService.logout(); }
 }

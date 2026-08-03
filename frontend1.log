@@ -1,0 +1,111 @@
+- Building...
+
+Browser bundles        
+Initial chunk files     | Names                  |  Raw size
+polyfills.js            | polyfills              |  88.09 kB | 
+main.js                 | main                   |  50.86 kB | 
+chunk-VZGHKK4Y.js       | -                      |   3.47 kB | 
+chunk-KIF3SXV6.js       | -                      |   2.34 kB | 
+chunk-DC67FJWH.js       | -                      |   1.57 kB | 
+chunk-TM6YZTAA.js       | -                      |   1.15 kB | 
+chunk-4E2JY3TT.js       | -                      | 754 bytes | 
+chunk-FJ5G62QP.js       | -                      | 183 bytes | 
+styles.css              | styles                 |  95 bytes | 
+
+                        | Initial total          | 148.49 kB
+
+Lazy chunk files        | Names                  |  Raw size
+chunk-NMPBBJZA.js       | citas-module           | 336.51 kB | 
+chunk-DVPLQI42.js       | tratamientos-module    | 183.78 kB | 
+chunk-CTVDRRVD.js       | terapeutas-module      | 132.11 kB | 
+chunk-MSKQ2NGN.js       | pacientes-module       | 101.31 kB | 
+chunk-JU7EG57S.js       | configuraciones-module |  88.25 kB | 
+chunk-TGZ3XESP.js       | seguridad-module       |  85.23 kB | 
+chunk-BCMNAKNS.js       | pagos-module           |  59.96 kB | 
+chunk-VUVKZTNM.js       | caja-module            |  27.19 kB | 
+chunk-ACQEBO7Z.js       | dashboard-module       |  25.09 kB | 
+chunk-CAKKBLHA.js       | auth-module            |  12.67 kB | 
+chunk-APQSDHAM.js       | -                      |   9.64 kB | 
+chunk-HVGYWWEO.js       | -                      |   7.64 kB | 
+chunk-SBYPSCYK.js       | sin-acceso-component   |   2.50 kB | 
+chunk-NIYMUZFP.js       | -                      |   2.22 kB | 
+chunk-D4EKGFRE.js       | -                      |   2.16 kB | 
+...and 3 more lazy chunks files. Use "--verbose" to show all the files.
+
+
+Server bundles         
+Initial chunk files     | Names                  |  Raw size
+chunk-CWC6STHT.mjs      | -                      |   1.07 MB | 
+chunk-RFTYUXFM.mjs      | -                      | 663.58 kB | 
+polyfills.server.mjs    | polyfills.server       | 559.49 kB | 
+chunk-DAKG5DBT.mjs      | -                      | 194.17 kB | 
+main.server.mjs         | main.server            |  52.08 kB | 
+chunk-YIQZSVKO.mjs      | -                      |   3.38 kB | 
+chunk-VPSODEBW.mjs      | -                      |   2.51 kB | 
+chunk-XHK5BYNG.mjs      | -                      |   2.32 kB | 
+chunk-DXIBIQRL.mjs      | -                      |   1.53 kB | 
+chunk-7SC4XIY5.mjs      | -                      |   1.14 kB | 
+render-utils.server.mjs | render-utils.server    | 462 bytes | 
+chunk-SDPITCYP.mjs      | -                      | 218 bytes | 
+
+Lazy chunk files        | Names                  |  Raw size
+chunk-XV3LCJLB.mjs      | citas-module           | 324.59 kB | 
+chunk-NGW33LLO.mjs      | -                      | 193.78 kB | 
+chunk-DXMUTJYY.mjs      | tratamientos-module    | 178.26 kB | 
+chunk-C3V7DUCG.mjs      | terapeutas-module      | 127.22 kB | 
+chunk-XPGUXKUD.mjs      | pacientes-module       |  97.75 kB | 
+chunk-ZLTRPXKC.mjs      | configuraciones-module |  85.88 kB | 
+chunk-YHLDL27Y.mjs      | seguridad-module       |  83.07 kB | 
+chunk-EQHUAQY2.mjs      | pagos-module           |  58.64 kB | 
+chunk-P3UOPGAK.mjs      | xhr2                   |  39.09 kB | 
+chunk-NL3NB6X2.mjs      | caja-module            |  26.39 kB | 
+chunk-SMFMGEC7.mjs      | dashboard-module       |  24.45 kB | 
+chunk-BQ2TI35B.mjs      | auth-module            |  12.54 kB | 
+chunk-B5K32JHG.mjs      | -                      |   9.65 kB | 
+chunk-5ZPARDGP.mjs      | -                      |   7.82 kB | 
+chunk-BDW2QSK5.mjs      | sin-acceso-component   |   2.62 kB | 
+...and 5 more lazy chunks files. Use "--verbose" to show all the files.
+
+Application bundle generation complete. [14.957 seconds]
+
+▲ [WARNING] NG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator. [plugin angular-compiler]
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.html:203:61:
+      203 │ ...ked]="formRolPermisos[m.id]?.crear" (change)="toggleAccionModu...
+          ╵                                 ~~~~~
+
+  Error occurs in the template of component ListaSeguridadComponent.
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.ts:44:15:
+      44 │   templateUrl: './lista-seguridad.component.html',
+         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+▲ [WARNING] NG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator. [plugin angular-compiler]
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.html:207:61:
+      207 │ ...ed]="formRolPermisos[m.id]?.editar" (change)="toggleAccionModu...
+          ╵                                ~~~~~~
+
+  Error occurs in the template of component ListaSeguridadComponent.
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.ts:44:15:
+      44 │   templateUrl: './lista-seguridad.component.html',
+         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+▲ [WARNING] NG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator. [plugin angular-compiler]
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.html:211:61:
+      211 │ ...d]="formRolPermisos[m.id]?.eliminar" (change)="toggleAccionMod...
+          ╵                               ~~~~~~~~
+
+  Error occurs in the template of component ListaSeguridadComponent.
+
+    src/app/components/seguridad/Pages/lista-seguridad/lista-seguridad.component.ts:44:15:
+      44 │   templateUrl: './lista-seguridad.component.html',
+         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Watch mode enabled. Watching for file changes...
+  ➜  Local:   http://localhost:4200/
