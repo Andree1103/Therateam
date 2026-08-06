@@ -61,10 +61,6 @@
 .esp-checks{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
 .esp-check{display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;cursor:pointer}
 .esp-check input{cursor:pointer;accent-color:#185FA5}
-.modo-toggle{display:flex;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc}
-.modo-btn{flex:1;padding:9px 12px;border:none;background:transparent;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;font-family:inherit;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0}
-.modo-btn.active{background:#fff;color:#185FA5;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-.modo-btn:hover:not(.active){background:#f1f5f9}
 .section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:4px 0 2px;border-bottom:1px solid #f1f5f9}
 .hint-msg{font-size:11px;color:#94a3b8;margin-top:2px}
 .text-muted{color:#94a3b8;font-size:12px}

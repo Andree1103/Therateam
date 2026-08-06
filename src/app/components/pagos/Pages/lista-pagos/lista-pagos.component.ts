@@ -2,10 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { PagoService, PagoFiltros } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { CitaService } from '../../../citas/Services/cita.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Pago, PagoForm, TratamientoBasico } from '../../Models/pago.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
+import { Cita } from '../../../citas/Models/cita.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 
@@ -46,12 +48,35 @@ export class ListaPagosComponent implements OnInit {
 
   pacientes: Paciente[] = [];
   tratamientos: TratamientoBasico[] = [];
+  citasPendientes: Cita[] = [];
+  cargandoCitas = false;
   metodosPago: CatalogItem[] = [];
+
+  // ── Buscador de paciente (por nombre o DNI) ───────────────────────────────
+  pacienteBusqueda = '';
+  pacienteDropdownAbierto = false;
 
   get total() { return this.totalElementos; }
 
+  get pacienteSeleccionado(): Paciente | null {
+    return this.pacientes.find(p => p.id === this.formData.pacienteId) ?? null;
+  }
+
+  get pacientesFiltrados(): Paciente[] {
+    const q = this.pacienteBusqueda.toLowerCase().trim();
+    if (!q) return this.pacientes.slice(0, 30);
+    return this.pacientes.filter(p =>
+      `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) || (p.dni || '').includes(q)
+    ).slice(0, 30);
+  }
+
   get tratamientoSeleccionado(): TratamientoBasico | null {
     return this.tratamientos.find(t => t.id === this.formData.tratamientoId) ?? null;
+  }
+
+  get citaSeleccionada(): Cita | null {
+    if (this.formData.citaId == null) return null;
+    return this.citasPendientes.find(c => String(c.id) === String(this.formData.citaId)) ?? null;
   }
 
   /** Lo que falta para cubrir el paquete completo (monto total - ya cobrado - saldo a favor disponible). */
@@ -62,13 +87,25 @@ export class ListaPagosComponent implements OnInit {
     return Math.max(0, restante);
   }
 
+  /** Lo que falta para cubrir el precio de la cita suelta seleccionada. */
+  get restanteCita(): number {
+    const c = this.citaSeleccionada;
+    if (!c) return 0;
+    return Math.max(0, (c.precio ?? 0) - (c.monto_pagado ?? 0));
+  }
+
   usarMontoPaquete(): void {
     this.formData.montoRecibido = this.restantePaquete;
+  }
+
+  usarMontoCita(): void {
+    this.formData.montoRecibido = this.restanteCita;
   }
 
   constructor(
     private pagoService: PagoService,
     private pacienteService: PacienteService,
+    private citaService: CitaService,
     private catalogService: CatalogService,
     private toast: ToastService,
     private authService: AuthService
@@ -140,21 +177,67 @@ export class ListaPagosComponent implements OnInit {
   abrirNuevo(): void {
     if (!this.puedeCrear) return;
     this.formData = this.emptyForm();
+    this.pacienteBusqueda = '';
     this.tratamientos = [];
+    this.citasPendientes = [];
     this.modalAbierto = true;
   }
 
   cerrarModal(): void { this.modalAbierto = false; }
 
+  // ── Buscador de paciente ──────────────────────────────────────────────────
+  abrirPacienteDropdown(): void { this.pacienteDropdownAbierto = true; }
+  cerrarPacienteDropdownDiferido(): void { setTimeout(() => this.pacienteDropdownAbierto = false, 150); }
+
+  seleccionarPaciente(p: Paciente): void {
+    this.formData.pacienteId = p.id ?? null;
+    this.pacienteBusqueda = this.pacienteNombre(p);
+    this.pacienteDropdownAbierto = false;
+    this.onPacienteChange();
+  }
+
+  limpiarPaciente(): void {
+    this.formData.pacienteId = null;
+    this.pacienteBusqueda = '';
+    this.onPacienteChange();
+  }
+
+  /** Al elegir el paciente se cargan, en paralelo, sus paquetes pendientes y sus citas
+   *  individuales (sin paquete) pendientes de pago — se puede pagar cualquiera de los dos. */
   onPacienteChange(): void {
     this.formData.tratamientoId = null;
+    this.formData.citaId = null;
     this.tratamientos = [];
+    this.citasPendientes = [];
     if (!this.formData.pacienteId) return;
+
     this.cargandoTratamientos = true;
     this.pagoService.getTratamientosByPaciente(this.formData.pacienteId).subscribe({
       next: data => { this.tratamientos = data; this.cargandoTratamientos = false; },
       error: ()   => { this.cargandoTratamientos = false; }
     });
+
+    this.cargandoCitas = true;
+    this.citaService.getByPaciente(this.formData.pacienteId).subscribe({
+      next: data => {
+        this.citasPendientes = data.filter(c => !c.tratamiento_id && c.estado_pago_key !== 'PAGADA' && (c.precio ?? 0) > 0);
+        this.cargandoCitas = false;
+      },
+      error: () => { this.cargandoCitas = false; }
+    });
+  }
+
+  /** Selecciona un paquete como concepto del pago — limpia la cita elegida, son excluyentes. */
+  onTratamientoChange(): void {
+    if (this.formData.tratamientoId) this.formData.citaId = null;
+  }
+
+  /** Selecciona una cita suelta como concepto del pago — limpia el paquete elegido (son excluyentes)
+   *  y autocompleta el monto con lo que falta pagar de esa cita, ya editable después. */
+  onCitaChange(): void {
+    if (!this.formData.citaId) return;
+    this.formData.tratamientoId = null;
+    this.formData.montoRecibido = this.restanteCita;
   }
 
   guardar(form: NgForm): void {
@@ -164,6 +247,7 @@ export class ListaPagosComponent implements OnInit {
     const body: Partial<Pago> = {
       paciente:   f.pacienteId    ? { id: f.pacienteId }    as any : undefined,
       tratamiento: f.tratamientoId ? { id: f.tratamientoId } as any : undefined,
+      cita:       f.citaId        ? { id: f.citaId }        as any : undefined,
       metodo:     f.metodoId      ? { id: f.metodoId }      as any : undefined,
       montoRecibido: f.montoRecibido ?? undefined,
       referencia: f.referencia  || undefined,
@@ -210,8 +294,15 @@ export class ListaPagosComponent implements OnInit {
   }
 
   private emptyForm(): PagoForm {
-    const hoy = new Date().toISOString().slice(0, 16);
-    return { pacienteId: null, tratamientoId: null, metodoId: null,
-             montoRecibido: null, referencia: '', notas: '', fechaPago: hoy };
+    return { pacienteId: null, tratamientoId: null, citaId: null, metodoId: null,
+             montoRecibido: null, referencia: '', notas: '', fechaPago: this.ahoraLocalISO() };
+  }
+
+  /** Fecha/hora actual en formato local (no UTC) para un input datetime-local — usar
+   *  toISOString() aquí adelanta la hora según el huso horario del navegador/servidor. */
+  private ahoraLocalISO(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 }

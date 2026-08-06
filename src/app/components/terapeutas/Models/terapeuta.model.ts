@@ -28,10 +28,6 @@ export interface Terapeuta {
 }
 
 export interface TerapeutaForm {
-  modo: 'existente' | 'nuevo';
-  // modo = existente
-  usuarioId: number | null;
-  // modo = nuevo (o edición)
   nombre: string;
   apellido: string;
   email: string;

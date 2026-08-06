@@ -160,7 +160,7 @@
   </div>
 
   <!-- ── MODAL CREAR / EDITAR ── -->
-  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+  <div class="modal-overlay" *ngIf="modalAbierto">
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
@@ -188,6 +188,17 @@
             </div>
           </div>
           <span class="hint-msg">Autocompleta sesiones y precio por sesión — puedes editarlos después.</span>
+        </div>
+
+        <!-- Área (primero, igual que en Citas): filtra tipo de terapia y terapeuta -->
+        <div class="frow">
+          <label>Área *</label>
+          <select [(ngModel)]="fAreaId" name="areaId" (ngModelChange)="onAreaChange()" required #areaRef="ngModel"
+                  [class.err-input]="areaRef.invalid && areaRef.touched">
+            <option [ngValue]="null">— Seleccionar —</option>
+            <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
+          </select>
+          <span class="err-msg" *ngIf="areaRef.invalid && areaRef.touched">Requerido</span>
         </div>
 
         <!-- Paciente por DNI: busca uno existente o permite darlo de alta ahí mismo -->
@@ -255,15 +266,7 @@
           </div>
         </div>
 
-        <!-- Cascada: Especialidad → Tipo de terapia → Terapeuta (área sale sola) -->
-        <div class="frow">
-          <label>Especialidad</label>
-          <select [(ngModel)]="fEspecialidadId" name="especialidadId" (ngModelChange)="onEspecialidadChange()">
-            <option [ngValue]="null">Todas las especialidades</option>
-            <option *ngFor="let e of especialidades" [ngValue]="e.id">{{ e.nombre }}</option>
-          </select>
-        </div>
-
+        <!-- Cascada: Tipo de terapia (filtrado por área) → Terapeuta (filtrado por área) -->
         <div class="frow autocomplete-wrap">
           <label>Tipo de terapia</label>
           <input type="text" [(ngModel)]="tipoBusqueda" name="tipoBusqueda"
@@ -277,34 +280,30 @@
             </div>
           </div>
           <div class="dur-info" *ngIf="tipoDropdownAbierto && tiposFiltrados.length === 0">
-            Sin resultados{{ fEspecialidadId ? ' en esta especialidad' : '' }}.
+            Sin resultados{{ fAreaId ? ' en esta área' : '' }}.
           </div>
+        </div>
+
+        <div class="frow">
+          <label>Terapeuta <span class="opc-tag">{{ terapeutasFiltrados.length }} en el área</span></label>
+          <select [(ngModel)]="formData.terapeutaId" name="terapeutaId" required #terRef="ngModel"
+                  [class.err-input]="terRef.invalid && terRef.touched">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let t of terapeutasFiltrados" [ngValue]="t.id">{{ nombreDeTerapeuta(t) }}</option>
+          </select>
+          <span class="err-msg" *ngIf="terRef.invalid && terRef.touched">Requerido</span>
+          <div class="dur-info" *ngIf="fAreaId && terapeutasFiltrados.length === 0">Ningún terapeuta en esta área.</div>
         </div>
 
         <div class="frow-2">
           <div class="frow">
-            <label>Terapeuta *</label>
-            <select [(ngModel)]="formData.terapeutaId" name="terapeutaId" required #terRef="ngModel"
-                    [class.err-input]="terRef.invalid && terRef.touched">
-              <option [ngValue]="null">Seleccionar...</option>
-              <option *ngFor="let t of terapeutasFiltrados" [ngValue]="t.id">{{ nombreDeTerapeuta(t) }}</option>
-            </select>
-            <span class="err-msg" *ngIf="terRef.invalid && terRef.touched">Requerido</span>
-            <span class="hint-msg" *ngIf="tipoSeleccionado">Filtrado por el área de "{{ tipoSeleccionado.nombre }}".</span>
-          </div>
-          <div class="frow">
-            <label>Área</label>
-            <input type="text" [value]="areaMostrada" disabled placeholder="Se completa según el terapeuta">
-          </div>
-        </div>
-
-        <div class="frow-2">
-          <div class="frow">
-            <label>Estado</label>
-            <select [(ngModel)]="formData.estadoTratamientoId" name="estadoTratamientoId">
-              <option [ngValue]="null">Sin estado</option>
+            <label>Estado *</label>
+            <select [(ngModel)]="formData.estadoTratamientoId" name="estadoTratamientoId" required
+                    #estRef="ngModel" [class.err-input]="estRef.invalid && estRef.touched">
+              <option [ngValue]="null">— Seleccionar —</option>
               <option *ngFor="let e of estadosTratamiento" [ngValue]="e.id">{{ e.nombre }}</option>
             </select>
+            <span class="err-msg" *ngIf="estRef.invalid && estRef.touched">Requerido</span>
           </div>
           <div class="frow">
             <label>Fecha de inicio</label>
@@ -328,18 +327,69 @@
 
         <div class="frow-2">
           <div class="frow">
-            <label>Total de sesiones</label>
-            <input [(ngModel)]="formData.sesionesTotal" name="sesionesTotal" type="number" min="1" placeholder="Ej: 12">
+            <label>Total de sesiones *</label>
+            <input [(ngModel)]="formData.sesionesTotal" name="sesionesTotal" type="number" min="1" required
+                   placeholder="Ej: 12" #sesRef="ngModel" [class.err-input]="sesRef.invalid && sesRef.touched">
+            <span class="err-msg" *ngIf="sesRef.invalid && sesRef.touched">Requerido</span>
           </div>
           <div class="frow">
-            <label>Precio por sesión (S/)</label>
-            <input [(ngModel)]="formData.precioPorSesion" name="precioPorSesion" type="number" min="0" step="0.01" placeholder="Ej: 80.00">
+            <label>Precio por sesión (S/) *</label>
+            <input [(ngModel)]="formData.precioPorSesion" name="precioPorSesion" type="number" min="0.01" step="0.01" required
+                   placeholder="Ej: 80.00" #precRef="ngModel" [class.err-input]="precRef.invalid && precRef.touched">
+            <span class="err-msg" *ngIf="precRef.invalid && precRef.touched">Requerido</span>
           </div>
         </div>
 
         <div class="frow">
           <label>Notas</label>
           <textarea [(ngModel)]="formData.notas" name="notas" rows="2" placeholder="Observaciones del paquete..."></textarea>
+        </div>
+
+        <!-- Pago inicial (solo al crear): permite dejarlo pendiente, marcarlo pagado o registrar un adelanto -->
+        <div class="pac-card" *ngIf="!editando">
+          <div class="pac-card-hdr" style="cursor:default">
+            <div class="pac-hdr-left">
+              <span class="pac-card-title">Pago inicial</span>
+            </div>
+          </div>
+          <div class="pac-card-body">
+            <div class="modalidad-opts">
+              <label class="modalidad-radio" [class.selected]="pagoModo === 'pendiente'">
+                <input type="radio" [(ngModel)]="pagoModo" name="pagoModo" value="pendiente" style="display:none">
+                Pendiente
+              </label>
+              <label class="modalidad-radio" [class.selected]="pagoModo === 'completo'">
+                <input type="radio" [(ngModel)]="pagoModo" name="pagoModo" value="completo" style="display:none">
+                Pagó todo
+              </label>
+              <label class="modalidad-radio" [class.selected]="pagoModo === 'parcial'">
+                <input type="radio" [(ngModel)]="pagoModo" name="pagoModo" value="parcial" style="display:none">
+                Adelanto
+              </label>
+            </div>
+
+            <ng-container *ngIf="pagoModo !== 'pendiente'">
+              <div class="frow-2" style="margin-top:8px">
+                <div class="frow" *ngIf="pagoModo === 'parcial'">
+                  <label>Monto recibido (S/) *</label>
+                  <input [(ngModel)]="pagoMonto" name="pagoMonto" type="number" min="0.01" step="0.01"
+                         placeholder="Ej: 100.00" required #pagoMontoRef="ngModel"
+                         [class.err-input]="pagoMontoRef.invalid && pagoMontoRef.touched">
+                  <span class="err-msg" *ngIf="pagoMontoRef.invalid && pagoMontoRef.touched">Requerido</span>
+                </div>
+                <div class="frow">
+                  <label>Método de pago *</label>
+                  <select [(ngModel)]="pagoMetodoId" name="pagoMetodoId" required
+                          #pagoMetodoRef="ngModel" [class.err-input]="pagoMetodoRef.invalid && pagoMetodoRef.touched">
+                    <option [ngValue]="null">— Seleccionar —</option>
+                    <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+                  </select>
+                  <span class="err-msg" *ngIf="pagoMetodoRef.invalid && pagoMetodoRef.touched">Requerido</span>
+                </div>
+              </div>
+              <span class="hint-msg" *ngIf="pagoModo === 'completo'">Se registra un pago por el total del paquete: S/ {{ montoTotalPaquete | number:'1.2-2' }}.</span>
+            </ng-container>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -354,7 +404,7 @@
   </div>
 
   <!-- ── MODAL ELIMINAR ── -->
-  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+  <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>Eliminar paquete</h2>

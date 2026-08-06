@@ -324,7 +324,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════
        MODAL NUEVA / EDITAR CITA
   ══════════════════════════════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+  <div class="modal-overlay" *ngIf="modalAbierto">
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
@@ -809,7 +809,7 @@
 </div>
 
 <!-- ── MODAL ATENCIÓN CLÍNICA ─────────────────────────────────────────────── -->
-<div class="modal-overlay" *ngIf="modalAtencion" (click)="cerrarAtencion()">
+<div class="modal-overlay" *ngIf="modalAtencion">
   <div class="modal-atencion" (click)="$event.stopPropagation()">
 
     <div class="modal-hdr-at">
@@ -853,7 +853,7 @@
 </div>
 
 <!-- ══ MODAL: VARIAS CITAS SOLAPADAS ══════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalMultiCitas" (click)="cerrarMultiCitas()">
+<div class="modal-overlay" *ngIf="modalMultiCitas">
   <div class="modal modal-multi" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>{{ citasMultiSeleccionadas.length }} citas en ese horario</h2>

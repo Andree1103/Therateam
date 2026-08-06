@@ -91,6 +91,15 @@ export class AuthService {
     );
   }
 
+  /** Siempre responde con un mensaje genérico (exista o no el correo) — no revela qué correos están registrados. */
+  forgotPassword(email: string): Observable<{ mensaje: string }> {
+    return this.http.post<{ mensaje: string }>(`${environment.apiUrl}/api/auth/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<{ mensaje: string }> {
+    return this.http.post<{ mensaje: string }>(`${environment.apiUrl}/api/auth/reset-password`, { token, newPassword });
+  }
+
   logout(): void {
     if (this.isBrowser) {
       localStorage.removeItem(this.TOKEN_KEY);

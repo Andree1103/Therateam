@@ -159,7 +159,7 @@
 </div>
 
 <!-- ══ MODAL: Horario bloque ══════════════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalHorario" (click)="cerrarModalHorario()">
+<div class="modal-overlay" *ngIf="modalHorario">
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>{{ editandoHorario ? 'Editar bloque' : 'Nuevo bloque de horario' }}</h2>
@@ -209,7 +209,7 @@
 </div>
 
 <!-- ══ MODAL: Excepción ═══════════════════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalExcepcion" (click)="cerrarModalExcepcion()">
+<div class="modal-overlay" *ngIf="modalExcepcion">
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>{{ editandoExcepcion ? 'Editar excepción' : 'Nueva excepción' }}</h2>
@@ -260,7 +260,7 @@
 </div>
 
 <!-- ══ MODAL: Confirmación ════════════════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalConfirm" (click)="cancelarConfirm()">
+<div class="modal-overlay" *ngIf="modalConfirm">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>Confirmar eliminación</h2>

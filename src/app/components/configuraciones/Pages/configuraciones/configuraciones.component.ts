@@ -172,6 +172,12 @@ export class ConfiguracionesComponent implements OnInit {
     this.modalAbierto     = true;
   }
 
+  /** Si el tipo de terapia elegido ya tiene área propia, la sugiere — sigue siendo editable a mano. */
+  onTipoTerapiaPaqueteChange(): void {
+    const tipo = this.tiposTerapia.find(t => t.id === this.formTipoTerapiaId);
+    if (tipo?.area?.id) this.formAreaId = tipo.area.id;
+  }
+
   cerrarModal(): void { this.modalAbierto = false; }
 
   guardar(form: NgForm): void {
@@ -234,6 +240,7 @@ export class ConfiguracionesComponent implements OnInit {
       base['precioRecomendado'] = this.formPrecioRecomendado || null;
     } else if (this.esPaquete) {
       base['categoria']      = this.formCategoria || null;
+      base['area']           = this.formAreaId ? { id: this.formAreaId } : null;
       base['especialidad']   = this.formEspecialidadId ? { id: this.formEspecialidadId } : null;
       base['tipoTerapia']    = this.formTipoTerapiaId ? { id: this.formTipoTerapiaId } : null;
       base['totalSesiones']  = this.formTotalSesiones;

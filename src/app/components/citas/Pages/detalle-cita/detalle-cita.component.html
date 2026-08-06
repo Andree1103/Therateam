@@ -138,7 +138,7 @@
   </div>
 
   <!-- Modal Reprogramar -->
-  <div *ngIf="showReprogramarModal" class="modal-overlay" (click)="cerrarModalReprogramar()">
+  <div *ngIf="showReprogramarModal" class="modal-overlay">
     <div class="modal-content" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Reprogramar Cita</h2>
@@ -172,7 +172,7 @@
   </div>
 
   <!-- Modal Cancelar -->
-  <div *ngIf="showCancelarModal" class="modal-overlay" (click)="cerrarModalCancelar()">
+  <div *ngIf="showCancelarModal" class="modal-overlay">
     <div class="modal-content" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Cancelar Cita</h2>

@@ -8,6 +8,14 @@ export const routes: Routes = [
     loadChildren: () => import('./components/auth/auth.module').then(m => m.AuthModule)
   },
   {
+    path: 'olvide-password',
+    loadComponent: () => import('./components/auth/Pages/OlvidePassword/olvide-password.component').then(m => m.OlvidePasswordComponent)
+  },
+  {
+    path: 'restablecer-password',
+    loadComponent: () => import('./components/auth/Pages/RestablecerPassword/restablecer-password.component').then(m => m.RestablecerPasswordComponent)
+  },
+  {
     path: 'sin-acceso',
     loadComponent: () => import('./components/auth/Pages/SinAcceso/sin-acceso.component').then(m => m.SinAccesoComponent),
     canActivate: [moduloGuard],

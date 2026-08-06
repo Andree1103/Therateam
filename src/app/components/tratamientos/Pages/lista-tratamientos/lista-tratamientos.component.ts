@@ -3,6 +3,7 @@ import { NgForm } from '@angular/forms';
 import { TratamientoService, TratamientoFiltros } from '../../Services/tratamiento.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
+import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Tratamiento, TratamientoForm, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
@@ -65,6 +66,7 @@ export class ListaTratamientosComponent implements OnInit {
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
   especialidades: CatalogItem[] = [];
+  areas: CatalogItem[] = [];
   plantillas: CatalogItem[] = [];
   plantillaSeleccionadaId: number | null = null;
 
@@ -75,11 +77,22 @@ export class ListaTratamientosComponent implements OnInit {
   plantillaBusqueda = '';
   plantillaDropdownAbierto = false;
 
-  // ── Cascada: Especialidad → Tipo de terapia → Terapeuta (área automática) ──
+  // ── Cascada (igual que Citas): Área → Tipo de terapia → Terapeuta ─────────
+  fAreaId: number | null = null;
   fEspecialidadId: number | null = null;
   tipoBusqueda = '';
   tipoDropdownAbierto = false;
   nombreDeTerapeuta = nombreDeTerapeuta;
+
+  // ── Pago inicial (solo al crear): pendiente / pagado completo / adelanto ──
+  pagoModo: 'pendiente' | 'completo' | 'parcial' = 'pendiente';
+  pagoMonto: number | null = null;
+  pagoMetodoId: number | null = null;
+  metodosPago: CatalogItem[] = [];
+
+  get montoTotalPaquete(): number {
+    return (this.formData.sesionesTotal ?? 0) * (this.formData.precioPorSesion ?? 0);
+  }
 
   get total() { return this.totalElementos; }
   pacienteNombre = tratamientoPaciente;
@@ -89,6 +102,7 @@ export class ListaTratamientosComponent implements OnInit {
     private tratamientoService: TratamientoService,
     private pacienteService: PacienteService,
     private terapeutaService: TerapeutaService,
+    private pagoService: PagoService,
     private catalogService: CatalogService,
     private toast: ToastService,
     private authService: AuthService
@@ -104,13 +118,15 @@ export class ListaTratamientosComponent implements OnInit {
     this.catalogService.getTiposTerapia().subscribe(d => this.tiposTerapia = d);
     this.catalogService.getEstadosTratamiento().subscribe(d => this.estadosTratamiento = d);
     this.catalogService.getEspecialidades().subscribe(d => this.especialidades = d);
+    this.catalogService.getAreas().subscribe(d => this.areas = d);
+    this.catalogService.getMetodosPago().subscribe(d => this.metodosPago = d);
     this.catalogService.getPlantillasPaquete().subscribe(d => this.plantillas = d.filter(p => p.activo !== false));
   }
 
   /**
-   * Autocompleta sesiones/precio desde el catálogo — sigue siendo editable después. Si la
-   * plantilla ya trae su tipo de terapia asociado, también se autocompleta el resto de la
-   * cascada (tipo de terapia → área → terapeutas filtrados) para no repetir la selección a mano.
+   * Autocompleta sesiones/precio desde el catálogo — sigue siendo editable después. La plantilla
+   * también trae su propia área (y opcionalmente tipo de terapia), así que se autocompleta toda
+   * la cascada (área → tipo de terapia → terapeutas filtrados), igual que al elegirla a mano.
    */
   onPlantillaChange(): void {
     const p = this.plantillas.find(x => x.id === this.plantillaSeleccionadaId);
@@ -120,9 +136,17 @@ export class ListaTratamientosComponent implements OnInit {
       this.formData.precioPorSesion = Math.round((p.precioTotal / p.totalSesiones) * 100) / 100;
     }
     if (!this.formData.notas) this.formData.notas = p.nombre;
+    if (p.area?.id) {
+      this.fAreaId = p.area.id;
+    } else if (p.tipoTerapia?.area?.id) {
+      this.fAreaId = p.tipoTerapia.area.id;
+    }
     if (p.tipoTerapia?.id) {
       const tipoCompleto = this.tiposTerapia.find(t => t.id === p.tipoTerapia!.id);
       if (tipoCompleto) this.seleccionarTipo(tipoCompleto);
+    } else {
+      this.formData.tipoTerapiaId = null;
+      this.tipoBusqueda = '';
     }
   }
 
@@ -189,34 +213,27 @@ export class ListaTratamientosComponent implements OnInit {
     this.formData.pacienteId = null;
   }
 
-  // ── Especialidad → Tipo de terapia → Terapeuta (el área sale sola) ───────
+  // ── Área → Tipo de terapia → Terapeuta (igual que en Citas) ──────────────
 
-  /** Tipos de terapia filtrados por la especialidad elegida (si hay) + lo que se esté buscando. */
+  /** Tipos de terapia del área elegida (si hay) + lo que se esté buscando en el autocompletar. */
   get tiposFiltrados(): CatalogItem[] {
-    const porEspecialidad = this.fEspecialidadId == null
+    const porArea = this.fAreaId == null
       ? this.tiposTerapia
-      : this.tiposTerapia.filter(t => t.especialidad?.id === this.fEspecialidadId);
+      : this.tiposTerapia.filter(t => t.area?.id === this.fAreaId);
     const q = this.tipoBusqueda.toLowerCase().trim();
-    return !q ? porEspecialidad : porEspecialidad.filter(t => t.nombre.toLowerCase().includes(q));
+    return !q ? porArea : porArea.filter(t => t.nombre.toLowerCase().includes(q));
   }
 
   get tipoSeleccionado(): CatalogItem | null {
     return this.tiposTerapia.find(t => t.id === this.formData.tipoTerapiaId) ?? null;
   }
 
-  /** Solo terapeutas cuya área coincide con la del tipo de terapia elegido — si no hay tipo elegido, se ven todos. */
+  /** Solo terapeutas del área elegida — si aún no hay área, se ven todos. */
   get terapeutasFiltrados(): Terapeuta[] {
-    const areaId = this.tipoSeleccionado?.area?.id ?? null;
-    return areaId == null ? this.terapeutasTodos : this.terapeutasTodos.filter(t => t.area?.id === areaId);
+    return this.fAreaId == null ? this.terapeutasTodos : this.terapeutasTodos.filter(t => t.area?.id === this.fAreaId);
   }
 
-  /** Área que se muestra (solo lectura): la del terapeuta elegido, o si aún no hay terapeuta, la del tipo de terapia. */
-  get areaMostrada(): string {
-    const terapeuta = this.terapeutasTodos.find(t => t.id === this.formData.terapeutaId);
-    return terapeuta?.area?.nombre ?? this.tipoSeleccionado?.area?.nombre ?? '—';
-  }
-
-  onEspecialidadChange(): void {
+  onAreaChange(): void {
     this.formData.tipoTerapiaId = null;
     this.tipoBusqueda = '';
     this.formData.terapeutaId = null;
@@ -229,9 +246,10 @@ export class ListaTratamientosComponent implements OnInit {
     this.formData.tipoTerapiaId = t.id;
     this.tipoBusqueda = t.nombre;
     this.tipoDropdownAbierto = false;
-    // Refleja la especialidad de este tipo en el selector, aunque haya llegado por catálogo
-    // (elegido a mano o autocompletado) — es solo informativo/filtro, no bloquea nada.
+    // Refleja la especialidad y área de este tipo, aunque haya llegado por catálogo (elegido a
+    // mano o autocompletado) — el área si acaba de quedar vacía o no calza con la del tipo.
     this.fEspecialidadId = t.especialidad?.id ?? this.fEspecialidadId;
+    if (t.area?.id != null) this.fAreaId = t.area.id;
     // El terapeuta ya elegido puede no pertenecer a la nueva área — se limpia para forzar re-selección.
     const terapeutaActual = this.terapeutasTodos.find(x => x.id === this.formData.terapeutaId);
     if (terapeutaActual && terapeutaActual.area?.id !== t.area?.id) {
@@ -288,11 +306,16 @@ export class ListaTratamientosComponent implements OnInit {
     if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
+    this.formData.estadoTratamientoId = this.estadosTratamiento.find(e => e.key === 'ACTIVO')?.id ?? null;
     this.pac = this.emptyPac();
     this.tipoBusqueda = '';
+    this.fAreaId = null;
     this.fEspecialidadId = null;
     this.plantillaSeleccionadaId = null;
     this.plantillaBusqueda = '';
+    this.pagoModo = 'pendiente';
+    this.pagoMonto = null;
+    this.pagoMetodoId = null;
     this.modalAbierto = true;
   }
 
@@ -321,6 +344,7 @@ export class ListaTratamientosComponent implements OnInit {
       correo: '',
     };
     this.fEspecialidadId = tipo?.especialidad?.id ?? null;
+    this.fAreaId = tipo?.area?.id ?? null;
     this.tipoBusqueda = tipo?.nombre ?? '';
     this.ultimaSesionFecha = null;
     this.modalAbierto = true;
@@ -383,11 +407,36 @@ export class ListaTratamientosComponent implements OnInit {
       ? this.tratamientoService.update(this.editando!.id!, body)
       : this.tratamientoService.create(body);
     op$.subscribe({
-      next: () => {
+      next: creado => {
+        if (!esEdicion && this.pagoModo !== 'pendiente') {
+          this.registrarPagoInicial(creado);
+          return;
+        }
         this.toast.success(esEdicion ? 'Paquete actualizado correctamente' : 'Paquete creado correctamente');
         this.cerrarModal(); this.cargar(); this.guardando = false;
       },
       error: () => { this.toast.error('Error al guardar el paquete'); this.guardando = false; }
+    });
+  }
+
+  /** Registra el pago inicial elegido en el modal contra el paquete recién creado — el paquete
+   *  ya quedó guardado, así que un fallo aquí no debe bloquear el flujo, solo avisar. */
+  private registrarPagoInicial(paquete: Tratamiento): void {
+    const monto = this.pagoModo === 'completo' ? this.montoTotalPaquete : (this.pagoMonto ?? 0);
+    this.pagoService.create({
+      tratamiento: { id: paquete.id! } as any,
+      paciente: { id: this.formData.pacienteId! } as any,
+      metodo: { id: this.pagoMetodoId! } as any,
+      montoRecibido: monto,
+    }).subscribe({
+      next: () => {
+        this.toast.success('Paquete creado y pago registrado correctamente');
+        this.cerrarModal(); this.cargar(); this.guardando = false;
+      },
+      error: () => {
+        this.toast.warning('El paquete se creó, pero el pago no se pudo registrar — regístralo desde Pagos.');
+        this.cerrarModal(); this.cargar(); this.guardando = false;
+      }
     });
   }
 
@@ -444,15 +493,25 @@ export class ListaTratamientosComponent implements OnInit {
              sesionesTotal: null, precioPorSesion: null, notas: '', activo: true };
   }
 
+  /** El backend exige un nombre (columna NOT NULL) pero el formulario no tiene ese campo — se
+   *  arma a partir del tipo de terapia y el paciente, igual que el resumen que ya se muestra en el listado. */
+  private nombrePaquete(): string {
+    const tipo = this.tipoSeleccionado?.nombre;
+    const paciente = `${this.pac.nombre} ${this.pac.apellido}`.trim();
+    if (tipo && paciente) return `${tipo} — ${paciente}`;
+    return tipo || paciente || 'Paquete';
+  }
+
   private buildBody(): any {
     const f = this.formData;
     return {
       paciente:           f.pacienteId           ? { id: f.pacienteId } as any           : undefined,
       terapeuta:          f.terapeutaId          ? { id: f.terapeutaId } as any          : undefined,
       tipoTerapia:        f.tipoTerapiaId        ? { id: f.tipoTerapiaId } as any        : undefined,
-      estadoTratamiento:  f.estadoTratamientoId  ? { id: f.estadoTratamientoId } as any  : undefined,
+      estado:             f.estadoTratamientoId  ? { id: f.estadoTratamientoId } as any  : undefined,
+      nombre:             this.nombrePaquete(),
       fechaInicio:        f.fechaInicio || undefined,
-      sesionesTotal:      f.sesionesTotal   ?? undefined,
+      totalSesiones:      f.sesionesTotal   ?? undefined,
       precioPorSesion:    f.precioPorSesion ?? undefined,
       notas:              f.notas || undefined,
       activo:             f.activo,

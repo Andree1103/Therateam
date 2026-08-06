@@ -20,6 +20,21 @@
 .estado-bar{background:#fef3c7;color:#92400e;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;flex-shrink:0}
 .estado-bar--cerrado{background:#dcfce7;color:#15803d}
 
+.turno-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;flex-shrink:0}
+.turno-tabs{display:flex;gap:8px}
+.turno-tab{background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;transition:all .15s}
+.turno-tab:hover{border-color:#185FA5;color:#185FA5}
+.turno-tab.active{border-color:#185FA5;background:#eff6ff;color:#185FA5}
+.turno-tab-sub{font-size:11px;font-weight:500;color:#94a3b8}
+.turno-tab.active .turno-tab-sub{color:#60a5fa}
+.hora-corte-editor{display:flex;align-items:center;gap:10px;font-size:13px}
+.hora-corte-editor input[type="time"]{padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a}
+.btn-link{background:none;border:none;color:#185FA5;font-size:13px;font-weight:600;cursor:pointer;padding:0;font-family:inherit}
+.btn-link:hover{text-decoration:underline}
+.btn-link:disabled{opacity:.6;cursor:not-allowed}
+.btn-link-muted{color:#94a3b8}
+.text-muted{color:#64748b}
+
 .cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;flex-shrink:0}
 .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .stat-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}

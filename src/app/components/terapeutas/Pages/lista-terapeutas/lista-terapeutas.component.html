@@ -112,7 +112,7 @@
 </div>
 
 <!-- ══ MODAL CREAR / EDITAR TERAPEUTA ═════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+<div class="modal-overlay" *ngIf="modalAbierto">
   <div class="modal" (click)="$event.stopPropagation()">
 
     <div class="modal-hdr">
@@ -124,38 +124,9 @@
 
     <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
 
-      <!-- TOGGLE MODO (solo al crear) -->
-      <div class="modo-toggle" *ngIf="!editando">
-        <button type="button" class="modo-btn" [class.active]="formData.modo === 'existente'" (click)="formData.modo = 'existente'">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Seleccionar usuario existente
-        </button>
-        <button type="button" class="modo-btn" [class.active]="formData.modo === 'nuevo'" (click)="formData.modo = 'nuevo'">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Crear nuevo usuario
-        </button>
-      </div>
-
-      <!-- MODO: USUARIO EXISTENTE -->
-      <ng-container *ngIf="!editando && formData.modo === 'existente'">
-        <div class="frow">
-          <label>Usuario del sistema *</label>
-          <select [(ngModel)]="formData.usuarioId" name="usuarioId" required #usuarioRef="ngModel"
-                  [disabled]="cargandoUsuarios"
-                  [class.err-input]="usuarioRef.invalid && usuarioRef.touched">
-            <option [ngValue]="null">{{ cargandoUsuarios ? 'Cargando usuarios...' : 'Seleccionar usuario...' }}</option>
-            <option *ngFor="let u of usuariosLibres" [ngValue]="u.id">{{ usuarioNombre(u) }} · {{ u.email }}</option>
-          </select>
-          <span class="err-msg" *ngIf="usuarioRef.invalid && usuarioRef.touched">Requerido</span>
-          <span class="hint-msg" *ngIf="!cargandoUsuarios && usuariosLibres.length === 0">
-            No hay usuarios disponibles. Usa "Crear nuevo usuario".
-          </span>
-        </div>
-      </ng-container>
-
-      <!-- MODO: DATOS DE USUARIO (nuevo o edición) -->
-      <ng-container *ngIf="editando || formData.modo === 'nuevo'">
-        <div class="section-lbl" *ngIf="editando">Datos del usuario</div>
+      <!-- DATOS DE USUARIO (siempre se crea/edita el usuario del terapeuta ahí mismo) -->
+      <ng-container>
+        <div class="section-lbl">Datos del usuario</div>
         <div class="frow-2">
           <div class="frow">
             <label>Nombre *</label>
@@ -253,7 +224,7 @@
 </div>
 
 <!-- ══ MODAL HORARIO ═══════════════════════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalHorario" (click)="cerrarHorario()">
+<div class="modal-overlay" *ngIf="modalHorario">
   <div class="modal modal-horario" (click)="$event.stopPropagation()">
 
     <div class="modal-hdr">
@@ -366,7 +337,7 @@
 </div>
 
 <!-- ══ SUB-MODAL: BLOQUE DE HORARIO ══════════════════════════════════════ -->
-<div class="modal-overlay modal-overlay-sub" *ngIf="modalBloque" (click)="cerrarBloque()">
+<div class="modal-overlay modal-overlay-sub" *ngIf="modalBloque">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>{{ editandoBloque ? 'Editar bloque' : 'Nuevo bloque' }}</h2>
@@ -422,7 +393,7 @@
 </div>
 
 <!-- ══ SUB-MODAL: EXCEPCIÓN ═══════════════════════════════════════════════ -->
-<div class="modal-overlay modal-overlay-sub" *ngIf="modalExcepcion" (click)="cerrarExcepcion()">
+<div class="modal-overlay modal-overlay-sub" *ngIf="modalExcepcion">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>{{ editandoExcepcion ? 'Editar excepción' : 'Nueva excepción' }}</h2>
@@ -472,7 +443,7 @@
 </div>
 
 <!-- ══ MODAL CONFIRMAR ELIMINAR ══════════════════════════════════════════ -->
-<div class="modal-overlay modal-overlay-sub" *ngIf="modalConfirm" (click)="cancelarConfirm()">
+<div class="modal-overlay modal-overlay-sub" *ngIf="modalConfirm">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr"><h2>Confirmar</h2></div>
     <div class="modal-body">
@@ -486,7 +457,7 @@
 </div>
 
 <!-- ══ MODAL ELIMINAR TERAPEUTA ══════════════════════════════════════════ -->
-<div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+<div class="modal-overlay" *ngIf="modalEliminar">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
       <h2>Eliminar terapeuta</h2>

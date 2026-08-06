@@ -74,6 +74,7 @@
             <!-- Paquetes (catálogo) -->
             <ng-container *ngIf="tabActivo.tipo === 'paquete'">
               <th>Categoría</th>
+              <th>Área</th>
               <th>Especialidad</th>
               <th>Tipo de terapia</th>
               <th>Sesiones</th>
@@ -134,6 +135,10 @@
                 <span class="text-muted" *ngIf="!item.categoria">—</span>
               </td>
               <td>
+                <span class="area-badge" *ngIf="item.area">{{ item.area.nombre }}</span>
+                <span class="text-muted" *ngIf="!item.area">Sin área</span>
+              </td>
+              <td>
                 <span *ngIf="item.especialidad">{{ item.especialidad.nombre }}</span>
                 <span class="text-muted" *ngIf="!item.especialidad">—</span>
               </td>
@@ -174,7 +179,7 @@
   </div>
 
   <!-- ── MODAL CREAR / EDITAR ── -->
-  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+  <div class="modal-overlay" *ngIf="modalAbierto">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
@@ -283,6 +288,15 @@
             <input [(ngModel)]="formCategoria" name="categoria" placeholder="Ej: Paquete Terapia Física">
           </div>
           <div class="frow">
+            <label>Área *</label>
+            <select [(ngModel)]="formAreaId" name="areaPaquete" required #areaPaqRef="ngModel" [class.err-input]="areaPaqRef.invalid && areaPaqRef.touched">
+              <option [ngValue]="null">— Seleccionar —</option>
+              <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
+            </select>
+            <span class="err-msg" *ngIf="areaPaqRef.invalid && areaPaqRef.touched">Requerido</span>
+            <span class="hint-msg">Permite tener paquetes con el mismo nombre/sesiones que se diferencian solo por área (ej. Kids vs. Física).</span>
+          </div>
+          <div class="frow">
             <label>Especialidad</label>
             <select [(ngModel)]="formEspecialidadId" name="especialidadPaquete">
               <option [ngValue]="null">Sin especialidad</option>
@@ -291,11 +305,11 @@
           </div>
           <div class="frow">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="formTipoTerapiaId" name="tipoTerapiaPaquete">
+            <select [(ngModel)]="formTipoTerapiaId" name="tipoTerapiaPaquete" (ngModelChange)="onTipoTerapiaPaqueteChange()">
               <option [ngValue]="null">Sin tipo de terapia</option>
               <option *ngFor="let t of tiposTerapia" [ngValue]="t.id">{{ t.nombre }}</option>
             </select>
-            <span class="hint-msg">Al elegir esta plantilla en "Nuevo paquete", autocompleta el tipo de terapia (y con eso, el área y los terapeutas disponibles).</span>
+            <span class="hint-msg">Al elegir esta plantilla en "Nuevo paquete", autocompleta el tipo de terapia, área y terapeutas disponibles.</span>
           </div>
           <div class="frow-2">
             <div class="frow">
@@ -334,7 +348,7 @@
   </div>
 
   <!-- ── MODAL ELIMINAR ── -->
-  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+  <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>Eliminar elemento</h2>

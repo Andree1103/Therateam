@@ -111,7 +111,7 @@
   </div>
 
   <!-- ── MODAL CREAR / EDITAR ──────────────────────────────────────────── -->
-  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+  <div class="modal-overlay" *ngIf="modalAbierto">
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
@@ -210,7 +210,7 @@
   </div>
 
   <!-- ── MODAL CONFIRMAR ELIMINAR ──────────────────────────────────────── -->
-  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+  <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>Eliminar paciente</h2>

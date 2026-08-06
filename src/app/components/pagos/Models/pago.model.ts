@@ -16,6 +16,7 @@ export interface Pago {
   tratamiento?: TratamientoBasico;
   paciente?: Paciente;
   metodo?: CatalogItem;
+  cita?: { id: number };
   montoRecibido?: number;
   montoAplicado?: number;
   saldoGenerado?: number;
@@ -30,6 +31,7 @@ export interface Pago {
 export interface PagoForm {
   pacienteId: number | null;
   tratamientoId: number | null;
+  citaId: number | null;
   metodoId: number | null;
   montoRecibido: number | null;
   referencia: string;

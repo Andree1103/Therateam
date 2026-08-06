@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
-import { Observable, map, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, map } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
-import { Terapeuta, TerapeutaCompletoRequest, terapeutaNombre, UsuarioBasico } from '../Models/terapeuta.model';
+import { Terapeuta, TerapeutaCompletoRequest, terapeutaNombre } from '../Models/terapeuta.model';
 import { PageResponse } from '../../../core/models/page.model';
 
 export interface TerapeutaFiltros {
@@ -49,10 +48,6 @@ export class TerapeutaService {
 
   updateCompleto(id: number, body: TerapeutaCompletoRequest): Observable<Terapeuta> {
     return this.api.put<Terapeuta>(`${this.PATH}/${id}/completo`, body);
-  }
-
-  getUsuariosLibres(): Observable<UsuarioBasico[]> {
-    return this.api.get<UsuarioBasico[]>('/api/usuarios/libres').pipe(catchError(() => of([])));
   }
 
   getParaDropdown(): Observable<{ id: number; nombre: string }[]> {

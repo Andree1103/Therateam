@@ -6,6 +6,9 @@ export interface IngresoMetodo {
 
 export interface CajaResumen {
   fecha: string;
+  turno: number;
+  /** Hora (HH:mm) configurada que separa el turno 1 del turno 2. */
+  horaCorte: string;
   saldoInicial: number;
   ingresosPorMetodo: IngresoMetodo[];
   totalIngresos: number;
@@ -18,6 +21,7 @@ export interface CajaResumen {
 
 export interface CerrarCajaRequest {
   fecha: string;
+  turno: number;
   egresos: number;
   comentario: string;
 }
@@ -25,6 +29,7 @@ export interface CerrarCajaRequest {
 export interface CierreCaja {
   id: number;
   fecha: string;
+  turno: number;
   saldoInicial: number;
   totalIngresos: number;
   egresos: number;

@@ -162,7 +162,7 @@
   </div>
 
   <!-- ══ MODAL ROL ══ -->
-  <div class="modal-overlay" *ngIf="modalRolAbierto" (click)="cerrarModalRol()">
+  <div class="modal-overlay" *ngIf="modalRolAbierto">
     <div class="modal modal-lg" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>{{ editandoRol ? 'Editar rol' : 'Nuevo rol' }}</h2>
@@ -237,7 +237,7 @@
   </div>
 
   <!-- ══ MODAL USUARIO ══ -->
-  <div class="modal-overlay" *ngIf="modalUsuarioAbierto" (click)="cerrarModalUsuario()">
+  <div class="modal-overlay" *ngIf="modalUsuarioAbierto">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>{{ editandoUsuario ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
@@ -307,7 +307,7 @@
   </div>
 
   <!-- ══ MODAL ELIMINAR ══ -->
-  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+  <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>Eliminar</h2>

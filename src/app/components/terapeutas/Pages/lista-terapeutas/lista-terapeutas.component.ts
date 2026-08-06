@@ -9,7 +9,7 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import {
   Terapeuta, TerapeutaForm, TerapeutaCompletoRequest,
-  terapeutaNombre, UsuarioBasico
+  terapeutaNombre
 } from '../../Models/terapeuta.model';
 import {
   TerapeutaHorario, TerapeutaExcepcion,
@@ -47,8 +47,6 @@ export class ListaTerapeutasComponent implements OnInit {
   modalAbierto = false;
   editando: Terapeuta | null = null;
   formData: TerapeutaForm = this.emptyForm();
-  usuariosLibres: UsuarioBasico[] = [];
-  cargandoUsuarios = false;
 
   // ── Modal eliminar ────────────────────────────────────────────────────────
   terapeutaAEliminar: Terapeuta | null = null;
@@ -171,11 +169,6 @@ export class ListaTerapeutasComponent implements OnInit {
     if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
-    this.cargandoUsuarios = true;
-    this.terapeutaService.getUsuariosLibres().subscribe({
-      next: d => { this.usuariosLibres = d; this.cargandoUsuarios = false; },
-      error: () => { this.cargandoUsuarios = false; }
-    });
     this.modalAbierto = true;
   }
 
@@ -194,8 +187,6 @@ export class ListaTerapeutasComponent implements OnInit {
 
   private formDataFromTerapeuta(t: Terapeuta): TerapeutaForm {
     return {
-      modo:               'nuevo',
-      usuarioId:          t.usuario?.id ?? null,
       nombre:             t.usuario?.nombre  ?? t.nombre  ?? '',
       apellido:           t.usuario?.apellido ?? t.apellido ?? '',
       email:              t.usuario?.email   ?? t.email   ?? '',
@@ -479,8 +470,6 @@ export class ListaTerapeutasComponent implements OnInit {
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
   }
 
-  usuarioNombre(u: UsuarioBasico): string { return `${u.nombre} ${u.apellido}`; }
-
   turnoNombre(h: TerapeutaHorario): string {
     return h.turno?.nombre ?? this.turnos.find(t => t.id === h.turnoId)?.nombre ?? 'Turno';
   }
@@ -526,7 +515,6 @@ export class ListaTerapeutasComponent implements OnInit {
 
   private emptyForm(): TerapeutaForm {
     return {
-      modo: 'existente', usuarioId: null,
       nombre: '', apellido: '', email: '', password: '', sedeId: null,
       areaId: null, cmp: '', telefono: '',
       horarioDescripcion: '', activo: true, especialidadIds: []
@@ -543,9 +531,10 @@ export class ListaTerapeutasComponent implements OnInit {
 
   private buildCompletoBody(): TerapeutaCompletoRequest {
     const f = this.formData;
-    const modo: 'existente' | 'nuevo' = this.editando ? 'nuevo' : f.modo;
+    // El usuario del terapeuta siempre se crea (o edita) ahí mismo — ya no se elige uno existente
+    // de una lista (esa lista incluía por error las cuentas de acceso de los pacientes).
     const base: TerapeutaCompletoRequest = {
-      modo,
+      modo: 'nuevo',
       areaId:             f.areaId || null,
       cmp:                f.cmp || undefined,
       telefono:           f.telefono || undefined,
@@ -553,15 +542,11 @@ export class ListaTerapeutasComponent implements OnInit {
       activo:             f.activo,
       especialidadIds:    f.especialidadIds,
       sedeId:             f.sedeId || null,
+      nombre:             f.nombre,
+      apellido:           f.apellido,
+      email:              f.email,
     };
-    if (modo === 'existente') {
-      base.usuarioId = f.usuarioId!;
-    } else {
-      base.nombre   = f.nombre;
-      base.apellido = f.apellido;
-      base.email    = f.email;
-      if (f.password) base.password = f.password;
-    }
+    if (f.password) base.password = f.password;
     return base;
   }
 }

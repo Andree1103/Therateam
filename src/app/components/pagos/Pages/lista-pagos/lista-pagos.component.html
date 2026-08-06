@@ -108,7 +108,7 @@
   </div>
 
   <!-- ── MODAL REGISTRAR PAGO ──────────────────────────────────────────── -->
-  <div class="modal-overlay" *ngIf="modalAbierto" (click)="cerrarModal()">
+  <div class="modal-overlay" *ngIf="modalAbierto">
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
@@ -120,30 +120,36 @@
 
       <form #form="ngForm" (ngSubmit)="guardar(form)" class="modal-body" autocomplete="off">
 
-        <div class="frow">
-          <label>Paciente *</label>
-          <select [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacienteRef="ngModel"
-                  [class.err-input]="pacienteRef.invalid && pacienteRef.touched"
-                  (ngModelChange)="onPacienteChange()">
-            <option [ngValue]="null">Seleccionar paciente...</option>
-            <option *ngFor="let p of pacientes" [ngValue]="p.id">{{ pacienteNombre(p) }}</option>
-          </select>
+        <div class="frow autocomplete-wrap">
+          <label>Paciente *
+            <button type="button" class="btn-link" *ngIf="formData.pacienteId" (mousedown)="limpiarPaciente()" style="margin-left:8px">Quitar</button>
+          </label>
+          <input type="text" [(ngModel)]="pacienteBusqueda" name="pacienteBusqueda"
+                 (focus)="abrirPacienteDropdown()" (blur)="cerrarPacienteDropdownDiferido()"
+                 (ngModelChange)="formData.pacienteId = null"
+                 placeholder="Buscar por nombre o DNI..." autocomplete="off">
+          <input type="hidden" [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacienteRef="ngModel">
+          <div class="autocomplete-dropdown" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length > 0">
+            <div class="autocomplete-item" *ngFor="let p of pacientesFiltrados" (mousedown)="seleccionarPaciente(p)">
+              <span class="ac-nombre">{{ pacienteNombre(p) }}</span>
+              <span class="ac-sub" *ngIf="p.dni">DNI: {{ p.dni }}</span>
+            </div>
+          </div>
+          <div class="dur-info" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length === 0">Sin resultados.</div>
           <span class="err-msg" *ngIf="pacienteRef.invalid && pacienteRef.touched">Requerido</span>
         </div>
 
-        <div class="frow">
-          <label>Paquete *</label>
-          <select [(ngModel)]="formData.tratamientoId" name="tratamientoId" required #tratRef="ngModel"
-                  [class.err-input]="tratRef.invalid && tratRef.touched"
-                  [disabled]="!formData.pacienteId || cargandoTratamientos">
+        <div class="frow" *ngIf="formData.pacienteId">
+          <label>Paquete pendiente</label>
+          <select [(ngModel)]="formData.tratamientoId" name="tratamientoId"
+                  (ngModelChange)="onTratamientoChange()" [disabled]="cargandoTratamientos">
             <option [ngValue]="null">
-              {{ cargandoTratamientos ? 'Cargando...' : (formData.pacienteId ? 'Seleccionar paquete...' : 'Selecciona un paciente primero') }}
+              {{ cargandoTratamientos ? 'Cargando...' : (tratamientos.length ? 'Sin paquete específico' : 'Sin paquetes pendientes') }}
             </option>
             <option *ngFor="let t of tratamientos" [ngValue]="t.id">
               {{ t.nombre }} · S/ {{ t.precioPorSesion | number:'1.2-2' }}/sesión
             </option>
           </select>
-          <span class="err-msg" *ngIf="tratRef.invalid && tratRef.touched">Requerido</span>
         </div>
 
         <div class="paquete-resumen" *ngIf="tratamientoSeleccionado as t">
@@ -156,6 +162,31 @@
             Usar monto restante del paquete (S/ {{ restantePaquete | number:'1.2-2' }})
           </button>
           <span class="txt-success" *ngIf="restantePaquete === 0">Paquete cubierto por completo.</span>
+        </div>
+
+        <!-- Citas individuales (fuera de un paquete) también pueden tener pago pendiente -->
+        <div class="frow" *ngIf="formData.pacienteId && !formData.tratamientoId">
+          <label>Cita individual pendiente</label>
+          <select [(ngModel)]="formData.citaId" name="citaId"
+                  (ngModelChange)="onCitaChange()" [disabled]="cargandoCitas">
+            <option [ngValue]="null">
+              {{ cargandoCitas ? 'Cargando...' : (citasPendientes.length ? 'Sin cita específica' : 'Sin citas individuales pendientes') }}
+            </option>
+            <option *ngFor="let c of citasPendientes" [ngValue]="c.id">
+              {{ c.tipo_terapia_nombre }} · {{ c.fecha_inicio | date:'dd/MM HH:mm' }} · S/ {{ c.precio | number:'1.2-2' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="paquete-resumen" *ngIf="citaSeleccionada as c">
+          <div class="paquete-row">
+            <span>Cita: S/ {{ (c.precio ?? 0) | number:'1.2-2' }}</span>
+            <span>Cobrado: S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }}</span>
+          </div>
+          <button type="button" class="btn-link-paquete" *ngIf="restanteCita > 0" (click)="usarMontoCita()">
+            Usar monto restante de la cita (S/ {{ restanteCita | number:'1.2-2' }})
+          </button>
+          <span class="txt-success" *ngIf="restanteCita === 0">Cita cubierta por completo.</span>
         </div>
 
         <div class="frow-2">
@@ -206,7 +237,7 @@
   </div>
 
   <!-- ── MODAL CONFIRMAR ELIMINAR ──────────────────────────────────────── -->
-  <div class="modal-overlay" *ngIf="modalEliminar" (click)="cerrarEliminar()">
+  <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
         <h2>Eliminar pago</h2>
