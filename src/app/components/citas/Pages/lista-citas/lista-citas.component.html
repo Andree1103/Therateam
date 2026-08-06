@@ -522,13 +522,27 @@
 
         <!-- ── DATOS DE LA CITA ──────────────────────────────────────── -->
         <div class="frow-2" style="margin-top:4px">
-          <div class="frow">
-            <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span></label>
-            <select [(ngModel)]="fTer" (ngModelChange)="onFTerChange()" [disabled]="fTratamientoExistenteId !== null">
-              <option value="">— Seleccionar —</option>
-              <option *ngFor="let t of terapeutasDisponiblesModal" [value]="getNombreTerapeuta(t)">{{ getNombreTerapeuta(t) }}</option>
-            </select>
-            <div class="dur-info" *ngIf="terapeutasDisponiblesModal.length === 0">Ningún terapeuta disponible en ese horario.</div>
+          <div class="frow autocomplete-wrap" *ngIf="fTratamientoExistenteId === null">
+            <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span>
+              <button type="button" class="btn-link" *ngIf="fTer" (mousedown)="limpiarTerapeuta()" style="margin-left:8px">Quitar</button>
+            </label>
+            <input type="text" [(ngModel)]="terapeutaBusqueda" name="terapeutaBusqueda"
+                   (focus)="abrirTerapeutaDropdown()" (blur)="cerrarTerapeutaDropdownDiferido()"
+                   (ngModelChange)="fTer = ''"
+                   placeholder="Buscar terapeuta por nombre..." autocomplete="off">
+            <div class="autocomplete-dropdown" *ngIf="terapeutaDropdownAbierto && terapeutasFiltradosBusqueda.length > 0">
+              <div class="autocomplete-item" *ngFor="let t of terapeutasFiltradosBusqueda" (mousedown)="seleccionarTerapeuta(t)">
+                <span class="ac-nombre">{{ getNombreTerapeuta(t) }}</span>
+                <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
+              </div>
+            </div>
+            <div class="dur-info" *ngIf="terapeutaDropdownAbierto && terapeutasFiltradosBusqueda.length === 0">
+              {{ terapeutasDisponiblesModal.length === 0 ? 'Ningún terapeuta disponible en ese horario.' : 'Sin resultados.' }}
+            </div>
+          </div>
+          <div class="frow" *ngIf="fTratamientoExistenteId !== null">
+            <label>Terapeuta</label>
+            <input type="text" [value]="fTer" disabled class="date-inp">
           </div>
           <div class="frow">
             <label>Tipo de terapia</label>
@@ -620,36 +634,39 @@
             </select>
           </div>
 
-          <div class="frow">
-            <label>Fecha</label>
-            <div class="sp-fechas-row">
-              <button type="button" class="sp-nav" (click)="fFechasAnterior()" [disabled]="fFechasOffset === 0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
-              </button>
-              <button type="button" class="sp-fecha-pill" *ngFor="let f of fFechasVisibles"
-                      [class.selected]="fFecha === f.iso" (click)="seleccionarFechaSingle(f.iso)">
-                <span class="sp-fecha-mes">{{ f.mes }}</span>
-                <span class="sp-fecha-dia">{{ f.dia }}</span>
-                <span class="sp-fecha-dow">{{ f.dow }}</span>
-              </button>
-              <button type="button" class="sp-nav" (click)="fFechasSiguiente()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
+          <ng-container *ngIf="fTer">
+            <div class="frow">
+              <label>Fecha</label>
+              <div class="sp-fechas-row">
+                <button type="button" class="sp-nav" (click)="fFechasAnterior()" [disabled]="fFechasOffset === 0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button type="button" class="sp-fecha-pill" *ngFor="let f of fFechasVisibles"
+                        [class.selected]="fFecha === f.iso" (click)="seleccionarFechaSingle(f.iso)">
+                  <span class="sp-fecha-mes">{{ f.mes }}</span>
+                  <span class="sp-fecha-dia">{{ f.dia }}</span>
+                  <span class="sp-fecha-dow">{{ f.dow }}</span>
+                </button>
+                <button type="button" class="sp-nav" (click)="fFechasSiguiente()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div class="frow">
-            <label>Hora</label>
-            <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
-            <div class="sp-slots" *ngIf="!fCargandoSlots">
-              <button type="button" class="sp-slot" *ngFor="let s of fSlotsDisponibles"
-                      [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}</button>
+            <div class="frow">
+              <label>Hora</label>
+              <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
+              <div class="sp-slots" *ngIf="!fCargandoSlots">
+                <button type="button" class="sp-slot" *ngFor="let s of fSlotsDisponibles"
+                        [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}</button>
+              </div>
+              <div class="sp-empty" *ngIf="!fCargandoSlots && fSlotsDisponibles.length === 0">
+                El terapeuta no tiene horarios disponibles ese día.
+              </div>
             </div>
-            <div class="sp-empty" *ngIf="!fCargandoSlots && fSlotsDisponibles.length === 0">
-              {{ fTer ? 'El terapeuta no tiene horarios disponibles ese día.' : 'Elige un terapeuta primero.' }}
-            </div>
-          </div>
-          <div class="dur-info">{{ getDurInfo() }}</div>
+            <div class="dur-info">{{ getDurInfo() }}</div>
+          </ng-container>
+          <div class="sp-empty" *ngIf="!fTer">Elige un terapeuta para ver fechas y horarios disponibles.</div>
         </div>
 
         <!-- ── PROGRAMACIÓN MÚLTIPLE ─────────────────────────────────── -->

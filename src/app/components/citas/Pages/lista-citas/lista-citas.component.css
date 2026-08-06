@@ -233,6 +233,13 @@ tbody tr{height:var(--slot-h)}
 .btn-link-danger:hover{color:#991b1b}
 /* Campo readonly (encontrado) */
 .readonly-field{background:#f8fafc!important;color:#6b7280!important;cursor:default}
+/* Buscador con dropdown (terapeuta) */
+.autocomplete-wrap{position:relative}
+.autocomplete-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;z-index:20}
+.autocomplete-item{padding:8px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.autocomplete-item:hover{background:#f1f5f9}
+.ac-nombre{font-size:13px;font-weight:600;color:#0f172a}
+.ac-sub{font-size:11px;color:#94a3b8}
 /* Toggle pac2 */
 .pac2-toggle{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px dashed #cbd5e1;border-radius:10px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;margin-bottom:12px;transition:all .15s}
 .pac2-toggle:hover{border-color:#185FA5;color:#185FA5;background:#f0f6ff}

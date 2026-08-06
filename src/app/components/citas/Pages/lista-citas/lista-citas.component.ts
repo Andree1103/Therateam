@@ -87,6 +87,9 @@ export class ListaCitasComponent implements OnInit {
   fTratamientoExistenteId: number | null = null;
 
   fTer = '';
+  // ── Buscador de terapeuta (autocompletar por nombre) ────────────────────────
+  terapeutaBusqueda = '';
+  terapeutaDropdownAbierto = false;
   fTipoId = '';
   fEstKey = '';
   fModalidad = 'PRESENCIAL';
@@ -255,12 +258,36 @@ export class ListaCitasComponent implements OnInit {
     });
   }
 
+  /** Terapeutas disponibles (ya filtrados por área/horario) que además calzan con lo buscado en el texto. */
+  get terapeutasFiltradosBusqueda(): Terapeuta[] {
+    const q = this.terapeutaBusqueda.toLowerCase().trim();
+    const lista = this.terapeutasDisponiblesModal;
+    return !q ? lista : lista.filter(t => terapeutaNombre(t).toLowerCase().includes(q));
+  }
+
+  abrirTerapeutaDropdown(): void { this.terapeutaDropdownAbierto = true; }
+  cerrarTerapeutaDropdownDiferido(): void { setTimeout(() => this.terapeutaDropdownAbierto = false, 150); }
+
+  seleccionarTerapeuta(t: Terapeuta): void {
+    this.fTer = terapeutaNombre(t);
+    this.terapeutaBusqueda = this.fTer;
+    this.terapeutaDropdownAbierto = false;
+    this.onFTerChange();
+  }
+
+  limpiarTerapeuta(): void {
+    this.fTer = '';
+    this.terapeutaBusqueda = '';
+    this.onFTerChange();
+  }
+
   /** Se llama al cambiar fecha/hora/duración/tipo en el modal: si el terapeuta elegido dejó de estar disponible, se limpia la selección. */
   onDatosCitaChange(): void {
     if (!this.fTer) return;
     const sigueDisponible = this.terapeutasDisponiblesModal.some(t => terapeutaNombre(t) === this.fTer);
     if (!sigueDisponible) {
       this.fTer = '';
+      this.terapeutaBusqueda = '';
       this.toast.warning('El terapeuta seleccionado ya no está disponible en ese horario, elige otro.');
     }
   }
@@ -964,7 +991,7 @@ export class ListaCitasComponent implements OnInit {
       if (tipoObj?.area_id != null) this.fAreaId = tipoObj.area_id;
       this.fTipoId = t.tipoTerapiaKey;
     }
-    if (t.terapeutaNombre) this.fTer = t.terapeutaNombre;
+    if (t.terapeutaNombre) { this.fTer = t.terapeutaNombre; this.terapeutaBusqueda = t.terapeutaNombre; }
     this.fPrecio = t.precioPorSesion ?? null;
 
     // El paquete no puede generar más citas que cupos le quedan libres.
@@ -1008,6 +1035,7 @@ export class ListaCitasComponent implements OnInit {
     this.pac2 = this.emptyPac();
     this.pac2habilitado = false;
     this.fTer       = cita.terapeuta_nombre ?? '';
+    this.terapeutaBusqueda = this.fTer;
     this.fTipoId    = (cita.tipo_terapia_key ?? '').toUpperCase() || (this.tiposTerapia[0]?.id ?? '');
     this.fEstKey    = cita.estado;
     this.fModalidad = (cita.modalidad as string) || 'PRESENCIAL';
@@ -1034,6 +1062,7 @@ export class ListaCitasComponent implements OnInit {
     this.pac2habilitado = false;
     this.limpiarTratamientoExistente();
     this.fTer    = this.terapeutasNombres[0] ?? '';
+    this.terapeutaBusqueda = this.fTer;
     this.fAreaId = this.areas[0]?.id ?? null;
     const primerTipo = this.tiposDeArea[0] ?? this.tiposTerapia[0];
     this.fTipoId = primerTipo?.id ?? '';
