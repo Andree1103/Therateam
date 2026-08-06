@@ -340,7 +340,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
             Sesión única
           </button>
-          <button class="mprog-btn" [class.act]="modoProgramacion === 'multiple'" (click)="modoProgramacion = 'multiple'; calcularBulkDates(); onDatosCitaChange()">
+          <button class="mprog-btn" [class.act]="modoProgramacion === 'multiple'" (click)="modoProgramacion = 'multiple'; onFTerChange(); calcularBulkDates(); onDatosCitaChange()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
             Programar grupo ({{ bulkPreview.length }} sesiones)
           </button>
@@ -524,7 +524,7 @@
         <div class="frow-2" style="margin-top:4px">
           <div class="frow">
             <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span></label>
-            <select [(ngModel)]="fTer" [disabled]="fTratamientoExistenteId !== null">
+            <select [(ngModel)]="fTer" (ngModelChange)="onFTerChange()" [disabled]="fTratamientoExistenteId !== null">
               <option value="">— Seleccionar —</option>
               <option *ngFor="let t of terapeutasDisponiblesModal" [value]="getNombreTerapeuta(t)">{{ getNombreTerapeuta(t) }}</option>
             </select>
@@ -540,6 +540,7 @@
         </div>
         <p class="pago-hint" *ngIf="fTratamientoExistenteId !== null">
           🔒 Área, terapeuta, tipo de terapia y precio quedan fijados por el paquete seleccionado.
+          El cobro se registra desde el paquete, no aquí.
         </p>
 
         <!-- Modalidad -->
@@ -583,7 +584,9 @@
         </div>
 
         <!-- ── FECHA Y HORA (time picker libre) ─────────────────────── -->
-        <div *ngIf="modoProgramacion === 'single'">
+        <!-- Al editar una cita ya creada se mantienen los inputs libres (la propia cita ocupa su
+             slot, así que el selector de horas disponibles la mostraría como "no disponible"). -->
+        <div *ngIf="modoProgramacion === 'single' && citaEditando">
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
@@ -606,6 +609,49 @@
           <div class="dur-info">{{ getDurInfo() }}</div>
         </div>
 
+        <!-- ── SELECTOR DE FECHA/HORA POR SLOTS (sesión única, nueva) ────── -->
+        <div class="slot-picker" *ngIf="modoProgramacion === 'single' && !citaEditando">
+          <div class="frow" *ngIf="esMultipaciente">
+            <label>Duración</label>
+            <select [(ngModel)]="fDur" (ngModelChange)="cargarSlotsSingle(); onDatosCitaChange()">
+              <option [value]="30">30 min</option><option [value]="40">40 min</option>
+              <option [value]="45">45 min</option><option [value]="50">50 min</option>
+              <option [value]="60">60 min (1 hora)</option>
+            </select>
+          </div>
+
+          <div class="frow">
+            <label>Fecha</label>
+            <div class="sp-fechas-row">
+              <button type="button" class="sp-nav" (click)="fFechasAnterior()" [disabled]="fFechasOffset === 0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button type="button" class="sp-fecha-pill" *ngFor="let f of fFechasVisibles"
+                      [class.selected]="fFecha === f.iso" (click)="seleccionarFechaSingle(f.iso)">
+                <span class="sp-fecha-mes">{{ f.mes }}</span>
+                <span class="sp-fecha-dia">{{ f.dia }}</span>
+                <span class="sp-fecha-dow">{{ f.dow }}</span>
+              </button>
+              <button type="button" class="sp-nav" (click)="fFechasSiguiente()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="frow">
+            <label>Hora</label>
+            <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
+            <div class="sp-slots" *ngIf="!fCargandoSlots">
+              <button type="button" class="sp-slot" *ngFor="let s of fSlotsDisponibles"
+                      [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}</button>
+            </div>
+            <div class="sp-empty" *ngIf="!fCargandoSlots && fSlotsDisponibles.length === 0">
+              {{ fTer ? 'El terapeuta no tiene horarios disponibles ese día.' : 'Elige un terapeuta primero.' }}
+            </div>
+          </div>
+          <div class="dur-info">{{ getDurInfo() }}</div>
+        </div>
+
         <!-- ── PROGRAMACIÓN MÚLTIPLE ─────────────────────────────────── -->
         <div class="bulk-section" *ngIf="modoProgramacion === 'multiple'">
           <div class="bulk-hdr">
@@ -619,17 +665,24 @@
           </div>
 
           <div class="frow">
-            <label>Días de la semana <span class="opc-tag">hora individual por día</span></label>
+            <label>Días de la semana <span class="opc-tag">hora según disponibilidad real del terapeuta</span></label>
             <div class="bulk-dias-grid">
-              <label class="bulk-dia-row" *ngFor="let dia of DIAS_NOM; let i = index" [class.activo]="bulkDias[i]">
+              <label class="bulk-dia-row" *ngFor="let dia of DIAS_NOM; let i = index"
+                     [class.activo]="bulkDias[i]" [class.sin-horario]="!diaHabilitadoBulk(i)"
+                     [class.con-slots]="bulkDias[i] && diaHabilitadoBulk(i)">
                 <span class="bulk-dia-check">
-                  <input type="checkbox" [(ngModel)]="bulkDias[i]" (ngModelChange)="onBulkDiaToggle(i)">
+                  <input type="checkbox" [(ngModel)]="bulkDias[i]" [disabled]="!diaHabilitadoBulk(i)" (ngModelChange)="onBulkDiaToggle(i)">
                   <span class="bulk-dia-badge">{{ DIAS_ABR[i] }}</span>
                   <span class="bulk-dia-nombre">{{ dia }}</span>
+                  <span class="bulk-dia-hora-actual" *ngIf="bulkDias[i] && diaHabilitadoBulk(i)">{{ bulkHoras[i] }}</span>
                 </span>
-                <input type="time" *ngIf="bulkDias[i]" [(ngModel)]="bulkHoras[i]" (click)="$event.stopPropagation()"
-                       (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="bulk-dia-hora">
-                <span class="bulk-dia-off" *ngIf="!bulkDias[i]">Sin sesión</span>
+                <span class="bulk-dia-off" *ngIf="!bulkDias[i] && diaHabilitadoBulk(i)">Sin sesión</span>
+                <span class="bulk-dia-off bulk-dia-sinhorario" *ngIf="!diaHabilitadoBulk(i)">Terapeuta no atiende</span>
+                <div class="bulk-dia-slots" *ngIf="bulkDias[i] && diaHabilitadoBulk(i)" (click)="$event.stopPropagation()">
+                  <button type="button" class="sp-slot sp-slot-sm" *ngFor="let s of slotsDisponiblesBulkDia(i)"
+                          [class.selected]="bulkHoras[i] === s" (click)="seleccionarSlotBulkDia(i, s)">{{ s }}</button>
+                  <span class="sp-empty" *ngIf="slotsDisponiblesBulkDia(i).length === 0">Sin horarios para la duración elegida.</span>
+                </div>
               </label>
             </div>
           </div>
@@ -658,10 +711,15 @@
               {{ bulkPreview.length }} sesiones calculadas
             </div>
             <div class="bp-dates">
-              <span class="bp-date" *ngFor="let d of bulkPreview">
+              <span class="bp-date" *ngFor="let d of bulkPreview; let i = index" [class.bp-conflicto]="bulkConflictos[i]"
+                    [title]="bulkConflictos[i] ? 'El terapeuta no está libre en ese horario (fuera de su horario o ya tiene otra cita)' : ''">
                 {{ d | date:'EEE d MMM':'':'es-PE' }} {{ d | date:'HH:mm' }}
+                <svg *ngIf="bulkConflictos[i]" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" width="11" height="11"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </span>
             </div>
+            <p class="bp-conflicto-hint" *ngIf="bulkTieneConflictos">
+              ⚠ {{ bulkTotalConflictos }} de {{ bulkPreview.length }} sesiones no calzan con la disponibilidad real del terapeuta (fuera de su horario o ya tiene otra cita) — cámbiales la hora antes de crear.
+            </p>
           </div>
           <div class="bulk-empty" *ngIf="bulkPreview.length === 0">
             Selecciona al menos un día y una fecha de inicio.
@@ -669,7 +727,9 @@
         </div>
 
         <!-- ── PRECIO / PAGO ──────────────────────────────────────────── -->
-        <div class="pago-section" *ngIf="!citaEditando">
+        <!-- Con un paquete existente seleccionado, el cobro se registra desde el paquete (no aquí) —
+             evita que la misma plata se pueda registrar dos veces, una vez por cada camino. -->
+        <div class="pago-section" *ngIf="!citaEditando && fTratamientoExistenteId === null">
           <div class="pago-section-hdr">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             Precio y pago
@@ -678,8 +738,7 @@
           <div class="frow-2">
             <div class="frow">
               <label>Precio por sesión (S/)</label>
-              <input type="number" min="0" step="0.01" [(ngModel)]="fPrecio"
-                     placeholder="0.00" class="precio-inp" [disabled]="fTratamientoExistenteId !== null">
+              <input type="number" min="0" step="0.01" [(ngModel)]="fPrecio" placeholder="0.00" class="precio-inp">
             </div>
             <div class="frow" *ngIf="fPrecio && fPrecio > 0">
               <label>Método de pago</label>

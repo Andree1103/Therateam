@@ -15,6 +15,8 @@ import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCit
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
+import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
+import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 
@@ -101,6 +103,15 @@ export class ListaCitasComponent implements OnInit {
   fPagado = false;
   fMetodoPagoId: number | null = null;
 
+  // ── Selector de fecha/hora tipo "slots" (sesión única) — fechas en pastillas +
+  //    horas reales disponibles del terapeuta, en vez de inputs libres. ──────
+  fFechasVisibles: { iso: string; dow: string; dia: number; mes: string }[] = [];
+  fFechasOffset = 0;
+  fSlotsDisponibles: string[] = [];
+  fCargandoSlots = false;
+  readonly DOW_ABR3 = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  readonly MES_ABR3 = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
   // ── Programación múltiple ─────────────────────────────────────────────────
   modoProgramacion: 'single' | 'multiple' = 'single';
   bulkDias = [true, false, true, false, true, false, false]; // L M X J V S D
@@ -109,6 +120,11 @@ export class ListaCitasComponent implements OnInit {
   bulkFechaInicio = '';
   bulkPreview: Date[] = [];
   bulkSesionesAPagar = 10;
+  /** Horario semanal general del terapeuta elegido (solo activo) — deshabilita días y acota la hora en la grilla. */
+  bulkHorarioTerapeuta: TerapeutaHorario[] = [];
+  bulkHorarioCargado = false;
+  /** Paralelo a bulkPreview: true si esa fecha/hora choca con otra cita ya existente del terapeuta. */
+  bulkConflictos: boolean[] = [];
 
   // ── Pago individual de cita ───────────────────────────────────────────────
   citaPagandoId: string | null = null;
@@ -147,6 +163,7 @@ export class ListaCitasComponent implements OnInit {
     private router: Router,
     private atencionService: AtencionClinicaService,
     private disponibilidadService: DisponibilidadService,
+    private terapeutaHorarioService: TerapeutaHorarioService,
     private authService: AuthService
   ) {}
 
@@ -176,10 +193,12 @@ export class ListaCitasComponent implements OnInit {
 
   /**
    * Terapeutas que realmente pueden atender en la fecha/hora/tipo seleccionados en el modal.
-   * En modo "Programar grupo" valida contra la fecha real de la primera sesión calculada
-   * (bulkPreview[0]) — no contra bulkFechaInicio, que puede caer en un día de la semana
-   * que ni siquiera está marcado en "días de la semana" (ej. si el primer turno real es
-   * el miércoles siguiente porque el día de inicio no está seleccionado).
+   * En modo "Programar grupo" solo se filtra por área — no tiene sentido exigir que el
+   * terapeuta cubra la fecha/hora por defecto de la primera sesión calculada (esa es solo una
+   * suposición inicial de "días de la semana"/"hora"), porque justo eso es lo que se ajusta
+   * después según SU horario real (grilla de días + hora acotada + aviso de choques). Filtrar
+   * aquí también dejaría el combo vacío para cualquier terapeuta cuyo horario real no calce con
+   * la suposición inicial, sin poder elegirlo nunca para corregirla.
    */
   get terapeutasDisponiblesModal(): Terapeuta[] {
     // Con un paquete seleccionado, el terapeuta ya viene fijado por el paquete (campo bloqueado
@@ -189,14 +208,20 @@ export class ListaCitasComponent implements OnInit {
       return this.terapeutas.filter(t => terapeutaNombre(t) === this.fTer);
     }
 
-    let inicio: Date;
     if (this.modoProgramacion === 'multiple') {
-      if (this.bulkPreview.length === 0) return this.terapeutas;
-      inicio = this.bulkPreview[0];
-    } else {
-      if (!this.fFecha || !this.fHoraInicio) return this.terapeutas;
-      inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+      const tipo = this.tipoSeleccionado;
+      if (!tipo) return this.terapeutas;
+      return this.terapeutas.filter(t => tipo.area_id == null || t.area?.id === tipo.area_id);
     }
+
+    // Aún sin hora elegida (flujo normal: primero terapeuta, luego fecha/hora en el selector de
+    // slots) — se filtra solo por área, igual que en "Programar grupo".
+    if (!this.fFecha || !this.fHoraInicio) {
+      const tipoPrevio = this.tipoSeleccionado;
+      return !tipoPrevio ? this.terapeutas
+        : this.terapeutas.filter(t => tipoPrevio.area_id == null || t.area?.id === tipoPrevio.area_id);
+    }
+    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
     const fecha = this.fechaToISO(inicio);
     const tipo = this.tipoSeleccionado;
     if (!tipo) return this.terapeutas;
@@ -822,6 +847,7 @@ export class ListaCitasComponent implements OnInit {
     if (tipo?.precio_recomendado != null && this.fTratamientoExistenteId === null) {
       this.fPrecio = tipo.precio_recomendado;
     }
+    this.cargarSlotsSingle();
     this.onDatosCitaChange();
   }
 
@@ -945,12 +971,6 @@ export class ListaCitasComponent implements OnInit {
     const cupos = this.cuposDisponiblesTratamiento;
     if (cupos !== null && this.bulkSesiones > cupos) this.bulkSesiones = cupos;
     this.calcularBulkDates();
-
-    // Ya viene pagado por adelantado: el backend marca PAGADA sola las sesiones ya cubiertas
-    // por lo cobrado. Ajustamos el default de cobro aquí solo para no pedirle de más a recepción.
-    const totalCitas = this.modoProgramacion === 'multiple' ? this.bulkPreview.length : 1;
-    this.bulkSesionesAPagar = Math.max(0, totalCitas - this.sesionesCubiertasTratamiento);
-    this.fPagado = this.sesionesCubiertasTratamiento >= totalCitas;
   }
 
   togglePac(pac: PacienteState): void {
@@ -1019,7 +1039,7 @@ export class ListaCitasComponent implements OnInit {
     this.fTipoId = primerTipo?.id ?? '';
     const hoy = new Date();
     this.fFecha     = this.fechaToISO(hoy);
-    this.fHoraInicio = '08:00';
+    this.fHoraInicio = '';
     this.fDur       = primerTipo?.duracion_minutos ?? 45;
     this.fEstKey    = this.estadosCita[0]?.key  ?? 'PROGRAMADA';
     this.fModalidad = this.modalidades[0]?.key  ?? 'PRESENCIAL';
@@ -1029,12 +1049,18 @@ export class ListaCitasComponent implements OnInit {
     this.fPagado    = false;
     this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
     this.modoProgramacion = 'single';
+    this.fFechasOffset = 0;
+    this.generarFechasVisiblesSingle();
+    this.cargarSlotsSingle();
     this.bulkDias   = [true, false, true, false, true, false, false];
     this.bulkHoras  = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
     this.bulkSesiones        = 10;
     this.bulkFechaInicio     = this.fechaToISO(hoy);
     this.bulkPreview         = [];
     this.bulkSesionesAPagar  = this.bulkSesiones;
+    this.bulkHorarioTerapeuta = [];
+    this.bulkHorarioCargado  = false;
+    this.bulkConflictos      = [];
     this.calcularBulkDates();
   }
 
@@ -1045,6 +1071,172 @@ export class ListaCitasComponent implements OnInit {
     if (this.bulkDias[i] && !this.bulkHoras[i]) this.bulkHoras[i] = this.fHoraInicio || '08:00';
     this.calcularBulkDates();
     this.onDatosCitaChange();
+  }
+
+  /** Al elegir terapeuta, trae su horario semanal general para deshabilitar días/horas que no atiende. */
+  onFTerChange(): void {
+    if (this.modoProgramacion === 'multiple') this.cargarHorarioTerapeutaBulk();
+    else this.cargarSlotsSingle();
+  }
+
+  private cargarHorarioTerapeutaBulk(): void {
+    const terapeuta = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
+    if (!terapeuta?.id) {
+      this.bulkHorarioTerapeuta = []; this.bulkHorarioCargado = false;
+      return;
+    }
+    this.terapeutaHorarioService.getByTerapeuta(terapeuta.id).subscribe({
+      next: horarios => {
+        this.bulkHorarioTerapeuta = horarios.filter(h => h.activo);
+        this.bulkHorarioCargado = true;
+        this.ajustarBulkDiasSegunHorario();
+        this.calcularBulkDates();
+      },
+      error: () => { this.bulkHorarioTerapeuta = []; this.bulkHorarioCargado = false; }
+    });
+  }
+
+  /** true si el terapeuta atiende ese día de la semana (i: 0=Lunes..6=Domingo) según su horario general.
+   *  Mientras no se haya cargado el horario (o no hay terapeuta elegido aún) no bloquea nada. */
+  diaHabilitadoBulk(i: number): boolean {
+    if (!this.bulkHorarioCargado) return true;
+    return this.bulkHorarioTerapeuta.some(h => h.diaSemana === i + 1);
+  }
+
+  /** Franjas reales (sin fusionar) del horario del terapeuta para ese día de la semana. */
+  private franjasBulkDia(i: number): { horaInicio: string; horaFin: string }[] {
+    return this.bulkHorarioTerapeuta
+      .filter(h => h.diaSemana === i + 1)
+      .map(h => ({ horaInicio: h.horaInicio, horaFin: h.horaFin }));
+  }
+
+  /** Horas puntuales (cada 30 min) donde cabe una sesión completa dentro del horario real de ese día. */
+  slotsDisponiblesBulkDia(i: number): string[] {
+    const franjas = this.franjasBulkDia(i);
+    if (franjas.length === 0) return [];
+    const tipo = this.tipoSeleccionado;
+    const dur = this.esMultipaciente ? this.fDur : (tipo?.duracion_minutos ?? 45);
+    return this.calcularSlotsDesdeFranjas(franjas, dur);
+  }
+
+  seleccionarSlotBulkDia(i: number, hora: string): void {
+    this.bulkHoras[i] = hora;
+    this.calcularBulkDates();
+    this.onDatosCitaChange();
+  }
+
+  /** Divide una lista de franjas [horaInicio,horaFin) en horas puntuales cada `paso` minutos,
+   *  descartando las que no dejan espacio completo para la duración de la sesión. */
+  private calcularSlotsDesdeFranjas(franjas: { horaInicio: string; horaFin: string }[], duracionMin: number, paso = 30): string[] {
+    const out: string[] = [];
+    for (const f of franjas) {
+      const [fh, fm] = f.horaInicio.split(':').map(Number);
+      const [th, tm] = f.horaFin.split(':').map(Number);
+      const fin = th * 60 + tm;
+      for (let cursor = fh * 60 + fm; cursor + duracionMin <= fin; cursor += paso) {
+        out.push(`${String(Math.floor(cursor / 60)).padStart(2, '0')}:${String(cursor % 60).padStart(2, '0')}`);
+      }
+    }
+    return out;
+  }
+
+  /** Desmarca los días que el usuario había activado pero el terapeuta elegido no atiende, y
+   *  si la hora actual de un día activo ya no cabe en su horario real, la reemplaza por el
+   *  primer slot disponible de ese día (ej. el 08:00 default no tiene sentido si el terapeuta
+   *  recién empieza a las 13:00). */
+  private ajustarBulkDiasSegunHorario(): void {
+    for (let i = 0; i < 7; i++) {
+      if (this.bulkDias[i] && !this.diaHabilitadoBulk(i)) { this.bulkDias[i] = false; continue; }
+      if (!this.bulkDias[i]) continue;
+      const slots = this.slotsDisponiblesBulkDia(i);
+      if (slots.length > 0 && !slots.includes(this.bulkHoras[i])) this.bulkHoras[i] = slots[0];
+    }
+  }
+
+  /** Trae la disponibilidad real (horario + excepciones + citas ya agendadas) del terapeuta para todo
+   *  el rango de fechas que abarca bulkPreview, y marca en bulkConflictos qué sesiones calculadas
+   *  chocarían con una cita que el terapeuta ya tiene — así se ve antes de guardar, no después. */
+  private cargarConflictosBulk(): void {
+    const terapeuta = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
+    if (!terapeuta?.id || this.bulkPreview.length === 0) { this.bulkConflictos = []; return; }
+    const terapeutaId = terapeuta.id;
+    const desde = this.fechaToISO(this.bulkPreview[0]);
+    const hasta = this.fechaToISO(this.bulkPreview[this.bulkPreview.length - 1]);
+    this.disponibilidadService.getSemana(terapeutaId, desde, hasta).subscribe({
+      next: dias => {
+        this.disponibilidadPorTerapeuta.set(terapeutaId, dias);
+        const tipo = this.tipoSeleccionado;
+        const dur = this.esMultipaciente ? this.fDur : (tipo?.duracion_minutos ?? 45);
+        this.bulkConflictos = this.bulkPreview.map(d => {
+          const fecha = this.fechaToISO(d);
+          const inicioMin = d.getHours() * 60 + d.getMinutes();
+          return !this.cubreFranja(terapeutaId, fecha, inicioMin, inicioMin + dur);
+        });
+      },
+      error: () => { this.bulkConflictos = []; }
+    });
+  }
+
+  get bulkTieneConflictos(): boolean { return this.bulkConflictos.some(c => c); }
+  get bulkTotalConflictos(): number { return this.bulkConflictos.filter(c => c).length; }
+
+  // ── Selector de fecha/hora tipo "slots" (sesión única) ───────────────────────
+
+  private generarFechasVisiblesSingle(): void {
+    const base = new Date();
+    base.setDate(base.getDate() + this.fFechasOffset);
+    const dias: { iso: string; dow: string; dia: number; mes: string }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      dias.push({
+        iso: this.fechaToISO(d),
+        dow: this.DOW_ABR3[d.getDay()],
+        dia: d.getDate(),
+        mes: this.MES_ABR3[d.getMonth()],
+      });
+    }
+    this.fFechasVisibles = dias;
+  }
+
+  fFechasAnterior(): void {
+    if (this.fFechasOffset <= 0) return;
+    this.fFechasOffset = Math.max(0, this.fFechasOffset - 6);
+    this.generarFechasVisiblesSingle();
+  }
+
+  fFechasSiguiente(): void {
+    this.fFechasOffset += 6;
+    this.generarFechasVisiblesSingle();
+  }
+
+  seleccionarFechaSingle(iso: string): void {
+    this.fFecha = iso;
+    this.fHoraInicio = '';
+    this.cargarSlotsSingle();
+    this.onDatosCitaChange();
+  }
+
+  seleccionarSlotSingle(hora: string): void {
+    this.fHoraInicio = hora;
+    this.onDatosCitaChange();
+  }
+
+  /** Trae las franjas libres reales del terapeuta ese día puntual (horario + excepciones + citas
+   *  ya agendadas) y las parte en horas puntuales donde cabe la duración del tipo elegido. */
+  cargarSlotsSingle(): void {
+    const terapeuta = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
+    const tipo = this.tipoSeleccionado;
+    if (!terapeuta?.id || !this.fFecha || !tipo) { this.fSlotsDisponibles = []; return; }
+    const dur = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    this.fCargandoSlots = true;
+    this.disponibilidadService.getDia(terapeuta.id, this.fFecha).subscribe({
+      next: dia => {
+        this.fSlotsDisponibles = this.calcularSlotsDesdeFranjas(dia.franjas, dur);
+        this.fCargandoSlots = false;
+      },
+      error: () => { this.fSlotsDisponibles = []; this.fCargandoSlots = false; }
+    });
   }
 
   calcularBulkDates(): void {
@@ -1080,6 +1272,7 @@ export class ListaCitasComponent implements OnInit {
     if (this.bulkSesionesAPagar > this.bulkPreview.length) {
       this.bulkSesionesAPagar = this.bulkPreview.length;
     }
+    this.cargarConflictosBulk();
   }
 
   // ── Guardar cita ──────────────────────────────────────────────────────────
@@ -1211,7 +1404,7 @@ export class ListaCitasComponent implements OnInit {
 
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
-          if (this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
+          if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
             const pacienteId = Number(citas[0].paciente_id);
             const citaId     = Number(citas[0].id);
             if (pacienteId) this.crearPagoParaCita(pacienteId, this.fPrecio, this.fMetodoPagoId, citaId);
@@ -1272,7 +1465,7 @@ export class ListaCitasComponent implements OnInit {
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
           creadas++;
-          if (this.fPrecio && this.fPrecio > 0 && index < this.bulkSesionesAPagar && citas.length > 0) {
+          if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 && index < this.bulkSesionesAPagar && citas.length > 0) {
             const pid    = Number(citas[0].paciente_id);
             const citaId = Number(citas[0].id);
             if (pid) this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId);
