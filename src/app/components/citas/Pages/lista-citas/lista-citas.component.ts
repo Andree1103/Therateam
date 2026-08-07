@@ -11,7 +11,7 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
-import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, TipoTerapia } from '../../Models/cita.model';
+import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, PacienteResumen, TipoTerapia } from '../../Models/cita.model';
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
@@ -19,6 +19,8 @@ import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.m
 import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { ConfiguracionService } from '../../../../core/services/configuracion.service';
+import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -33,6 +35,9 @@ export interface PacienteState {
   apellido: string;
   telefono: string;
   correo: string;
+  busquedaNombre: string;
+  resultadosBusqueda: PacienteResumen[];
+  dropdownAbierto: boolean;
 }
 
 @Component({
@@ -112,6 +117,7 @@ export class ListaCitasComponent implements OnInit {
   fFechasOffset = 0;
   fSlotsDisponibles: string[] = [];
   fCargandoSlots = false;
+  private fSlotsRequestId = 0;
   readonly DOW_ABR3 = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   readonly MES_ABR3 = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
@@ -167,7 +173,9 @@ export class ListaCitasComponent implements OnInit {
     private atencionService: AtencionClinicaService,
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
-    private authService: AuthService
+    private authService: AuthService,
+    private configuracionService: ConfiguracionService,
+    private notaAtencionPdfService: NotaAtencionPdfService
   ) {}
 
   ngOnInit(): void {
@@ -229,7 +237,7 @@ export class ListaCitasComponent implements OnInit {
     const tipo = this.tipoSeleccionado;
     if (!tipo) return this.terapeutas;
 
-    const dur    = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    const dur    = Number(this.fDur) || tipo.duracion_minutos;
     const fin    = new Date(inicio);
     fin.setMinutes(fin.getMinutes() + dur);
     const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
@@ -238,17 +246,18 @@ export class ListaCitasComponent implements OnInit {
     return this.terapeutas.filter(t => {
       const nombre = terapeutaNombre(t);
 
-      // El terapeuta ya asignado a la cita que se está editando siempre se incluye, sin pasar
-      // por los demás filtros (área/disponibilidad/capacidad): esos se calculan con datos que
-      // ya incluyen esta misma cita (la caché de disponibilidad la cuenta como "ocupado", y
-      // datos antiguos pueden tener un tipo de terapia que no calza con el área actual del
-      // terapeuta) — igual lo excluirían incorrectamente a sí mismo. El backend revalida con
-      // excluirCitaId al guardar, así que esto es seguro.
-      if (this.citaEditando && nombre === this.citaEditando.terapeuta_nombre) return true;
-
       // El terapeuta debe pertenecer al área que requiere el tipo de terapia seleccionado
       // (ej. tipo "KIDS" → área "Kids", tipo "CONSULTA_MEDICA" → área "Consultas Médicas").
+      // Esto va ANTES del bypass de abajo: si al editar cambias de área, el terapeuta original
+      // (de la otra área) debe dejar de aparecer — si no, parecería "disponible" para un área
+      // a la que ni siquiera pertenece, y tapaba a los terapeutas realmente válidos de la nueva área.
       if (tipo.area_id != null && t.area?.id !== tipo.area_id) return false;
+
+      // El terapeuta ya asignado a la cita que se está editando siempre se incluye (mientras siga
+      // en la misma área) sin pasar por disponibilidad/capacidad: esos se calculan con datos que
+      // ya incluyen esta misma cita (la caché de disponibilidad la cuenta como "ocupado") — igual
+      // lo excluirían incorrectamente a sí mismo. El backend revalida con excluirCitaId al guardar.
+      if (this.citaEditando && nombre === this.citaEditando.terapeuta_nombre) return true;
 
       const solapadas = this.citasSolapadas(nombre, inicio, fin, this.citaEditando?.id);
       if (solapadas.length >= tipo.max_pacientes) return false;
@@ -283,6 +292,10 @@ export class ListaCitasComponent implements OnInit {
 
   /** Se llama al cambiar fecha/hora/duración/tipo en el modal: si el terapeuta elegido dejó de estar disponible, se limpia la selección. */
   onDatosCitaChange(): void {
+    // La disponibilidad no se guarda de una apertura de modal a otra — se descarta y se vuelve
+    // a pedir fresca cada vez que algo relevante cambia, para no arrastrar horarios viejos si
+    // un terapeuta fue editado después de la última carga.
+    this.cargarDisponibilidadSemana();
     if (!this.fTer) return;
     const sigueDisponible = this.terapeutasDisponiblesModal.some(t => terapeutaNombre(t) === this.fTer);
     if (!sigueDisponible) {
@@ -856,7 +869,7 @@ export class ListaCitasComponent implements OnInit {
     if (!tipo) return '';
     return this.esMultipaciente
       ? `${tipo.nombre}: hasta ${tipo.max_pacientes} pacientes simultáneos · ${this.fDur} min`
-      : `${tipo.nombre}: duración fija ${tipo.duracion_minutos} min · 1 paciente por slot`;
+      : `${tipo.nombre}: ${this.fDur} min sugeridos · 1 paciente por slot (editable, puede variar)`;
   }
 
   /** Se llama al cambiar el área en el modal: recarga el dropdown de tipo de terapia con los de esa área. */
@@ -868,7 +881,9 @@ export class ListaCitasComponent implements OnInit {
 
   onTipoChange(): void {
     const tipo = this.tipoSeleccionado;
-    if (tipo && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
+    // La duración del tipo es solo un default sugerido — el usuario puede ajustarla después,
+    // por eso se re-setea aquí (al cambiar de tipo) pero queda libre de tocar mientras tanto.
+    if (tipo) this.fDur = tipo.duracion_minutos;
     if (tipo && !this.esMultipaciente) this.pac2habilitado = false;
     // Precio sugerido para citas sueltas (sin paquete) — solo un default, sigue siendo editable.
     if (tipo?.precio_recomendado != null && this.fTratamientoExistenteId === null) {
@@ -881,36 +896,61 @@ export class ListaCitasComponent implements OnInit {
   onDuracionTipoChange(tipo: TipoTerapia): void {
     const t = this.tiposTerapia.find(x => x.id === tipo.id);
     if (t) t.duracion_minutos = tipo.duracion_minutos;
-    if (this.fTipoId === tipo.id && this.esMultipaciente) this.fDur = tipo.duracion_minutos;
+    if (this.fTipoId === tipo.id) this.fDur = tipo.duracion_minutos;
   }
 
-  // ── Búsqueda de paciente por DNI ──────────────────────────────────────────
+  // ── Búsqueda de paciente por nombre (autocompletado) ───────────────────────
 
-  buscarDni(pac: PacienteState): void {
-    const dni = pac.dni.trim();
-    if (!dni) { this.toast.warning('Ingresa un DNI para buscar'); return; }
+  private debounceBusquedaPac = new Map<PacienteState, ReturnType<typeof setTimeout>>();
+
+  onBusquedaNombreChange(pac: PacienteState): void {
+    pac.dropdownAbierto = true;
+    clearTimeout(this.debounceBusquedaPac.get(pac));
+    const q = pac.busquedaNombre.trim();
+    if (q.length < 2) { pac.resultadosBusqueda = []; pac.buscando = false; return; }
     pac.buscando = true;
-    this.citaService.buscarPorDni(dni).subscribe({
-      next: encontrado => {
-        pac.buscando = false;
-        if (encontrado) {
-          pac.id = encontrado.id; pac.nombre = encontrado.nombre;
-          pac.apellido = encontrado.apellido; pac.telefono = encontrado.telefono ?? '';
-          pac.correo = encontrado.correo ?? ''; pac.modo = 'encontrado'; pac.colapsado = true;
-          if (pac === this.pac1) this.cargarTratamientosPaciente(pac.id!);
-        } else {
-          pac.id = null; pac.nombre = ''; pac.apellido = '';
-          pac.telefono = ''; pac.correo = ''; pac.modo = 'nuevo';
-          if (pac === this.pac1) this.limpiarTratamientoExistente();
-        }
-      },
-      error: () => { pac.buscando = false; pac.modo = 'nuevo'; pac.id = null; }
-    });
+    const handle = setTimeout(() => {
+      this.citaService.buscarPorNombre(q).subscribe({
+        next: resultados => { pac.resultadosBusqueda = resultados; pac.buscando = false; },
+        error: () => { pac.resultadosBusqueda = []; pac.buscando = false; }
+      });
+    }, 300);
+    this.debounceBusquedaPac.set(pac, handle);
+  }
+
+  abrirDropdownPaciente(pac: PacienteState, e: Event): void {
+    pac.dropdownAbierto = true;
+    // El modal es una caja con scroll propio — si el buscador queda cerca del borde inferior
+    // visible, el dropdown se renderiza tapado por ese recorte. Se centra el input al abrir
+    // para que el dropdown completo quede visible.
+    const el = e.target as HTMLElement;
+    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+  }
+  cerrarDropdownPacienteDiferido(pac: PacienteState): void { setTimeout(() => pac.dropdownAbierto = false, 150); }
+
+  seleccionarPacienteBusqueda(pac: PacienteState, encontrado: PacienteResumen): void {
+    pac.id = encontrado.id; pac.nombre = encontrado.nombre; pac.apellido = encontrado.apellido;
+    pac.dni = encontrado.dni; pac.telefono = encontrado.telefono ?? ''; pac.correo = encontrado.correo ?? '';
+    pac.modo = 'encontrado'; pac.colapsado = true; pac.dropdownAbierto = false;
+    pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
+    if (pac === this.pac1) this.cargarTratamientosPaciente(pac.id!);
+  }
+
+  /** El paciente buscado no existe todavía — pasa a modo "nuevo" precargando nombre/apellido
+   *  con lo ya escrito en el buscador, para no hacer retipear. */
+  crearPacienteNuevo(pac: PacienteState): void {
+    pac.id = null; pac.dni = ''; pac.telefono = ''; pac.correo = '';
+    const partes = pac.busquedaNombre.trim().split(/\s+/).filter(Boolean);
+    pac.nombre = partes[0] ?? '';
+    pac.apellido = partes.slice(1).join(' ');
+    pac.modo = 'nuevo'; pac.dropdownAbierto = false;
+    if (pac === this.pac1) this.limpiarTratamientoExistente();
   }
 
   cambiarPaciente(pac: PacienteState): void {
     pac.modo = 'buscar'; pac.id = null;
-    pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = '';
+    pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = ''; pac.dni = '';
+    pac.busquedaNombre = ''; pac.resultadosBusqueda = [];
     pac.colapsado = false;
     if (pac === this.pac1) this.limpiarTratamientoExistente();
   }
@@ -971,6 +1011,24 @@ export class ListaCitasComponent implements OnInit {
   }
 
   /** Cupos que quedan libres en el paquete seleccionado (sesiones totales - sesiones que ya tienen cita creada). Null = sin paquete, sin límite. */
+  /** Si ya no hay cupo para un segundo paciente en el horario elegido (ej. CONVENCIONAL ya
+   *  tiene sus 2 pacientes en ese slot), no tiene sentido ofrecer el toggle de "agregar
+   *  segundo paciente" — se ocultaría solo para volver a fallar al guardar. */
+  get cupoLibreParaPac2(): boolean {
+    const tipo = this.tipoSeleccionado;
+    if (!tipo || !this.esMultipaciente || !this.fTer || !this.fFecha || !this.fHoraInicio) return true;
+    const fechaSlot = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const dur = Number(this.fDur) || tipo.duracion_minutos;
+    const fechaFin = new Date(fechaSlot);
+    fechaFin.setMinutes(fechaFin.getMinutes() + dur);
+    const conflictos = this.citas.filter(c => {
+      if (c.terapeuta_nombre !== this.fTer) return false;
+      if (this.citaEditando && c.id === this.citaEditando.id) return false;
+      return fechaSlot < new Date(c.fecha_fin) && fechaFin > new Date(c.fecha_inicio);
+    });
+    return conflictos.length + 1 < tipo.max_pacientes;
+  }
+
   get cuposDisponiblesTratamiento(): number | null {
     const t = this.tratamientoExistenteSeleccionado;
     if (!t) return null;
@@ -1009,15 +1067,34 @@ export class ListaCitasComponent implements OnInit {
   abrirNueva(): void {
     if (!this.puedeCrearCitas) return;
     this.citaEditando = null; this.resetForm(); this.modalAbierto = true;
+    // Refresca la disponibilidad cacheada al abrir el modal — si el horario de algún terapeuta
+    // cambió después de la carga inicial de la página, no se debe seguir usando un caché viejo
+    // para decidir quién aparece como disponible.
+    this.cargarDisponibilidadSemana();
   }
 
   abrirSlot(diaIdx: number, s: Slot): void {
     if (!this.puedeCrearCitas) return;
     this.citaEditando = null; this.resetForm();
+    // Solo se toma la fecha del día en que se hizo click — la hora ya NO se autocompleta,
+    // el usuario elige un horario real desde los botones de disponibilidad del terapeuta.
     const fecha = this.diasSemana[diaIdx].fecha;
     this.fFecha = this.fechaToISO(fecha);
-    this.fHoraInicio = s.lbl;
+    this.alinearFechasVisiblesCon(this.fFecha);
+    this.cargarSlotsSingle();
     this.modalAbierto = true;
+    this.cargarDisponibilidadSemana();
+  }
+
+  /** Ajusta fFechasOffset para que la página de fechas visibles (bloques de 6 días) incluya
+   *  la fecha dada, y regenera la fila de fechas. */
+  private alinearFechasVisiblesCon(fechaISO: string): void {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const [y, m, d] = fechaISO.split('-').map(Number);
+    const objetivo = new Date(y, m - 1, d);
+    const diffDias = Math.round((objetivo.getTime() - hoy.getTime()) / 86400000);
+    this.fFechasOffset = diffDias > 0 ? Math.floor(diffDias / 6) * 6 : 0;
+    this.generarFechasVisiblesSingle();
   }
 
   abrirEditar(cita: Cita, e: Event): void {
@@ -1025,12 +1102,15 @@ export class ListaCitasComponent implements OnInit {
     this.citaEditando = cita;
     const ini = new Date(cita.fecha_inicio);
     this.pac1 = {
-      colapsado: true, modo: 'encontrado', buscando: false, id: null,
+      colapsado: true, modo: 'encontrado', buscando: false,
+      id:       cita.paciente_id ? Number(cita.paciente_id) : null,
       dni:      cita.paciente_dni      ?? '',
       nombre:   cita.paciente_nombre   ?? '',
       apellido: cita.paciente_apellido ?? '',
       telefono: cita.paciente_telefono ?? '',
       correo:   cita.paciente_correo   ?? '',
+      busquedaNombre: `${cita.paciente_nombre ?? ''} ${cita.paciente_apellido ?? ''}`.trim(),
+      resultadosBusqueda: [], dropdownAbierto: false,
     };
     this.pac2 = this.emptyPac();
     this.pac2habilitado = false;
@@ -1047,6 +1127,10 @@ export class ListaCitasComponent implements OnInit {
     this.fAreaId    = this.tiposTerapia.find(t => t.id === this.fTipoId)?.area_id ?? null;
     this.modoProgramacion = 'single';
     this.modalAbierto = true;
+    // Refresca la disponibilidad cacheada — si el horario de algún terapeuta cambió después
+    // de la carga inicial de la página, el filtro de "quién puede atender" no debe seguir
+    // usando datos viejos.
+    this.cargarDisponibilidadSemana();
   }
 
   cerrarModal(): void { this.modalAbierto = false; this.citaEditando = null; }
@@ -1104,6 +1188,7 @@ export class ListaCitasComponent implements OnInit {
 
   /** Al elegir terapeuta, trae su horario semanal general para deshabilitar días/horas que no atiende. */
   onFTerChange(): void {
+    this.cargarDisponibilidadSemana();
     if (this.modoProgramacion === 'multiple') this.cargarHorarioTerapeutaBulk();
     else this.cargarSlotsSingle();
   }
@@ -1144,7 +1229,7 @@ export class ListaCitasComponent implements OnInit {
     const franjas = this.franjasBulkDia(i);
     if (franjas.length === 0) return [];
     const tipo = this.tipoSeleccionado;
-    const dur = this.esMultipaciente ? this.fDur : (tipo?.duracion_minutos ?? 45);
+    const dur = Number(this.fDur) || tipo?.duracion_minutos || 45;
     return this.calcularSlotsDesdeFranjas(franjas, dur);
   }
 
@@ -1155,8 +1240,12 @@ export class ListaCitasComponent implements OnInit {
   }
 
   /** Divide una lista de franjas [horaInicio,horaFin) en horas puntuales cada `paso` minutos,
-   *  descartando las que no dejan espacio completo para la duración de la sesión. */
-  private calcularSlotsDesdeFranjas(franjas: { horaInicio: string; horaFin: string }[], duracionMin: number, paso = 30): string[] {
+   *  descartando las que no dejan espacio completo para la duración de la sesión. Por defecto
+   *  el paso es igual a la duración, para que los horarios propuestos nunca se solapen entre sí
+   *  (uno empieza justo cuando termina el anterior). */
+  private calcularSlotsDesdeFranjas(franjas: { horaInicio: string; horaFin: string }[], duracionMin: number, paso?: number): string[] {
+    duracionMin = Number(duracionMin);
+    paso = paso ?? duracionMin;
     const out: string[] = [];
     for (const f of franjas) {
       const [fh, fm] = f.horaInicio.split(':').map(Number);
@@ -1173,6 +1262,13 @@ export class ListaCitasComponent implements OnInit {
    *  si la hora actual de un día activo ya no cabe en su horario real, la reemplaza por el
    *  primer slot disponible de ese día (ej. el 08:00 default no tiene sentido si el terapeuta
    *  recién empieza a las 13:00). */
+  /** Se llama al cambiar la duración: las horas ya elegidas por día pueden dejar de caber
+   *  en el horario real del terapeuta (ej. una franja que alcanzaba para 45 min ya no alcanza
+   *  para 60), así que se reajustan al primer slot válido de cada día. */
+  ajustarBulkDiasSegunHorarioPublic(): void {
+    this.ajustarBulkDiasSegunHorario();
+  }
+
   private ajustarBulkDiasSegunHorario(): void {
     for (let i = 0; i < 7; i++) {
       if (this.bulkDias[i] && !this.diaHabilitadoBulk(i)) { this.bulkDias[i] = false; continue; }
@@ -1195,7 +1291,7 @@ export class ListaCitasComponent implements OnInit {
       next: dias => {
         this.disponibilidadPorTerapeuta.set(terapeutaId, dias);
         const tipo = this.tipoSeleccionado;
-        const dur = this.esMultipaciente ? this.fDur : (tipo?.duracion_minutos ?? 45);
+        const dur = Number(this.fDur) || tipo?.duracion_minutos || 45;
         this.bulkConflictos = this.bulkPreview.map(d => {
           const fecha = this.fechaToISO(d);
           const inicioMin = d.getHours() * 60 + d.getMinutes();
@@ -1251,20 +1347,51 @@ export class ListaCitasComponent implements OnInit {
     this.onDatosCitaChange();
   }
 
+  /** Hora de fin de un slot según la duración actual (fDur) — se muestra junto a cada botón
+   *  de hora para que se note el cambio al modificar la duración. */
+  horaFinSlot(hora: string): string {
+    const tipo = this.tipoSeleccionado;
+    const dur = Number(this.fDur) || tipo?.duracion_minutos || 45;
+    const [h, m] = hora.split(':').map(Number);
+    const fin = h * 60 + m + dur;
+    return `${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`;
+  }
+
   /** Trae las franjas libres reales del terapeuta ese día puntual (horario + excepciones + citas
    *  ya agendadas) y las parte en horas puntuales donde cabe la duración del tipo elegido. */
   cargarSlotsSingle(): void {
     const terapeuta = this.terapeutas.find(t => terapeutaNombre(t) === this.fTer);
     const tipo = this.tipoSeleccionado;
-    if (!terapeuta?.id || !this.fFecha || !tipo) { this.fSlotsDisponibles = []; return; }
-    const dur = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    if (!terapeuta?.id || !this.fFecha || !tipo) { this.fSlotsDisponibles = []; ++this.fSlotsRequestId; return; }
+    const dur = Number(this.fDur) || tipo.duracion_minutos;
+    // Si el usuario cambia de fecha/terapeuta antes de que responda una petición anterior, esa
+    // respuesta puede llegar después de la más reciente y pisar los slots con datos de otro día.
+    // Se etiqueta cada petición para descartar cualquier respuesta que ya no sea la vigente.
+    const idPeticion = ++this.fSlotsRequestId;
     this.fCargandoSlots = true;
     this.disponibilidadService.getDia(terapeuta.id, this.fFecha).subscribe({
       next: dia => {
-        this.fSlotsDisponibles = this.calcularSlotsDesdeFranjas(dia.franjas, dur);
+        if (idPeticion !== this.fSlotsRequestId) return;
+        const slots = this.calcularSlotsDesdeFranjas(dia.franjas, dur);
+        this.fSlotsDisponibles = this.filtrarSlotsPasados(this.fFecha, slots);
         this.fCargandoSlots = false;
       },
-      error: () => { this.fSlotsDisponibles = []; this.fCargandoSlots = false; }
+      error: () => {
+        if (idPeticion !== this.fSlotsRequestId) return;
+        this.fSlotsDisponibles = []; this.fCargandoSlots = false;
+      }
+    });
+  }
+
+  /** Si `fecha` es hoy, descarta los horarios que ya pasaron (ej. si son las 8:15, no tiene
+   *  sentido ofrecer un slot a las 7:00 de hoy mismo). Para fechas futuras no filtra nada. */
+  private filtrarSlotsPasados(fecha: string, slots: string[]): string[] {
+    const hoy = new Date();
+    if (fecha !== this.fechaToISO(hoy)) return slots;
+    const ahoraMin = hoy.getHours() * 60 + hoy.getMinutes();
+    return slots.filter(s => {
+      const [h, m] = s.split(':').map(Number);
+      return h * 60 + m >= ahoraMin;
     });
   }
 
@@ -1334,7 +1461,7 @@ export class ListaCitasComponent implements OnInit {
     }
 
     const tipo = this.tipoSeleccionado!;
-    const dur  = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    const dur  = Number(this.fDur) || tipo.duracion_minutos;
     const fechaSlot = this.parseFechaHora(this.fFecha, this.fHoraInicio);
     const fechaFin  = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
@@ -1373,11 +1500,26 @@ export class ListaCitasComponent implements OnInit {
       return;
     }
 
-    this.guardando = true;
+    const buildPac = (p: PacienteState): PacienteEnCita => ({
+      id:       p.id ?? undefined,
+      dni:      p.dni,
+      nombre:   p.nombre,
+      apellido: p.apellido,
+      telefono: p.telefono || undefined,
+      correo:   p.correo   || undefined,
+    });
 
     if (this.citaEditando) {
+      // El paciente vinculado a una cita ya existente debe ser uno ya registrado (elegido del
+      // buscador) — no hay forma de crear un paciente nuevo dentro de una actualización.
+      if (!this.pac1.id) {
+        this.toast.warning('Para cambiar el paciente de una cita existente, elige uno ya registrado desde el buscador.');
+        return;
+      }
+      this.guardando = true;
       const req: CrearCitaLocalRequest = {
-        terapeuta_id: Number(this.citaEditando.terapeuta_id) || undefined,
+        terapeuta_id: terapeutaSel?.id ?? (Number(this.citaEditando.terapeuta_id) || undefined),
+        paciente_id:  Number(this.pac1.id),
         sesion_id:    this.citaEditando.sesion_id             || undefined,
         estado_id:    this.estadosCita.find(e => e.key === this.fEstKey)?.id,
         modalidad_id: this.modalidades.find(m => m.key === this.fModalidad)?.id,
@@ -1397,22 +1539,46 @@ export class ListaCitasComponent implements OnInit {
         observacion:       this.fObs || undefined,
         tipo_recurrencia:  this.fTipoRecurrencia,
       };
-      this.citaService.actualizarCitaLocal(this.citaEditando.id, req).subscribe({
-        next: () => {
-          this.toast.success('Cita actualizada correctamente');
-          this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
-        },
-        error: (err) => { this.toast.error(err?.error?.error || 'Error al actualizar la cita'); this.guardando = false; }
-      });
+      const actualizar$ = this.citaService.actualizarCitaLocal(this.citaEditando.id, req);
+
+      // Agregar un segundo paciente a una cita ya creada implica crear una cita NUEVA para ese
+      // paciente en el mismo slot (cada cita solo tiene un paciente) — no se fusiona en la que
+      // ya existe.
+      const agregarPac2 = this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim() && this.pac2.apellido.trim();
+      if (!agregarPac2) {
+        actualizar$.subscribe({
+          next: () => {
+            this.toast.success('Cita actualizada correctamente');
+            this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+          },
+          error: (err) => { this.toast.error(err?.error?.error || 'Error al actualizar la cita'); this.guardando = false; }
+        });
+      } else {
+        const crearPac2$ = this.citaService.crearConPaciente({
+          paciente:  buildPac(this.pac2),
+          paciente2: null,
+          terapeutaNombre: this.fTer,
+          tipoKey:         this.fTipoId,
+          fechaInicio:     this.toLocalDT(fechaSlot),
+          duracionMinutos: dur,
+          estadoKey:       this.fEstKey,
+          modalidadKey:    this.fModalidad,
+          observacion:     this.fObs || undefined,
+          totalSesionesPlan: 1,
+          precioPorSesion:   0,
+          tratamientoId:     null,
+          tipoRecurrencia:   this.fTipoRecurrencia,
+        });
+        forkJoin([actualizar$, crearPac2$]).subscribe({
+          next: () => {
+            this.toast.success('Cita actualizada y segundo paciente agregado');
+            this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+          },
+          error: (err) => { this.toast.error(err?.error?.error || 'Error al actualizar la cita'); this.guardando = false; }
+        });
+      }
     } else {
-      const buildPac = (p: PacienteState): PacienteEnCita => ({
-        id:       p.id ?? undefined,
-        dni:      p.dni,
-        nombre:   p.nombre,
-        apellido: p.apellido,
-        telefono: p.telefono || undefined,
-        correo:   p.correo   || undefined,
-      });
+      this.guardando = true;
 
       const req: CrearCitaConPacienteRequest = {
         paciente:  buildPac(this.pac1),
@@ -1452,7 +1618,7 @@ export class ListaCitasComponent implements OnInit {
     }
 
     const tipo = this.tipoSeleccionado!;
-    const dur  = this.esMultipaciente ? this.fDur : tipo.duracion_minutos;
+    const dur  = Number(this.fDur) || tipo.duracion_minutos;
     this.guardando = true;
 
     const buildPac = (p: PacienteState): PacienteEnCita => ({
@@ -1543,6 +1709,26 @@ export class ListaCitasComponent implements OnInit {
 
   // ── Atención Clínica ──────────────────────────────────────────────────────
 
+  /** Genera y descarga la "Nota de atención" (recibo) de una cita puntual, para reenviar por WhatsApp. */
+  descargarNotaCita(cita: Cita, e: Event): void {
+    e.stopPropagation();
+    const tipo = this.tiposTerapia.find(t => t.id === (cita.tipo_terapia_key ?? '').toUpperCase());
+    this.configuracionService.getValores().subscribe(valores => {
+      this.notaAtencionPdfService.descargarNota({
+        dni: cita.paciente_dni ?? '',
+        paciente: `${cita.paciente_nombre ?? ''} ${cita.paciente_apellido ?? ''}`.trim(),
+        fechaCita: new Date(cita.fecha_inicio),
+        areaNombre: tipo?.area_nombre ?? cita.tipo_terapia_nombre ?? '',
+        tipoNombre: cita.tipo_terapia_nombre ?? '',
+        profesional: cita.terapeuta_nombre ?? '',
+      }, {
+        nombreNegocio: valores['nombre_negocio'] || 'Thera Team',
+        direccion: valores['direccion'] || '',
+        telefono: valores['telefono'] || '',
+      });
+    });
+  }
+
   abrirAtencion(cita: Cita, e: Event): void {
     e.stopPropagation();
     if (cita.estado_pago_key !== 'PAGADA') {
@@ -1591,7 +1777,10 @@ export class ListaCitasComponent implements OnInit {
   }
 
   private emptyPac(): PacienteState {
-    return { colapsado: false, modo: 'buscar', buscando: false, id: null, dni: '', nombre: '', apellido: '', telefono: '', correo: '' };
+    return {
+      colapsado: false, modo: 'buscar', buscando: false, id: null, dni: '', nombre: '', apellido: '', telefono: '', correo: '',
+      busquedaNombre: '', resultadosBusqueda: [], dropdownAbierto: false,
+    };
   }
 
   private fechaToISO(d: Date): string {

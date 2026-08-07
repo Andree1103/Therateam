@@ -10,6 +10,8 @@ import { AtencionClinicaService } from '../../../atencion-clinica/Services/atenc
 import { TratamientoDetalle, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
+import { ConfiguracionService } from '../../../../core/services/configuracion.service';
+import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 
 @Component({
   selector: 'app-detalle-tratamiento',
@@ -46,7 +48,9 @@ export class DetalleTratamientoComponent implements OnInit {
     private pagoService: PagoService,
     private catalogService: CatalogService,
     private atencionService: AtencionClinicaService,
-    private toast: ToastService
+    private toast: ToastService,
+    private configuracionService: ConfiguracionService,
+    private notaAtencionPdfService: NotaAtencionPdfService
   ) {}
 
   ngOnInit(): void {
@@ -230,6 +234,35 @@ export class DetalleTratamientoComponent implements OnInit {
         this.toast.error('Error al registrar el pago');
         this.guardandoPago = false;
       }
+    });
+  }
+
+  // ── Cronograma (PDF para enviar por WhatsApp) ────────────────────────────
+
+  descargarCronograma(): void {
+    if (!this.tratamiento) return;
+    forkJoin({
+      tipos: this.catalogService.getTiposTerapia(),
+      valores: this.configuracionService.getValores(),
+    }).subscribe(({ tipos, valores }) => {
+      const tipo = tipos.find(t => t.key === this.tratamiento!.tipoTerapiaKey);
+      const areaNombre = tipo?.area?.nombre ?? this.tratamiento!.tipoTerapiaNombre ?? '';
+      this.notaAtencionPdfService.descargarCronograma({
+        dni: this.tratamiento!.pacienteDni ?? '',
+        paciente: `${this.tratamiento!.pacienteNombre ?? ''} ${this.tratamiento!.pacienteApellido ?? ''}`.trim(),
+        terapeuta: this.tratamiento!.terapeutaNombre ?? '',
+        areaNombre,
+        paqueteNombre: this.tratamiento!.notas || this.tratamiento!.nombre || '',
+        sesiones: this.sesiones.map(s => ({
+          numero: s.numero,
+          fecha: s.citaActiva?.fechaInicio ? new Date(s.citaActiva.fechaInicio) : null,
+          areaNombre,
+        })),
+      }, {
+        nombreNegocio: valores['nombre_negocio'] || 'Thera Team',
+        direccion: valores['direccion'] || '',
+        telefono: valores['telefono'] || '',
+      });
     });
   }
 

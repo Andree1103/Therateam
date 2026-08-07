@@ -18,6 +18,16 @@ export class CitaService {
     );
   }
 
+  // ── Buscar pacientes por nombre (autocompletado) ──────────────────────────
+  buscarPorNombre(nombre: string): Observable<PacienteResumen[]> {
+    return this.api.get<{ content: PacienteResumen[] } | PacienteResumen[]>(
+      '/api/pacientes', { nombre, size: '8' }
+    ).pipe(
+      map(r => Array.isArray(r) ? r : r.content),
+      catchError(() => of([]))
+    );
+  }
+
   // ── Crear cita con paciente (atómico) ─────────────────────────────────────
   crearConPaciente(req: CrearCitaConPacienteRequest): Observable<Cita[]> {
     return this.api.post<CitaApiDTO[]>('/api/citas/con-paciente', req).pipe(
@@ -153,6 +163,7 @@ export class CitaService {
     };
     // @ManyToOne — siempre como { id } para que Hibernate resuelva la FK
     if (req.terapeuta_id)  body['terapeuta']  = { id: req.terapeuta_id };
+    if (req.paciente_id)   body['paciente']   = { id: req.paciente_id };
     if (req.sesion_id)     body['sesion']     = { id: req.sesion_id };
     if (req.estado_id)     body['estado']     = { id: req.estado_id };
     if (req.modalidad_id)  body['modalidad']  = { id: req.modalidad_id };

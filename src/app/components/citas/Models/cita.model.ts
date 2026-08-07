@@ -65,6 +65,7 @@ export interface CrearCitaRequest {
 export interface CrearCitaLocalRequest {
   // IDs para las FK @ManyToOne de la entidad Cita
   terapeuta_id?: number;
+  paciente_id?: number;
   sesion_id?: number;
   estado_id?: number;
   modalidad_id?: number;

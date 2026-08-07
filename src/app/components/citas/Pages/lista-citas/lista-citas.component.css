@@ -197,9 +197,11 @@ tbody tr{height:var(--slot-h)}
 .modalidad-radio.selected{border-color:#185FA5;background:#dbeafe;color:#1e40af}
 .mod-icon{display:flex;align-items:center}
 /* ── PAC CARD (colapsable con DNI search) ─────────────────────────────────── */
-.pac-card{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;background:#fff}
+/* Sin overflow:hidden en el contenedor — así el dropdown del buscador de paciente
+   puede salir del cuadro sin recortarse; el redondeado se logra con radios en los hijos. */
+.pac-card{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;background:#fff}
 .pac-card-2{border-color:#bae6fd;background:#f0f9ff}
-.pac-card-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;background:#f8fafc;transition:background .12s}
+.pac-card-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;background:#f8fafc;transition:background .12s;border-radius:9px 9px 0 0}
 .pac-card-2 .pac-card-hdr{background:#e0f2fe}
 .pac-card-hdr:hover{background:#f1f5f9}
 .pac-hdr-left{display:flex;align-items:center;gap:10px;min-width:0}
@@ -211,7 +213,7 @@ tbody tr{height:var(--slot-h)}
 .pac-modo-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 .pac-encontrado-badge{background:#dcfce7;color:#15803d}
 .pac-nuevo-badge{background:#fef3c7;color:#92400e}
-.pac-card-body{padding:12px 14px;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:0}
+.pac-card-body{padding:12px 14px;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:0;border-radius:0 0 9px 9px}
 .pac-card-2 .pac-card-body{border-color:#bae6fd}
 /* DNI search row */
 .dni-search-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
@@ -233,11 +235,17 @@ tbody tr{height:var(--slot-h)}
 .btn-link-danger:hover{color:#991b1b}
 /* Campo readonly (encontrado) */
 .readonly-field{background:#f8fafc!important;color:#6b7280!important;cursor:default}
-/* Buscador con dropdown (terapeuta) */
+/* Buscador con dropdown (terapeuta / paciente) */
 .autocomplete-wrap{position:relative}
-.autocomplete-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;z-index:20}
-.autocomplete-item{padding:8px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
-.autocomplete-item:hover{background:#f1f5f9}
+.autocomplete-wrap input[type="text"]{width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;transition:border-color .15s;box-sizing:border-box}
+.autocomplete-wrap input[type="text"]:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+.autocomplete-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.16);max-height:240px;overflow-y:auto;z-index:30;padding:4px}
+.autocomplete-item{padding:9px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-radius:7px;transition:background .12s}
+.autocomplete-item+.autocomplete-item{margin-top:1px}
+.autocomplete-item:hover{background:#f0f6ff}
+.autocomplete-item.ac-nuevo{border-top:1px solid #e2e8f0;margin-top:4px;padding-top:10px;border-radius:0 0 7px 7px}
+.autocomplete-item.ac-nuevo .ac-nombre{color:#185FA5}
+.autocomplete-item.ac-nuevo:hover{background:#f0f6ff}
 .ac-nombre{font-size:13px;font-weight:600;color:#0f172a}
 .ac-sub{font-size:11px;color:#94a3b8}
 /* Toggle pac2 */

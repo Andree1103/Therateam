@@ -194,6 +194,11 @@
                               [disabled]="c.estado_pago_key !== 'PAGADA'"
                               [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
                               (click)="abrirAtencion(c, $event)">Registrar atención</button>
+                      <button class="hc-btn-edit" title="Descargar nota de atención (PDF) para enviar por WhatsApp"
+                              (click)="descargarNotaCita(c, $event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Nota PDF
+                      </button>
                     </div>
                   </div>
 
@@ -385,17 +390,24 @@
 
           <div class="pac-card-body" *ngIf="!pac1.colapsado">
             <ng-container *ngIf="pac1.modo === 'buscar'">
-              <div class="dni-search-row">
-                <div class="frow" style="flex:1;margin:0">
-                  <label>DNI del paciente</label>
-                  <input [(ngModel)]="pac1.dni" placeholder="Ej: 12345678" (keyup.enter)="buscarDni(pac1)" maxlength="12">
+              <div class="frow autocomplete-wrap" style="margin:0">
+                <label>Buscar paciente por nombre</label>
+                <input type="text" [(ngModel)]="pac1.busquedaNombre" name="pac1Busqueda"
+                       (ngModelChange)="onBusquedaNombreChange(pac1)"
+                       (focus)="abrirDropdownPaciente(pac1, $event)" (blur)="cerrarDropdownPacienteDiferido(pac1)"
+                       placeholder="Ej: Juan Pérez" autocomplete="off">
+                <div class="autocomplete-dropdown" *ngIf="pac1.dropdownAbierto && pac1.busquedaNombre.trim().length >= 2">
+                  <div class="autocomplete-item" *ngFor="let r of pac1.resultadosBusqueda" (mousedown)="seleccionarPacienteBusqueda(pac1, r)">
+                    <span class="ac-nombre">{{ r.nombre }} {{ r.apellido }}</span>
+                    <span class="ac-sub">DNI: {{ r.dni }}</span>
+                  </div>
+                  <div class="autocomplete-item ac-nuevo" *ngIf="!pac1.buscando" (mousedown)="crearPacienteNuevo(pac1)">
+                    <span class="ac-nombre">+ Crear paciente nuevo</span>
+                    <span class="ac-sub" *ngIf="pac1.resultadosBusqueda.length === 0">Ningún paciente encontrado con ese nombre.</span>
+                  </div>
                 </div>
-                <button class="btn-buscar" (click)="buscarDni(pac1)" [disabled]="pac1.buscando">
-                  <span *ngIf="pac1.buscando" class="mini-spin"></span>
-                  <span *ngIf="!pac1.buscando">Buscar</span>
-                </button>
               </div>
-              <p class="pac-hint">Busca por DNI para vincular un paciente existente o ingresar uno nuevo.</p>
+              <p class="pac-hint">Busca por nombre para vincular un paciente existente o ingresar uno nuevo.</p>
             </ng-container>
 
             <ng-container *ngIf="pac1.modo === 'encontrado'">
@@ -414,7 +426,7 @@
             <ng-container *ngIf="pac1.modo === 'nuevo'">
               <div class="pac-no-encontrado">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                DNI <strong>{{ pac1.dni }}</strong> no encontrado — completa los datos.
+                Paciente nuevo — completa los datos.
                 <button class="btn-link" (click)="cambiarPaciente(pac1)" style="margin-left:8px">Buscar otro</button>
               </div>
               <div class="frow"><label>DNI</label><input [(ngModel)]="pac1.dni" placeholder="12345678" maxlength="12"></div>
@@ -455,11 +467,15 @@
         </div>
 
         <!-- ── PACIENTE 2 ─────────────────────────────────────────── -->
-        <ng-container *ngIf="esMultipaciente && !citaEditando">
-          <div class="pac2-toggle" *ngIf="!pac2habilitado" (click)="pac2habilitado = true; pac2.colapsado = false">
+        <ng-container *ngIf="esMultipaciente">
+          <div class="pac2-toggle" *ngIf="!pac2habilitado && cupoLibreParaPac2" (click)="pac2habilitado = true; pac2.colapsado = false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Agregar segundo paciente (opcional)
+            <span class="opc-tag" *ngIf="citaEditando">se creará como una cita nueva en el mismo horario</span>
           </div>
+          <p class="pac-hint" *ngIf="!pac2habilitado && !cupoLibreParaPac2">
+            Cupo completo ({{ tipoSeleccionado?.max_pacientes }}/{{ tipoSeleccionado?.max_pacientes }}) para este horario — no se puede agregar otro paciente.
+          </p>
 
           <div class="pac-card pac-card-2" *ngIf="pac2habilitado">
             <div class="pac-card-hdr" (click)="togglePac(pac2)">
@@ -474,15 +490,22 @@
             </div>
             <div class="pac-card-body" *ngIf="!pac2.colapsado">
               <ng-container *ngIf="pac2.modo === 'buscar'">
-                <div class="dni-search-row">
-                  <div class="frow" style="flex:1;margin:0">
-                    <label>DNI del paciente</label>
-                    <input [(ngModel)]="pac2.dni" placeholder="Ej: 12345678" (keyup.enter)="buscarDni(pac2)" maxlength="12">
+                <div class="frow autocomplete-wrap" style="margin:0">
+                  <label>Buscar paciente por nombre</label>
+                  <input type="text" [(ngModel)]="pac2.busquedaNombre" name="pac2Busqueda"
+                         (ngModelChange)="onBusquedaNombreChange(pac2)"
+                         (focus)="abrirDropdownPaciente(pac2, $event)" (blur)="cerrarDropdownPacienteDiferido(pac2)"
+                         placeholder="Ej: Juan Pérez" autocomplete="off">
+                  <div class="autocomplete-dropdown" *ngIf="pac2.dropdownAbierto && pac2.busquedaNombre.trim().length >= 2">
+                    <div class="autocomplete-item" *ngFor="let r of pac2.resultadosBusqueda" (mousedown)="seleccionarPacienteBusqueda(pac2, r)">
+                      <span class="ac-nombre">{{ r.nombre }} {{ r.apellido }}</span>
+                      <span class="ac-sub">DNI: {{ r.dni }}</span>
+                    </div>
+                    <div class="autocomplete-item ac-nuevo" *ngIf="!pac2.buscando" (mousedown)="crearPacienteNuevo(pac2)">
+                      <span class="ac-nombre">+ Crear paciente nuevo</span>
+                      <span class="ac-sub" *ngIf="pac2.resultadosBusqueda.length === 0">Ningún paciente encontrado con ese nombre.</span>
+                    </div>
                   </div>
-                  <button class="btn-buscar" (click)="buscarDni(pac2)" [disabled]="pac2.buscando">
-                    <span *ngIf="pac2.buscando" class="mini-spin"></span>
-                    <span *ngIf="!pac2.buscando">Buscar</span>
-                  </button>
                 </div>
                 <p class="pac-hint">Puedes dejar vacío si solo hay un paciente en este slot.</p>
               </ng-container>
@@ -501,7 +524,7 @@
               <ng-container *ngIf="pac2.modo === 'nuevo'">
                 <div class="pac-no-encontrado">
                   <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  DNI <strong>{{ pac2.dni }}</strong> no encontrado.
+                  Paciente nuevo — completa los datos.
                   <button class="btn-link" (click)="cambiarPaciente(pac2)" style="margin-left:8px">Buscar otro</button>
                 </div>
                 <div class="frow"><label>DNI</label><input [(ngModel)]="pac2.dni" placeholder="12345678" maxlength="12"></div>
@@ -612,9 +635,9 @@
             </div>
           </div>
 
-          <div class="frow" *ngIf="esMultipaciente">
-            <label>Duración</label>
-            <select [(ngModel)]="fDur" (ngModelChange)="onDatosCitaChange()">
+          <div class="frow">
+            <label>Duración <span class="opc-tag">editable, puede variar</span></label>
+            <select [(ngModel)]="fDur" (ngModelChange)="fDur = +fDur; onDatosCitaChange()">
               <option [value]="30">30 min</option><option [value]="40">40 min</option>
               <option [value]="45">45 min</option><option [value]="50">50 min</option>
               <option [value]="60">60 min (1 hora)</option>
@@ -625,9 +648,9 @@
 
         <!-- ── SELECTOR DE FECHA/HORA POR SLOTS (sesión única, nueva) ────── -->
         <div class="slot-picker" *ngIf="modoProgramacion === 'single' && !citaEditando">
-          <div class="frow" *ngIf="esMultipaciente">
-            <label>Duración</label>
-            <select [(ngModel)]="fDur" (ngModelChange)="cargarSlotsSingle(); onDatosCitaChange()">
+          <div class="frow">
+            <label>Duración <span class="opc-tag">editable, puede variar</span></label>
+            <select [(ngModel)]="fDur" (ngModelChange)="fDur = +fDur; cargarSlotsSingle(); onDatosCitaChange()">
               <option [value]="30">30 min</option><option [value]="40">40 min</option>
               <option [value]="45">45 min</option><option [value]="50">50 min</option>
               <option [value]="60">60 min (1 hora)</option>
@@ -658,7 +681,7 @@
               <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
               <div class="sp-slots" *ngIf="!fCargandoSlots">
                 <button type="button" class="sp-slot" *ngFor="let s of fSlotsDisponibles"
-                        [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}</button>
+                        [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}–{{ horaFinSlot(s) }}</button>
               </div>
               <div class="sp-empty" *ngIf="!fCargandoSlots && fSlotsDisponibles.length === 0">
                 El terapeuta no tiene horarios disponibles ese día.
@@ -697,7 +720,7 @@
                 <span class="bulk-dia-off bulk-dia-sinhorario" *ngIf="!diaHabilitadoBulk(i)">Terapeuta no atiende</span>
                 <div class="bulk-dia-slots" *ngIf="bulkDias[i] && diaHabilitadoBulk(i)" (click)="$event.stopPropagation()">
                   <button type="button" class="sp-slot sp-slot-sm" *ngFor="let s of slotsDisponiblesBulkDia(i)"
-                          [class.selected]="bulkHoras[i] === s" (click)="seleccionarSlotBulkDia(i, s)">{{ s }}</button>
+                          [class.selected]="bulkHoras[i] === s" (click)="seleccionarSlotBulkDia(i, s)">{{ s }}–{{ horaFinSlot(s) }}</button>
                   <span class="sp-empty" *ngIf="slotsDisponiblesBulkDia(i).length === 0">Sin horarios para la duración elegida.</span>
                 </div>
               </label>
@@ -715,9 +738,11 @@
           </div>
 
           <!-- Duración -->
-          <div class="frow" *ngIf="esMultipaciente">
-            <label>Duración</label>
-            <select [(ngModel)]="fDur"><option [value]="30">30 min</option><option [value]="40">40 min</option><option [value]="45">45 min</option><option [value]="50">50 min</option><option [value]="60">60 min</option></select>
+          <div class="frow">
+            <label>Duración <span class="opc-tag">editable, puede variar</span></label>
+            <select [(ngModel)]="fDur" (ngModelChange)="fDur = +fDur; ajustarBulkDiasSegunHorarioPublic(); calcularBulkDates()">
+              <option [value]="30">30 min</option><option [value]="40">40 min</option><option [value]="45">45 min</option><option [value]="50">50 min</option><option [value]="60">60 min</option>
+            </select>
           </div>
           <div class="dur-info">{{ getDurInfo() }}</div>
 
