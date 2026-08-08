@@ -68,6 +68,8 @@ export interface CitaResumen {
   estadoPagoKey?: string;
   estadoPagoNombre?: string;
   estadoPagoColor?: string;
+  precio?: number;
+  montoPagado?: number;
 }
 
 export interface Sesion {

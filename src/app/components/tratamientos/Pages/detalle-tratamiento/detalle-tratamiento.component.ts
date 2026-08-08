@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { forkJoin, from, of } from 'rxjs';
+import { catchError, concatMap, toArray } from 'rxjs/operators';
 import { TratamientoService } from '../../Services/tratamiento.service';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
@@ -32,6 +32,12 @@ export class DetalleTratamientoComponent implements OnInit {
   pagoMetodoId: number | null = null;
   pagoNotas = '';
   pagoReferencia = '';
+
+  /** "citas": eliges sesiones puntuales, cada una cobra exactamente lo que le falta.
+   *  "abono": ingresas un monto libre (ej. un adelanto de S/50 que no alcanza para ninguna
+   *  sesión completa) y el backend lo reparte automáticamente entre las sesiones en orden. */
+  modoPago: 'citas' | 'abono' = 'citas';
+  abonoMonto: number | null = null;
 
   atencionMap = new Map<number, AtencionClinica | null>();
   sesionExpandida: number | null = null;
@@ -112,8 +118,24 @@ export class DetalleTratamientoComponent implements OnInit {
     );
   }
 
+  /** Cuántas sesiones del paquete todavía no tienen cita creada — se completan desde
+   *  Paquetes (editar), donde está el selector de horario recurrente. */
+  get sesionesFaltantes(): number {
+    return Math.max(0, (this.tratamiento?.totalSesiones ?? 0) - this.sesiones.length);
+  }
+
+  /** Lo que falta por pagar de una sesión puntual — el precio completo si no tiene nada pagado
+   *  todavía, o solo el resto si ya quedó PARCIAL de un pago anterior (ej. el adelanto inicial). */
+  saldoPendienteSesion(s: Sesion): number {
+    const precio = s.citaActiva?.precio ?? this.tratamiento?.precioPorSesion ?? 0;
+    const pagado = s.citaActiva?.montoPagado ?? 0;
+    return Math.max(0, precio - pagado);
+  }
+
   get totalPago(): number {
-    return this.citasSeleccionadas.size * (this.tratamiento?.precioPorSesion ?? 0);
+    return this.sesiones
+      .filter(s => s.citaActiva && this.citasSeleccionadas.has(s.citaActiva.id))
+      .reduce((sum, s) => sum + this.saldoPendienteSesion(s), 0);
   }
 
   get todasSeleccionadas(): boolean {
@@ -184,6 +206,8 @@ export class DetalleTratamientoComponent implements OnInit {
     this.pagoMetodoId   = this.metodosPago[0]?.id ?? null;
     this.pagoNotas      = '';
     this.pagoReferencia = '';
+    this.modoPago       = 'citas';
+    this.abonoMonto     = null;
     this.modalPago      = true;
   }
 
@@ -193,36 +217,71 @@ export class DetalleTratamientoComponent implements OnInit {
     this.pagoMetodoId   = null;
     this.pagoNotas      = '';
     this.pagoReferencia = '';
+    this.modoPago       = 'citas';
+    this.abonoMonto     = null;
   }
 
   guardarPago(): void {
-    if (this.citasSeleccionadas.size === 0) {
-      this.toast.warning('Selecciona al menos una cita para pagar'); return;
-    }
     if (!this.pagoMetodoId) {
       this.toast.warning('Selecciona el método de pago'); return;
     }
-    this.guardandoPago = true;
-    const precio      = this.tratamiento!.precioPorSesion ?? 0;
-    const saldoPrevio = this.tratamiento?.saldoAFavor     ?? 0;
     const pacienteId  = this.tratamiento!.pacienteId
                      ?? (this.tratamiento as any)?.paciente?.id;
-    const pagos$      = Array.from(this.citasSeleccionadas).map(citaId =>
+
+    if (this.modoPago === 'abono') {
+      if (!this.abonoMonto || this.abonoMonto <= 0) {
+        this.toast.warning('Ingresa un monto de abono válido'); return;
+      }
+      this.guardandoPago = true;
+      // Sin `cita`: el backend reparte este monto solo entre las sesiones del paquete, en
+      // orden, completando la que ya tenía algo pagado y dejando la siguiente en PARCIAL si
+      // no alcanza para una sesión entera — igual que el adelanto inicial.
       this.pagoService.create({
         tratamiento:   { id: this.tratamiento!.id },
         paciente:      pacienteId ? { id: pacienteId } : undefined,
-        cita:          { id: citaId },
         metodo:        { id: this.pagoMetodoId },
-        montoRecibido: precio,
-        montoAplicado: precio,
-        saldoGenerado: 0,
-        saldoPrevio,
+        montoRecibido: this.abonoMonto,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
         fechaPago:     new Date().toISOString(),
-      } as any)
-    );
-    forkJoin(pagos$).subscribe({
+      } as any).subscribe({
+        next: () => {
+          this.toast.success('Abono registrado correctamente');
+          this.cerrarPago();
+          this.cargar();
+          this.guardandoPago = false;
+        },
+        error: () => {
+          this.toast.error('Error al registrar el abono');
+          this.guardandoPago = false;
+        }
+      });
+      return;
+    }
+
+    if (this.citasSeleccionadas.size === 0) {
+      this.toast.warning('Selecciona al menos una cita para pagar'); return;
+    }
+    this.guardandoPago = true;
+    // Cada cita cobra solo lo que le falta — si ya quedó PARCIAL de un pago anterior (ej. el
+    // adelanto inicial), no se vuelve a cobrar el precio completo, solo el resto pendiente.
+    const sesionesSeleccionadas = this.sesiones.filter(s => s.citaActiva && this.citasSeleccionadas.has(s.citaActiva.id));
+    // Se registran UNO POR UNO (no en paralelo): cada pago recalcula el totalCobrado del paquete
+    // leyendo el valor actual — si se mandan varios a la vez, dos pueden leer el mismo total antes
+    // de que el anterior confirme, y uno se pisa con el otro (se pierde el aporte del primero).
+    from(sesionesSeleccionadas).pipe(
+      concatMap(s => this.pagoService.create({
+        tratamiento:   { id: this.tratamiento!.id },
+        paciente:      pacienteId ? { id: pacienteId } : undefined,
+        cita:          { id: s.citaActiva!.id },
+        metodo:        { id: this.pagoMetodoId },
+        montoRecibido: this.saldoPendienteSesion(s),
+        referencia:    this.pagoReferencia || undefined,
+        notas:         this.pagoNotas      || undefined,
+        fechaPago:     new Date().toISOString(),
+      } as any)),
+      toArray()
+    ).subscribe({
       next: () => {
         const n = this.citasSeleccionadas.size;
         this.toast.success(`${n} pago${n > 1 ? 's' : ''} registrado${n > 1 ? 's' : ''} correctamente`);

@@ -7,10 +7,16 @@
       <p *ngIf="!vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} registrado{{ total !== 1 ? 's' : '' }}</p>
       <p *ngIf="vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} con citas contigo</p>
     </div>
-    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nuevo paciente
-    </button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-secondary" [disabled]="exportando" (click)="exportarExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+      </button>
+      <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo paciente
+      </button>
+    </div>
   </div>
 
   <!-- ── BODY ──────────────────────────────────────────────────────────── -->

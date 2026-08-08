@@ -6,10 +6,16 @@
       <h1>Pagos</h1>
       <p>{{ total }} pago{{ total !== 1 ? 's' : '' }}</p>
     </div>
-    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Registrar pago
-    </button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-secondary" [disabled]="exportando" (click)="exportarExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+      </button>
+      <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Registrar pago
+      </button>
+    </div>
   </div>
 
   <!-- ── BODY ──────────────────────────────────────────────────────────── -->
@@ -162,6 +168,12 @@
             Usar monto restante del paquete (S/ {{ restantePaquete | number:'1.2-2' }})
           </button>
           <span class="txt-success" *ngIf="restantePaquete === 0">Paquete cubierto por completo.</span>
+          <p class="pac-hint" *ngIf="cargandoSesionesTratamiento" style="margin:6px 0 0">Revisando sesiones del paquete...</p>
+          <p class="hint-warning" *ngIf="!cargandoSesionesTratamiento && sesionesFaltantesTratamiento > 0" style="margin:6px 0 0;color:#b45309">
+            ⚠ Este paquete tiene {{ sesionesFaltantesTratamiento }} sesión{{ sesionesFaltantesTratamiento === 1 ? '' : 'es' }} sin cita creada todavía —
+            <a [routerLink]="['/tratamientos', t.id]" style="color:#185FA5;font-weight:600">complétalas primero desde el paquete</a>
+            antes de registrar el pago, para que no quede dinero cobrado sin una cita real que lo respalde.
+          </p>
         </div>
 
         <!-- Citas individuales (fuera de un paquete) también pueden tener pago pendiente -->

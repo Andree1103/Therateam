@@ -3,8 +3,10 @@ import { NgForm } from '@angular/forms';
 import { PagoService, PagoFiltros } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { CitaService } from '../../../citas/Services/cita.service';
+import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { Pago, PagoForm, TratamientoBasico } from '../../Models/pago.model';
 import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { Cita } from '../../../citas/Models/cita.model';
@@ -51,6 +53,10 @@ export class ListaPagosComponent implements OnInit {
   citasPendientes: Cita[] = [];
   cargandoCitas = false;
   metodosPago: CatalogItem[] = [];
+
+  // ── Sesiones faltantes del paquete elegido (evita cobrar contra citas que no existen) ────
+  sesionesCreadasTratamiento: number | null = null;
+  cargandoSesionesTratamiento = false;
 
   // ── Buscador de paciente (por nombre o DNI) ───────────────────────────────
   pacienteBusqueda = '';
@@ -102,14 +108,60 @@ export class ListaPagosComponent implements OnInit {
     this.formData.montoRecibido = this.restanteCita;
   }
 
+  exportando = false;
+
   constructor(
     private pagoService: PagoService,
     private pacienteService: PacienteService,
     private citaService: CitaService,
+    private tratamientoService: TratamientoService,
     private catalogService: CatalogService,
     private toast: ToastService,
-    private authService: AuthService
+    private authService: AuthService,
+    private excelExportService: ExcelExportService
   ) {}
+
+  /** Exporta TODOS los pagos que cumplen los filtros activos (no solo la página visible). */
+  exportarExcel(): void {
+    this.exportando = true;
+    const filtros: PagoFiltros = {
+      paciente: this.filtroPaciente,
+      referencia: this.filtroReferencia,
+      metodoId: this.filtroMetodoId,
+      tienePaquete: this.filtroTienePaquete === '' ? null : this.filtroTienePaquete === 'true',
+      montoMin: this.filtroMontoMin,
+      montoMax: this.filtroMontoMax,
+      fechaInicio: this.filtroFechaDesde ? `${this.filtroFechaDesde}T00:00:00` : undefined,
+      fechaFin: this.filtroFechaHasta ? `${this.filtroFechaHasta}T23:59:59` : undefined,
+    };
+    this.pagoService.getAllPaged(0, 10000, filtros).subscribe({
+      next: res => {
+        this.exportando = false;
+        if (res.content.length === 0) { this.toast.warning('No hay pagos para exportar con los filtros actuales'); return; }
+        const filas = res.content.map(p => ({
+          'Fecha': p.fechaPago ? new Date(p.fechaPago).toLocaleString('es-PE') : '',
+          'Paciente': p.paciente ? `${p.paciente.nombre} ${p.paciente.apellido}` : '',
+          'Paquete': p.tratamiento?.nombre ?? '',
+          'Método de pago': p.metodo?.nombre ?? '',
+          'Monto recibido (S/)': p.montoRecibido ?? '',
+          'Monto aplicado (S/)': p.montoAplicado ?? '',
+          'Saldo generado (S/)': p.saldoGenerado ?? '',
+          'Referencia': p.referencia ?? '',
+          'Notas': p.notas ?? '',
+        }));
+        this.excelExportService.exportar(filas, 'pagos');
+      },
+      error: () => { this.exportando = false; this.toast.error('Error al exportar pagos'); }
+    });
+  }
+
+  /** Cuántas sesiones del paquete elegido todavía no tienen cita creada — pagar contra una
+   *  sesión que no existe generaría un cobro sin cita real que lo respalde. */
+  get sesionesFaltantesTratamiento(): number {
+    const t = this.tratamientoSeleccionado;
+    if (!t || this.sesionesCreadasTratamiento == null) return 0;
+    return Math.max(0, (t.totalSesiones ?? 0) - this.sesionesCreadasTratamiento);
+  }
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PAGOS'); }
   get puedeEditar(): boolean { return this.authService.puedeEditar('PAGOS'); }
@@ -180,6 +232,7 @@ export class ListaPagosComponent implements OnInit {
     this.pacienteBusqueda = '';
     this.tratamientos = [];
     this.citasPendientes = [];
+    this.sesionesCreadasTratamiento = null;
     this.modalAbierto = true;
   }
 
@@ -227,9 +280,21 @@ export class ListaPagosComponent implements OnInit {
     });
   }
 
-  /** Selecciona un paquete como concepto del pago — limpia la cita elegida, son excluyentes. */
+  /** Selecciona un paquete como concepto del pago — limpia la cita elegida, son excluyentes.
+   *  Se pide fresco cuántas sesiones ya tienen cita creada, para poder avisar si el paquete
+   *  tiene sesiones sin agendar todavía (pagarlas sin cita generaría una inconsistencia). */
   onTratamientoChange(): void {
-    if (this.formData.tratamientoId) this.formData.citaId = null;
+    this.sesionesCreadasTratamiento = null;
+    if (!this.formData.tratamientoId) return;
+    this.formData.citaId = null;
+    this.cargandoSesionesTratamiento = true;
+    this.tratamientoService.getSesiones(this.formData.tratamientoId).subscribe({
+      next: ses => {
+        this.sesionesCreadasTratamiento = ses.filter(s => s.citaActiva).length;
+        this.cargandoSesionesTratamiento = false;
+      },
+      error: () => { this.cargandoSesionesTratamiento = false; }
+    });
   }
 
   /** Selecciona una cita suelta como concepto del pago — limpia el paquete elegido (son excluyentes)
@@ -242,6 +307,10 @@ export class ListaPagosComponent implements OnInit {
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
+    if (this.formData.tratamientoId && this.sesionesFaltantesTratamiento > 0) {
+      this.toast.warning(`Este paquete tiene ${this.sesionesFaltantesTratamiento} sesión(es) sin cita creada — complétalas primero desde el paquete antes de registrar el pago.`);
+      return;
+    }
     this.guardando = true;
     const f = this.formData;
     const body: Partial<Pago> = {

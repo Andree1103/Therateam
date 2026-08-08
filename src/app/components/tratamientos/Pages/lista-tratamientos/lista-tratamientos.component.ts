@@ -1,12 +1,21 @@
 import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin, from, of } from 'rxjs';
+import { concatMap, toArray, map, catchError } from 'rxjs/operators';
 import { TratamientoService, TratamientoFiltros } from '../../Services/tratamiento.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Tratamiento, TratamientoForm, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
+import { Tratamiento, TratamientoForm, Sesion, CitaResumen, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
+import { CitaService } from '../../../citas/Services/cita.service';
+import { CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita } from '../../../citas/Models/cita.model';
+import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
+import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
+import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
 export interface PacienteState {
   colapsado: boolean;
   modo: 'buscar' | 'encontrado' | 'nuevo';
@@ -17,6 +26,9 @@ export interface PacienteState {
   apellido: string;
   telefono: string;
   correo: string;
+  busquedaNombre: string;
+  resultadosBusqueda: Paciente[];
+  dropdownAbierto: boolean;
 }
 import { Terapeuta, terapeutaNombre as nombreDeTerapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
@@ -65,6 +77,8 @@ export class ListaTratamientosComponent implements OnInit {
   terapeutasTodos: Terapeuta[] = [];
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
+  estadosCita: CatalogItem[] = [];
+  modalidadesCita: CatalogItem[] = [];
   especialidades: CatalogItem[] = [];
   areas: CatalogItem[] = [];
   plantillas: CatalogItem[] = [];
@@ -90,6 +104,23 @@ export class ListaTratamientosComponent implements OnInit {
   pagoMetodoId: number | null = null;
   metodosPago: CatalogItem[] = [];
 
+  // ── Programar horario recurrente (solo al crear, igual que "Programar sesiones
+  //    recurrentes" en Citas) — al guardar el paquete, crea de una vez todas sus citas. ─────
+  readonly DIAS_NOM = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  readonly DIAS_ABR = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+  duracionSesionMin: number | null = null;
+  bulkDias: boolean[] = [true, false, true, false, true, false, false];
+  bulkHoras: string[] = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
+  bulkPreview: Date[] = [];
+  bulkHorarioTerapeuta: TerapeutaHorario[] = [];
+  bulkHorarioCargado = false;
+  bulkConflictos: boolean[] = [];
+  guardandoCitas = false;
+  // Solo al editar: crear las sesiones que aún faltan, o reprogramar las citas futuras ya creadas.
+  bulkAccionEdicion: 'crear' | 'reprogramar' = 'crear';
+  bulkFechaDesdeEdicion = '';
+  aplicandoHorarioEdicion = false;
+
   get montoTotalPaquete(): number {
     return (this.formData.sesionesTotal ?? 0) * (this.formData.precioPorSesion ?? 0);
   }
@@ -105,7 +136,12 @@ export class ListaTratamientosComponent implements OnInit {
     private pagoService: PagoService,
     private catalogService: CatalogService,
     private toast: ToastService,
-    private authService: AuthService
+    private authService: AuthService,
+    private citaService: CitaService,
+    private disponibilidadService: DisponibilidadService,
+    private terapeutaHorarioService: TerapeutaHorarioService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PAQUETES'); }
@@ -114,13 +150,36 @@ export class ListaTratamientosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.terapeutaService.getAll().subscribe(d => this.terapeutasTodos = d);
-    this.catalogService.getTiposTerapia().subscribe(d => this.tiposTerapia = d);
-    this.catalogService.getEstadosTratamiento().subscribe(d => this.estadosTratamiento = d);
     this.catalogService.getEspecialidades().subscribe(d => this.especialidades = d);
     this.catalogService.getAreas().subscribe(d => this.areas = d);
     this.catalogService.getMetodosPago().subscribe(d => this.metodosPago = d);
     this.catalogService.getPlantillasPaquete().subscribe(d => this.plantillas = d.filter(p => p.activo !== false));
+    this.catalogService.getEstadosCita().subscribe(d => this.estadosCita = d);
+    this.catalogService.getModalidades().subscribe(d => this.modalidadesCita = d);
+
+    // abrirEditar() necesita terapeutas/tipos/estados ya cargados para resolver correctamente
+    // el paquete — se esperan los tres antes de abrir el modal (tanto para el query param
+    // ?editar=<id> como en general).
+    forkJoin({
+      terapeutas: this.terapeutaService.getAll(),
+      tipos: this.catalogService.getTiposTerapia(),
+      estados: this.catalogService.getEstadosTratamiento(),
+    }).subscribe(({ terapeutas, tipos, estados }) => {
+      this.terapeutasTodos = terapeutas;
+      this.tiposTerapia = tipos;
+      this.estadosTratamiento = estados;
+
+      // Si se llegó desde "completar sesiones faltantes" en el detalle del paquete
+      // (/tratamientos?editar=<id>), se abre directo el modal de edición de ese paquete.
+      const editarId = Number(this.route.snapshot.queryParamMap.get('editar'));
+      if (editarId) {
+        this.router.navigate([], { queryParams: {}, replaceUrl: true });
+        this.tratamientoService.getById(editarId).subscribe({
+          next: t => this.abrirEditar(t),
+          error: () => this.toast.error('No se encontró el paquete a editar')
+        });
+      }
+    });
   }
 
   /**
@@ -175,37 +234,62 @@ export class ListaTratamientosComponent implements OnInit {
     this.plantillaBusqueda = '';
   }
 
-  // ── Paciente por DNI: busca uno existente o deja capturar uno nuevo ──────
+  // ── Paciente por nombre: busca uno existente o deja capturar uno nuevo ──────
 
   private emptyPac(): PacienteState {
-    return { colapsado: false, modo: 'buscar', buscando: false, id: null,
-             dni: '', nombre: '', apellido: '', telefono: '', correo: '' };
+    return {
+      colapsado: false, modo: 'buscar', buscando: false, id: null,
+      dni: '', nombre: '', apellido: '', telefono: '', correo: '',
+      busquedaNombre: '', resultadosBusqueda: [], dropdownAbierto: false,
+    };
   }
 
-  buscarDni(): void {
-    const dni = this.pac.dni.trim();
-    if (!dni) { this.toast.warning('Ingresa un DNI para buscar'); return; }
+  private debounceBusquedaPac: ReturnType<typeof setTimeout> | undefined;
+
+  onBusquedaNombreChange(): void {
+    this.pac.dropdownAbierto = true;
+    clearTimeout(this.debounceBusquedaPac);
+    const q = this.pac.busquedaNombre.trim();
+    if (q.length < 2) { this.pac.resultadosBusqueda = []; this.pac.buscando = false; return; }
     this.pac.buscando = true;
-    this.pacienteService.buscarPorDni(dni).subscribe({
-      next: encontrado => {
-        this.pac.buscando = false;
-        if (encontrado) {
-          this.pac.id = encontrado.id ?? null;
-          this.pac.nombre = encontrado.nombre;
-          this.pac.apellido = encontrado.apellido;
-          this.pac.telefono = encontrado.telefono ?? '';
-          this.pac.correo = encontrado.correo ?? '';
-          this.pac.modo = 'encontrado';
-          this.formData.pacienteId = this.pac.id;
-        } else {
-          this.pac.id = null; this.pac.nombre = ''; this.pac.apellido = '';
-          this.pac.telefono = ''; this.pac.correo = '';
-          this.pac.modo = 'nuevo';
-          this.formData.pacienteId = null;
-        }
-      },
-      error: () => { this.pac.buscando = false; this.pac.modo = 'nuevo'; this.pac.id = null; }
-    });
+    this.debounceBusquedaPac = setTimeout(() => {
+      this.pacienteService.getAllPaged(0, 8, { nombre: q }).subscribe({
+        next: res => { this.pac.resultadosBusqueda = res.content; this.pac.buscando = false; },
+        error: () => { this.pac.resultadosBusqueda = []; this.pac.buscando = false; }
+      });
+    }, 300);
+  }
+
+  abrirDropdownPaciente(e: Event): void {
+    this.pac.dropdownAbierto = true;
+    const el = e.target as HTMLElement;
+    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+  }
+  cerrarDropdownPacienteDiferido(): void { setTimeout(() => this.pac.dropdownAbierto = false, 150); }
+
+  seleccionarPacienteBusqueda(encontrado: Paciente): void {
+    this.pac.id = encontrado.id ?? null;
+    this.pac.nombre = encontrado.nombre;
+    this.pac.apellido = encontrado.apellido;
+    this.pac.dni = encontrado.dni ?? '';
+    this.pac.telefono = encontrado.telefono ?? '';
+    this.pac.correo = encontrado.correo ?? '';
+    this.pac.modo = 'encontrado';
+    this.pac.dropdownAbierto = false;
+    this.pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
+    this.formData.pacienteId = this.pac.id;
+  }
+
+  /** El paciente buscado no existe todavía — pasa a modo "nuevo" precargando nombre/apellido
+   *  con lo ya escrito en el buscador. */
+  crearPacienteNuevo(): void {
+    this.pac.id = null; this.pac.dni = ''; this.pac.telefono = ''; this.pac.correo = '';
+    const partes = this.pac.busquedaNombre.trim().split(/\s+/).filter(Boolean);
+    this.pac.nombre = partes[0] ?? '';
+    this.pac.apellido = partes.slice(1).join(' ');
+    this.pac.modo = 'nuevo';
+    this.pac.dropdownAbierto = false;
+    this.formData.pacienteId = null;
   }
 
   cambiarPaciente(): void {
@@ -237,6 +321,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.formData.tipoTerapiaId = null;
     this.tipoBusqueda = '';
     this.formData.terapeutaId = null;
+    this.onTerapeutaCambiadoParaHorario();
   }
 
   abrirTipoDropdown(): void { this.tipoDropdownAbierto = true; }
@@ -255,7 +340,184 @@ export class ListaTratamientosComponent implements OnInit {
     if (terapeutaActual && terapeutaActual.area?.id !== t.area?.id) {
       this.formData.terapeutaId = null;
     }
+    // La duración del tipo es solo un default sugerido para las sesiones del horario — sigue editable.
+    this.duracionSesionMin = t.duracionMinutos ?? this.duracionSesionMin;
+    this.calcularBulkDates();
   }
+
+  // ── Programar horario recurrente (solo al crear) ─────────────────────────────
+
+  private fechaToISO(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  private get duracionSesion(): number {
+    return Number(this.duracionSesionMin) || this.tipoSeleccionado?.duracionMinutos || 45;
+  }
+
+  /** Al elegir terapeuta, trae su horario semanal real para deshabilitar días/horas que no atiende.
+   *  Se pide fresco cada vez — no se guarda de una apertura de modal a otra. */
+  onTerapeutaCambiadoParaHorario(): void {
+    this.bulkHorarioTerapeuta = [];
+    this.bulkHorarioCargado = false;
+    this.bulkConflictos = [];
+    if (!this.formData.terapeutaId) { this.calcularBulkDates(); return; }
+    this.terapeutaHorarioService.getByTerapeuta(this.formData.terapeutaId).subscribe({
+      next: horarios => {
+        this.bulkHorarioTerapeuta = horarios.filter(h => h.activo);
+        this.bulkHorarioCargado = true;
+        this.ajustarBulkDiasSegunHorario();
+        this.calcularBulkDates();
+      },
+      error: () => { this.bulkHorarioTerapeuta = []; this.bulkHorarioCargado = false; }
+    });
+  }
+
+  /** true si el terapeuta atiende ese día de la semana (i: 0=Lunes..6=Domingo). Mientras no se
+   *  haya cargado el horario (o no hay terapeuta elegido aún) no bloquea nada. */
+  diaHabilitadoBulk(i: number): boolean {
+    if (!this.bulkHorarioCargado) return true;
+    return this.bulkHorarioTerapeuta.some(h => h.diaSemana === i + 1);
+  }
+
+  private franjasBulkDia(i: number): { horaInicio: string; horaFin: string }[] {
+    return this.bulkHorarioTerapeuta
+      .filter(h => h.diaSemana === i + 1)
+      .map(h => ({ horaInicio: h.horaInicio, horaFin: h.horaFin }));
+  }
+
+  /** Horas puntuales donde cabe una sesión completa dentro del horario real de ese día — el paso
+   *  entre opciones es igual a la duración de la sesión, para que nunca se solapen entre sí. */
+  slotsDisponiblesBulkDia(i: number): string[] {
+    const franjas = this.franjasBulkDia(i);
+    if (franjas.length === 0) return [];
+    return this.calcularSlotsDesdeFranjas(franjas, this.duracionSesion);
+  }
+
+  seleccionarSlotBulkDia(i: number, hora: string): void {
+    this.bulkHoras[i] = hora;
+    this.calcularBulkDates();
+  }
+
+  private calcularSlotsDesdeFranjas(franjas: { horaInicio: string; horaFin: string }[], duracionMin: number, paso?: number): string[] {
+    duracionMin = Number(duracionMin);
+    paso = paso ?? duracionMin;
+    const out: string[] = [];
+    for (const f of franjas) {
+      const [fh, fm] = f.horaInicio.split(':').map(Number);
+      const [th, tm] = f.horaFin.split(':').map(Number);
+      const fin = th * 60 + tm;
+      for (let cursor = fh * 60 + fm; cursor + duracionMin <= fin; cursor += paso) {
+        out.push(`${String(Math.floor(cursor / 60)).padStart(2, '0')}:${String(cursor % 60).padStart(2, '0')}`);
+      }
+    }
+    return out;
+  }
+
+  /** Desmarca los días que el terapeuta elegido no atiende, y si la hora ya elegida de un día
+   *  activo ya no cabe en su horario real, la reemplaza por el primer slot disponible de ese día. */
+  private ajustarBulkDiasSegunHorario(): void {
+    for (let i = 0; i < 7; i++) {
+      if (this.bulkDias[i] && !this.diaHabilitadoBulk(i)) { this.bulkDias[i] = false; continue; }
+      if (!this.bulkDias[i]) continue;
+      const slots = this.slotsDisponiblesBulkDia(i);
+      if (slots.length > 0 && !slots.includes(this.bulkHoras[i])) this.bulkHoras[i] = slots[0];
+    }
+  }
+
+  onBulkDiaToggle(i: number): void {
+    if (this.bulkDias[i] && !this.bulkHoras[i]) this.bulkHoras[i] = '08:00';
+    this.calcularBulkDates();
+  }
+
+  private readonly ESTADOS_FINALES = ['ASISTIDA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA', 'NO_ASISTIO'];
+
+  /** Cuántas sesiones del paquete ya tienen una cita creada. */
+  get sesionesCreadasCount(): number {
+    if (!this.editando) return 0;
+    const ses = this.sesionesMap[this.editando.id!] || [];
+    return ses.filter(s => s.citaActiva).length;
+  }
+
+  /** Cuántas sesiones le faltan por crear al paquete (ej. si subiste el total de sesiones). */
+  get sesionesFaltantes(): number {
+    return Math.max(0, (this.formData.sesionesTotal ?? 0) - this.sesionesCreadasCount);
+  }
+
+  /** Citas ya creadas que aún no pasaron y no están en un estado final — son las únicas que
+   *  tiene sentido reprogramar (una cita ya atendida o cancelada no se debe tocar). */
+  get citasFuturasReprogramables(): CitaResumen[] {
+    if (!this.editando) return [];
+    const ses = this.sesionesMap[this.editando.id!] || [];
+    const ahora = new Date();
+    return ses
+      .filter(s => s.citaActiva && new Date(s.citaActiva.fechaInicio) > ahora && !this.ESTADOS_FINALES.includes(s.citaActiva.estado.key))
+      .map(s => s.citaActiva!)
+      .sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime());
+  }
+
+  /** Calcula las fechas de las sesiones. Al crear un paquete usa "Fecha de inicio" + "Total de
+   *  sesiones" del formulario; al editar usa la fecha elegida para la acción y la cantidad según
+   *  si se están creando las sesiones faltantes o reprogramando las citas futuras. */
+  calcularBulkDates(): void {
+    this.bulkPreview = [];
+    const fechaBase = this.editando ? this.bulkFechaDesdeEdicion : this.formData.fechaInicio;
+    if (!fechaBase) return;
+    const diasActivos = this.bulkDias.map((v, i) => v ? i : -1).filter(i => i >= 0);
+    const totalSesiones = this.editando
+      ? (this.bulkAccionEdicion === 'reprogramar' ? this.citasFuturasReprogramables.length : this.sesionesFaltantes)
+      : (this.formData.sesionesTotal ?? 0);
+    if (diasActivos.length === 0 || totalSesiones < 1) return;
+
+    const [y, mo, d] = fechaBase.split('-').map(Number);
+    let cursor = new Date(y, mo - 1, d);
+    let count = 0, tries = 0;
+    while (count < totalSesiones && tries < 366) {
+      tries++;
+      const dow = (cursor.getDay() + 6) % 7; // 0=Lunes … 6=Domingo
+      if (diasActivos.includes(dow)) {
+        const [fH, fM] = (this.bulkHoras[dow] || '08:00').split(':').map(Number);
+        const date = new Date(cursor);
+        date.setHours(fH, fM, 0, 0);
+        this.bulkPreview.push(date);
+        count++;
+      }
+      cursor = new Date(cursor);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    this.cargarConflictosBulk();
+  }
+
+  /** Trae la disponibilidad real (fresca, sin caché) del terapeuta para todo el rango de fechas
+   *  calculadas, y marca qué sesiones chocarían con su horario real o con otra cita ya agendada. */
+  private cargarConflictosBulk(): void {
+    const terapeutaId = this.formData.terapeutaId;
+    if (!terapeutaId || this.bulkPreview.length === 0) { this.bulkConflictos = []; return; }
+    const desde = this.fechaToISO(this.bulkPreview[0]);
+    const hasta = this.fechaToISO(this.bulkPreview[this.bulkPreview.length - 1]);
+    this.disponibilidadService.getSemana(terapeutaId, desde, hasta).subscribe({
+      next: dias => {
+        const dur = this.duracionSesion;
+        this.bulkConflictos = this.bulkPreview.map(d => {
+          const fecha = this.fechaToISO(d);
+          const dia = dias.find(x => x.fecha === fecha);
+          if (!dia) return true;
+          const inicioMin = d.getHours() * 60 + d.getMinutes();
+          const finMin = inicioMin + dur;
+          return !dia.franjas.some(f => {
+            const [fh, fm] = f.horaInicio.split(':').map(Number);
+            const [th, tm] = f.horaFin.split(':').map(Number);
+            return inicioMin >= fh * 60 + fm && finMin <= th * 60 + tm;
+          });
+        });
+      },
+      error: () => { this.bulkConflictos = []; }
+    });
+  }
+
+  get bulkTieneConflictos(): boolean { return this.bulkConflictos.some(c => c); }
+  get bulkTotalConflictos(): number { return this.bulkConflictos.filter(c => c).length; }
 
   cargar(): void {
     this.loading = true;
@@ -307,6 +569,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.editando = null;
     this.formData = this.emptyForm();
     this.formData.estadoTratamientoId = this.estadosTratamiento.find(e => e.key === 'ACTIVO')?.id ?? null;
+    this.formData.fechaInicio = this.fechaToISO(new Date());
     this.pac = this.emptyPac();
     this.tipoBusqueda = '';
     this.fAreaId = null;
@@ -316,6 +579,13 @@ export class ListaTratamientosComponent implements OnInit {
     this.pagoModo = 'pendiente';
     this.pagoMonto = null;
     this.pagoMetodoId = null;
+    this.duracionSesionMin = null;
+    this.bulkDias = [true, false, true, false, true, false, false];
+    this.bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
+    this.bulkPreview = [];
+    this.bulkHorarioTerapeuta = [];
+    this.bulkHorarioCargado = false;
+    this.bulkConflictos = [];
     this.modalAbierto = true;
   }
 
@@ -342,27 +612,36 @@ export class ListaTratamientosComponent implements OnInit {
       dni: t.pacienteDni ?? '',
       telefono: t.pacienteTelefono ?? '',
       correo: '',
+      busquedaNombre: `${t.pacienteNombre ?? ''} ${t.pacienteApellido ?? ''}`.trim(),
+      resultadosBusqueda: [], dropdownAbierto: false,
     };
     this.fEspecialidadId = tipo?.especialidad?.id ?? null;
     this.fAreaId = tipo?.area?.id ?? null;
     this.tipoBusqueda = tipo?.nombre ?? '';
     this.ultimaSesionFecha = null;
+    this.duracionSesionMin = tipo?.duracionMinutos ?? null;
+    this.bulkAccionEdicion = 'crear';
+    this.bulkFechaDesdeEdicion = this.fechaToISO(new Date());
+    this.bulkDias = [true, false, true, false, true, false, false];
+    this.bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
+    this.bulkPreview = [];
+    this.bulkConflictos = [];
     this.modalAbierto = true;
 
     const id = t.id!;
-    if (this.sesionesMap[id]) {
-      this.ultimaSesionFecha = this.computeUltimaSesion(this.sesionesMap[id]);
-    } else {
-      this.cargandoUltimaSesion = true;
-      this.tratamientoService.getSesiones(id).subscribe({
-        next: ses => {
-          this.sesionesMap[id] = ses;
-          this.ultimaSesionFecha = this.computeUltimaSesion(ses);
-          this.cargandoUltimaSesion = false;
-        },
-        error: () => { this.cargandoUltimaSesion = false; }
-      });
-    }
+    // Se pide fresco cada vez que se abre — si se crearon o reprogramaron citas en una edición
+    // anterior sin cerrar la página, no debe seguir mostrando el conteo viejo.
+    this.cargandoUltimaSesion = true;
+    this.tratamientoService.getSesiones(id).subscribe({
+      next: ses => {
+        this.sesionesMap[id] = ses;
+        this.ultimaSesionFecha = this.computeUltimaSesion(ses);
+        this.cargandoUltimaSesion = false;
+        this.calcularBulkDates();
+      },
+      error: () => { this.cargandoUltimaSesion = false; }
+    });
+    this.onTerapeutaCambiadoParaHorario();
   }
 
   private computeUltimaSesion(sesiones: Sesion[]): string | null {
@@ -379,6 +658,10 @@ export class ListaTratamientosComponent implements OnInit {
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
+    if (!this.editando && this.bulkPreview.length === 0) {
+      this.toast.warning('Programa el horario del paquete (elige terapeuta, fecha de inicio y al menos un día) — las citas se crean junto con el paquete.');
+      return;
+    }
     if (this.pac.modo === 'nuevo') {
       if (!this.pac.nombre || !this.pac.apellido || !this.pac.dni || !this.pac.correo) {
         this.toast.warning('Completa nombre, apellido, DNI y correo del paciente nuevo'); return;
@@ -408,21 +691,184 @@ export class ListaTratamientosComponent implements OnInit {
       : this.tratamientoService.create(body);
     op$.subscribe({
       next: creado => {
-        if (!esEdicion && this.pagoModo !== 'pendiente') {
-          this.registrarPagoInicial(creado);
+        if (!esEdicion && this.bulkPreview.length > 0) {
+          this.crearCitasDelPaquete(creado);
           return;
         }
-        this.toast.success(esEdicion ? 'Paquete actualizado correctamente' : 'Paquete creado correctamente');
-        this.cerrarModal(); this.cargar(); this.guardando = false;
+        this.continuarDespuesDeGuardar(creado, esEdicion, 0);
       },
       error: () => { this.toast.error('Error al guardar el paquete'); this.guardando = false; }
     });
   }
 
+  /** Crea de una vez todas las citas del horario programado, ya enganchadas a este paquete recién
+   *  creado (mismo mecanismo que "Programar sesiones recurrentes" en Citas). Si el paquete ya
+   *  quedó guardado, un fallo aquí no debe bloquear el flujo — solo se avisa. */
+  private crearCitasDelPaquete(paquete: Tratamiento): void {
+    const terapeuta = this.terapeutasTodos.find(t => t.id === this.formData.terapeutaId);
+    const tipo = this.tipoSeleccionado;
+    if (!terapeuta || !tipo?.key) { this.continuarDespuesDeGuardar(paquete, false, 0); return; }
+    const dur = this.duracionSesion;
+    const pacientePayload: PacienteEnCita = {
+      id: this.pac.id ?? undefined,
+      dni: this.pac.dni, nombre: this.pac.nombre, apellido: this.pac.apellido,
+      telefono: this.pac.telefono || undefined, correo: this.pac.correo || undefined,
+    };
+    const toLocalDT = this.toLocalDT;
+    // Se crean UNA POR UNA (no en paralelo): el backend numera cada sesión del paquete contando
+    // cuántas ya existen, así que crear varias a la vez haría que dos lean el mismo número antes
+    // de que la anterior confirme, chocando por sesión duplicada.
+    from(this.bulkPreview).pipe(
+      concatMap(fecha => this.citaService.crearConPaciente({
+        paciente: pacientePayload,
+        paciente2: null,
+        terapeutaNombre: nombreDeTerapeuta(terapeuta),
+        tipoKey: tipo.key!,
+        fechaInicio: toLocalDT(fecha),
+        duracionMinutos: dur,
+        estadoKey: 'PROGRAMADA',
+        modalidadKey: 'PRESENCIAL',
+        totalSesionesPlan: this.formData.sesionesTotal ?? undefined,
+        precioPorSesion: this.formData.precioPorSesion ?? undefined,
+        tratamientoId: paquete.id!,
+        tipoRecurrencia: 'FIJO',
+      }).pipe(
+        // Si una fecha puntual falla (ej. conflicto real de horario), no se aborta el resto —
+        // se sigue con las demás y se cuenta cuántas sí se lograron crear.
+        map(r => ({ ok: true as const, r })),
+        catchError(() => of({ ok: false as const }))
+      )),
+      toArray()
+    ).subscribe(resultados => {
+      const exitosas = resultados.filter(r => r.ok).length;
+      if (exitosas < resultados.length) {
+        this.toast.warning(`Se crearon ${exitosas} de ${resultados.length} citas — las demás tenían conflicto de horario, créalas desde Citas.`);
+      }
+      this.continuarDespuesDeGuardar(paquete, false, exitosas);
+    });
+  }
+
+  private toLocalDT(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+  }
+
+  // ── Editar paquete: crear sesiones faltantes o reprogramar citas futuras ─────
+
+  aplicarHorarioEdicion(): void {
+    if (!this.editando || this.bulkPreview.length === 0 || this.aplicandoHorarioEdicion) return;
+    const terapeuta = this.terapeutasTodos.find(t => t.id === this.formData.terapeutaId);
+    const tipo = this.tipoSeleccionado;
+    if (!terapeuta || !tipo?.key) { this.toast.warning('Elige terapeuta y tipo de terapia primero.'); return; }
+    this.aplicandoHorarioEdicion = true;
+    if (this.bulkAccionEdicion === 'crear') {
+      this.crearSesionesFaltantes(terapeuta, tipo);
+    } else {
+      this.reprogramarCitasFuturas(terapeuta, tipo);
+    }
+  }
+
+  /** Crea, una por una, las sesiones que le faltan al paquete según el horario elegido. */
+  private crearSesionesFaltantes(terapeuta: Terapeuta, tipo: CatalogItem): void {
+    const dur = this.duracionSesion;
+    const pacientePayload: PacienteEnCita = {
+      id: this.pac.id ?? undefined,
+      dni: this.pac.dni, nombre: this.pac.nombre, apellido: this.pac.apellido,
+      telefono: this.pac.telefono || undefined, correo: this.pac.correo || undefined,
+    };
+    from(this.bulkPreview).pipe(
+      concatMap(fecha => this.citaService.crearConPaciente({
+        paciente: pacientePayload,
+        paciente2: null,
+        terapeutaNombre: nombreDeTerapeuta(terapeuta),
+        tipoKey: tipo.key!,
+        fechaInicio: this.toLocalDT(fecha),
+        duracionMinutos: dur,
+        estadoKey: 'PROGRAMADA',
+        modalidadKey: 'PRESENCIAL',
+        precioPorSesion: this.formData.precioPorSesion ?? undefined,
+        tratamientoId: this.editando!.id!,
+        tipoRecurrencia: 'FIJO',
+      }).pipe(map(() => ({ ok: true as const })), catchError(() => of({ ok: false as const })))),
+      toArray()
+    ).subscribe(resultados => {
+      const exitosas = resultados.filter(r => r.ok).length;
+      this.aplicandoHorarioEdicion = false;
+      if (exitosas > 0) this.toast.success(`${exitosas} sesión${exitosas === 1 ? '' : 'es'} creada${exitosas === 1 ? '' : 's'} correctamente`);
+      if (exitosas < resultados.length) this.toast.warning(`${resultados.length - exitosas} no se pudieron crear por conflicto de horario.`);
+      this.recargarSesionesEdicion();
+    });
+  }
+
+  /** Reprograma, una por una, las citas futuras ya creadas (que aún no se atendieron ni se
+   *  cancelaron) a las nuevas fechas calculadas — en el mismo orden en que ya estaban. */
+  private reprogramarCitasFuturas(terapeuta: Terapeuta, tipo: CatalogItem): void {
+    const dur = this.duracionSesion;
+    const pares = this.citasFuturasReprogramables
+      .slice(0, this.bulkPreview.length)
+      .map((cita, i) => ({ cita, nuevaFecha: this.bulkPreview[i] }));
+    from(pares).pipe(
+      concatMap(({ cita, nuevaFecha }) => this.citaService.actualizarCitaLocal(String(cita.id), {
+        terapeuta_id: terapeuta.id!,
+        paciente_id: this.pac.id ?? undefined,
+        // El PUT valida estado/modalidad como FK obligatorias — se mantienen las que ya
+        // tenía la cita, solo cambia la fecha.
+        estado_id: this.estadosCita.find(e => e.key === cita.estado.key)?.id,
+        modalidad_id: this.modalidadesCita.find(m => m.key === (cita.modalidad?.key || 'PRESENCIAL'))?.id,
+        fecha_inicio: nuevaFecha,
+        duracion_minutos: dur,
+        terapeuta_nombre: nombreDeTerapeuta(terapeuta),
+        tipo_key: tipo.key!,
+        tipo_nombre: tipo.nombre,
+        estado_key: cita.estado.key,
+        modalidad_key: cita.modalidad?.key || 'PRESENCIAL',
+        paciente_nombre: this.pac.nombre,
+        paciente_apellido: this.pac.apellido,
+      } as CrearCitaLocalRequest).pipe(map(() => ({ ok: true as const })), catchError(() => of({ ok: false as const })))),
+      toArray()
+    ).subscribe(resultados => {
+      const exitosas = resultados.filter(r => r.ok).length;
+      this.aplicandoHorarioEdicion = false;
+      if (exitosas > 0) this.toast.success(`${exitosas} cita${exitosas === 1 ? '' : 's'} reprogramada${exitosas === 1 ? '' : 's'} correctamente`);
+      if (exitosas < resultados.length) this.toast.warning(`${resultados.length - exitosas} no se pudieron reprogramar.`);
+      this.recargarSesionesEdicion();
+    });
+  }
+
+  /** Refresca sesiones/conteos tras crear o reprogramar — para que "sesiones faltantes" y
+   *  "citas reprogramables" reflejen el nuevo estado real, sin quedarse con el conteo viejo. */
+  private recargarSesionesEdicion(): void {
+    if (!this.editando) return;
+    const id = this.editando.id!;
+    this.tratamientoService.getSesiones(id).subscribe(ses => {
+      this.sesionesMap[id] = ses;
+      this.ultimaSesionFecha = this.computeUltimaSesion(ses);
+      this.calcularBulkDates();
+    });
+    this.cargar();
+  }
+
+  /** Último paso común tras crear/actualizar el paquete (y, si correspondía, sus citas): registra
+   *  el pago inicial si se eligió uno, y cierra el modal mostrando el resumen final. */
+  private continuarDespuesDeGuardar(paquete: Tratamiento, esEdicion: boolean, citasCreadas: number): void {
+    if (!esEdicion && this.pagoModo !== 'pendiente') {
+      this.registrarPagoInicial(paquete, citasCreadas);
+      return;
+    }
+    const msg = esEdicion
+      ? 'Paquete actualizado correctamente'
+      : citasCreadas > 0
+        ? `Paquete creado con ${citasCreadas} cita${citasCreadas === 1 ? '' : 's'} programada${citasCreadas === 1 ? '' : 's'}`
+        : 'Paquete creado correctamente';
+    this.toast.success(msg);
+    this.cerrarModal(); this.cargar(); this.guardando = false;
+  }
+
   /** Registra el pago inicial elegido en el modal contra el paquete recién creado — el paquete
    *  ya quedó guardado, así que un fallo aquí no debe bloquear el flujo, solo avisar. */
-  private registrarPagoInicial(paquete: Tratamiento): void {
+  private registrarPagoInicial(paquete: Tratamiento, citasCreadas: number): void {
     const monto = this.pagoModo === 'completo' ? this.montoTotalPaquete : (this.pagoMonto ?? 0);
+    const sufijoCitas = citasCreadas > 0 ? ` y ${citasCreadas} cita${citasCreadas === 1 ? '' : 's'} programada${citasCreadas === 1 ? '' : 's'}` : '';
     this.pagoService.create({
       tratamiento: { id: paquete.id! } as any,
       paciente: { id: this.formData.pacienteId! } as any,
@@ -430,11 +876,11 @@ export class ListaTratamientosComponent implements OnInit {
       montoRecibido: monto,
     }).subscribe({
       next: () => {
-        this.toast.success('Paquete creado y pago registrado correctamente');
+        this.toast.success(`Paquete creado, pago registrado${sufijoCitas} correctamente`);
         this.cerrarModal(); this.cargar(); this.guardando = false;
       },
       error: () => {
-        this.toast.warning('El paquete se creó, pero el pago no se pudo registrar — regístralo desde Pagos.');
+        this.toast.warning(`El paquete se creó${sufijoCitas}, pero el pago no se pudo registrar — regístralo desde Pagos.`);
         this.cerrarModal(); this.cargar(); this.guardando = false;
       }
     });

@@ -21,6 +21,7 @@ import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
+import { ExcelExportService } from '../../../../core/services/excel-export.service';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -63,6 +64,101 @@ export class ListaCitasComponent implements OnInit {
   filtrosTerapeutas: string[] = [];
   filtroArea = '';
   areas: CatalogItem[] = [];
+
+  // ── Filtros de la agenda (estado, pago, paciente, tipo de terapia) — solo se
+  //    aplican al hacer clic en "Buscar" (o Enter), nunca mientras se tipea. ─────
+  busquedaEstado = '';
+  busquedaPago = '';
+  busquedaPaciente = '';
+  busquedaTipoId = '';
+  filtroEstado = '';
+  filtroPago = '';
+  filtroPaciente = '';
+  filtroTipoId = '';
+
+  // Cada filtro de catálogo (estado/pago/tipo) es un buscador tipo autocompletar en vez de un
+  // <select> plano — mismo patrón que el buscador de terapeuta.
+  estadoBusquedaTexto = '';
+  estadoDropdownAbierto = false;
+  pagoBusquedaTexto = '';
+  pagoDropdownAbierto = false;
+  tipoFiltroBusquedaTexto = '';
+  tipoFiltroDropdownAbierto = false;
+
+  readonly PAGO_OPCIONES = [
+    { value: 'SIN_PAGO', label: 'Sin pago' },
+    { value: 'PARCIAL', label: 'Pago parcial' },
+    { value: 'PAGADA', label: 'Pagada' },
+  ];
+
+  get estadoOpcionesFiltradas(): CatalogItem[] {
+    const q = this.estadoBusquedaTexto.toLowerCase().trim();
+    return !q ? this.estadosCita : this.estadosCita.filter(e => e.nombre.toLowerCase().includes(q));
+  }
+
+  get pagoOpcionesFiltradas(): { value: string; label: string }[] {
+    const q = this.pagoBusquedaTexto.toLowerCase().trim();
+    return !q ? this.PAGO_OPCIONES : this.PAGO_OPCIONES.filter(o => o.label.toLowerCase().includes(q));
+  }
+
+  get tipoFiltroOpcionesFiltradas(): TipoTerapia[] {
+    const q = this.tipoFiltroBusquedaTexto.toLowerCase().trim();
+    return !q ? this.tiposTerapia : this.tiposTerapia.filter(t => t.nombre.toLowerCase().includes(q));
+  }
+
+  abrirEstadoDropdown(): void { this.estadoDropdownAbierto = true; }
+  cerrarEstadoDropdownDiferido(): void { setTimeout(() => this.estadoDropdownAbierto = false, 150); }
+  seleccionarEstadoBusqueda(e: CatalogItem | null): void {
+    this.busquedaEstado = e?.key ?? '';
+    this.estadoBusquedaTexto = e?.nombre ?? '';
+    this.estadoDropdownAbierto = false;
+  }
+
+  abrirPagoDropdown(): void { this.pagoDropdownAbierto = true; }
+  cerrarPagoDropdownDiferido(): void { setTimeout(() => this.pagoDropdownAbierto = false, 150); }
+  seleccionarPagoBusqueda(o: { value: string; label: string } | null): void {
+    this.busquedaPago = o?.value ?? '';
+    this.pagoBusquedaTexto = o?.label ?? '';
+    this.pagoDropdownAbierto = false;
+  }
+
+  abrirTipoFiltroDropdown(): void { this.tipoFiltroDropdownAbierto = true; }
+  cerrarTipoFiltroDropdownDiferido(): void { setTimeout(() => this.tipoFiltroDropdownAbierto = false, 150); }
+  seleccionarTipoFiltroBusqueda(t: TipoTerapia | null): void {
+    this.busquedaTipoId = t?.id ?? '';
+    this.tipoFiltroBusquedaTexto = t?.nombre ?? '';
+    this.tipoFiltroDropdownAbierto = false;
+  }
+
+  get hayFiltrosAgendaActivos(): boolean {
+    return !!(this.filtroEstado || this.filtroPago || this.filtroPaciente || this.filtroTipoId);
+  }
+
+  buscarEnAgenda(): void {
+    this.filtroEstado   = this.busquedaEstado;
+    this.filtroPago     = this.busquedaPago;
+    this.filtroPaciente = this.busquedaPaciente.trim();
+    this.filtroTipoId   = this.busquedaTipoId;
+  }
+
+  limpiarBusquedaAgenda(): void {
+    this.busquedaEstado = ''; this.busquedaPago = ''; this.busquedaPaciente = ''; this.busquedaTipoId = '';
+    this.estadoBusquedaTexto = ''; this.pagoBusquedaTexto = ''; this.tipoFiltroBusquedaTexto = '';
+    this.filtroEstado = ''; this.filtroPago = ''; this.filtroPaciente = ''; this.filtroTipoId = '';
+  }
+
+  /** true si la cita pasa los filtros de agenda actualmente aplicados (estado/pago/paciente/tipo). */
+  private pasaFiltrosAgenda(c: Cita): boolean {
+    if (this.filtroEstado && c.estado !== this.filtroEstado) return false;
+    if (this.filtroPago && c.estado_pago_key !== this.filtroPago) return false;
+    if (this.filtroTipoId && c.tipo_terapia_key !== this.filtroTipoId) return false;
+    if (this.filtroPaciente) {
+      const q = this.filtroPaciente.toLowerCase();
+      const nombre = `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.toLowerCase();
+      if (!nombre.includes(q)) return false;
+    }
+    return true;
+  }
 
   // ── Disponibilidad real (horario + excepciones + citas) por terapeuta ──────
   disponibilidadPorTerapeuta = new Map<number, DisponibilidadDia[]>();
@@ -175,8 +271,38 @@ export class ListaCitasComponent implements OnInit {
     private terapeutaHorarioService: TerapeutaHorarioService,
     private authService: AuthService,
     private configuracionService: ConfiguracionService,
-    private notaAtencionPdfService: NotaAtencionPdfService
+    private notaAtencionPdfService: NotaAtencionPdfService,
+    private excelExportService: ExcelExportService
   ) {}
+
+  // ── Exportar a Excel ─────────────────────────────────────────────────────
+  // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
+  // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
+  exportarExcel(): void {
+    const filas = this.citas
+      .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
+      .filter(c => this.pasaFiltrosAgenda(c))
+      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
+      .map(c => ({
+        'Fecha': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
+        'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
+        'DNI': c.paciente_dni ?? '',
+        'Terapeuta': c.terapeuta_nombre ?? '',
+        'Tipo de terapia': c.tipo_terapia_nombre ?? '',
+        'Duración (min)': c.duracion_minutos,
+        'Modalidad': c.modalidad,
+        'Estado': this.estadosCita.find(e => e.key === c.estado)?.nombre ?? c.estado,
+        'Estado de pago': c.estado_pago_nombre ?? '',
+        'Precio (S/)': c.precio ?? '',
+        'Paquete': c.tratamiento_nombre ?? '',
+      }));
+    if (filas.length === 0) {
+      this.toast.warning('No hay citas para exportar con los filtros actuales');
+      return;
+    }
+    this.excelExportService.exportar(filas, 'citas');
+  }
 
   ngOnInit(): void {
     this.generarSlots();
@@ -588,7 +714,11 @@ export class ListaCitasComponent implements OnInit {
           next: ts => {
             const t = ts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
             if (t) {
-              this.pagoMonto         = t.precioPorSesion ?? null;
+              // Si la cita ya tenía un pago parcial, solo se cobra lo que falta — no el precio
+              // completo otra vez.
+              this.pagoPrecioCita    = cita.precio ?? t.precioPorSesion ?? 0;
+              this.pagoDeudaRestante = Math.max(0, this.pagoPrecioCita - (cita.monto_pagado ?? 0));
+              this.pagoMonto         = this.pagoDeudaRestante > 0 ? this.pagoDeudaRestante : null;
               this.pagoTratamientoId = t.id ?? null;
               this.pagoSaldoPrevio   = t.saldoAFavor ?? 0;
             }
@@ -688,6 +818,7 @@ export class ListaCitasComponent implements OnInit {
       if (citaMin < horaMin || citaMin >= horaMin + 60) return false;
       if (this.filtrosTerapeutas.length > 0 &&
           !this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? '')) return false;
+      if (!this.pasaFiltrosAgenda(c)) return false;
       return true;
     });
   }

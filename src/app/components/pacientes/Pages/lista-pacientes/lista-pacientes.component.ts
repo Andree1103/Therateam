@@ -3,6 +3,7 @@ import { NgForm } from '@angular/forms';
 import { PacienteService, PacienteFiltros } from '../../Services/paciente.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { Paciente, PacienteForm } from '../../Models/paciente.model';
 import { CatalogItem, Sede } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
@@ -49,12 +50,47 @@ export class ListaPacientesComponent implements OnInit {
 
   get total() { return this.totalElementos; }
 
+  exportando = false;
+
   constructor(
     private pacienteService: PacienteService,
     private catalogService: CatalogService,
     private toast: ToastService,
-    private authService: AuthService
+    private authService: AuthService,
+    private excelExportService: ExcelExportService
   ) {}
+
+  /** Exporta TODOS los pacientes que cumplen los filtros activos (no solo la página visible). */
+  exportarExcel(): void {
+    this.exportando = true;
+    const filtros: PacienteFiltros = {
+      nombre: this.filtroNombre,
+      dni: this.filtroDni,
+      correo: this.filtroCorreo,
+      sedeId: this.filtroSedeId,
+      activo: this.filtroActivo === '' ? null : this.filtroActivo === 'true',
+    };
+    this.pacienteService.getAllPaged(0, 10000, filtros).subscribe({
+      next: res => {
+        this.exportando = false;
+        if (res.content.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
+        const filas = res.content.map(p => ({
+          'Nombre': p.nombre,
+          'Apellido': p.apellido,
+          'DNI': p.dni ?? '',
+          'Teléfono': p.telefono ?? '',
+          'Correo': p.correo ?? '',
+          'Fecha de nacimiento': p.fechaNacimiento ?? '',
+          'Sede': p.sede?.nombre ?? '',
+          'Origen': p.origen?.nombre ?? '',
+          'Activo': p.activo ? 'Sí' : 'No',
+          'Notas': p.notas ?? '',
+        }));
+        this.excelExportService.exportar(filas, 'pacientes');
+      },
+      error: () => { this.exportando = false; this.toast.error('Error al exportar pacientes'); }
+    });
+  }
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PACIENTES'); }
   get puedeEditar(): boolean { return this.authService.puedeEditar('PACIENTES'); }

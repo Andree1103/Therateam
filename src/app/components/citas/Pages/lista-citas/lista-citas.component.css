@@ -22,6 +22,8 @@
 .controls-bar select{padding:4px 8px;border:0.5px solid #e2e8f2;border-radius:6px;font-size:12px;background:#f8fafc;color:#111827;font-family:inherit}
 .ml-auto{margin-left:auto}
 .btn-nueva{padding:6px 14px;border:none;border-radius:var(--radius);background:#185FA5;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-secondary{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #e2e8f0;border-radius:var(--radius);background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-secondary:hover{background:#f8fafc;border-color:#cbd5e1}
 .main-layout{display:flex;flex:1;overflow:hidden;min-height:0}
 .sidebar{width:160px;flex-shrink:0;border-right:0.5px solid #e2e8f2;background:#fff;overflow-y:auto}
 .sidebar-hdr{padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;background:#f8fafc;border-bottom:0.5px solid #e2e8f2}
@@ -319,6 +321,13 @@ tbody tr{height:var(--slot-h)}
 .tipo-select{padding:4px 8px;border:0.5px solid #e2e8f2;border-radius:6px;font-size:12px;background:#f8fafc;color:#111827;font-family:inherit;max-width:150px}
 .filtro-badge{display:inline-flex;align-items:center;gap:5px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px}
 .filtro-clear{background:none;border:none;cursor:pointer;font-size:12px;color:#1e40af;padding:0;line-height:1;font-family:inherit}
+.agenda-filtros-bar{background:#f8fafc}
+.filtro-autocomplete{width:150px;flex-shrink:0}
+.filtro-autocomplete .filtro-buscador{width:100%;box-sizing:border-box}
+.filtro-buscador{padding:5px 10px;border:0.5px solid #e2e8f2;border-radius:6px;font-size:12px;background:#fff;color:#111827;font-family:inherit;min-width:160px}
+.filtro-buscador:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+.btn-buscar-agenda{padding:5px 14px;background:#185FA5;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-buscar-agenda:hover{background:#0e4a8a}
 .ter-check{width:16px;height:16px;border:1.5px solid #cbd5e1;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .ter-check.checked{background:#185FA5;border-color:#185FA5;color:#fff}
 .ter-tipo-tag{font-size:9px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:1px 5px;border-radius:3px;display:block;margin-bottom:1px}

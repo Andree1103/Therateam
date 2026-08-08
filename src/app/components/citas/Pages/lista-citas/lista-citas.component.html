@@ -35,7 +35,65 @@
       <button class="filtro-clear" (click)="limpiarFiltros()">✕</button>
     </span>
 
-    <button class="btn-nueva ml-auto" *ngIf="puedeCrearCitas" (click)="abrirNueva()">+ Nueva cita</button>
+    <button class="btn-secondary ml-auto" (click)="exportarExcel()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exportar Excel
+    </button>
+    <button class="btn-nueva" *ngIf="puedeCrearCitas" (click)="abrirNueva()">+ Nueva cita</button>
+  </div>
+
+  <!-- ── FILTROS DE AGENDA (estado, pago, paciente, tipo de terapia) ─────────── -->
+  <div class="controls-bar agenda-filtros-bar">
+    <label class="ctrl-lbl">Estado:</label>
+    <div class="autocomplete-wrap filtro-autocomplete">
+      <input type="text" class="filtro-buscador" placeholder="Todos" autocomplete="off"
+             [(ngModel)]="estadoBusquedaTexto"
+             (focus)="abrirEstadoDropdown()" (blur)="cerrarEstadoDropdownDiferido()"
+             (ngModelChange)="busquedaEstado = ''" (keyup.enter)="buscarEnAgenda()">
+      <div class="autocomplete-dropdown" *ngIf="estadoDropdownAbierto">
+        <div class="autocomplete-item" (mousedown)="seleccionarEstadoBusqueda(null)"><span class="ac-nombre">Todos</span></div>
+        <div class="autocomplete-item" *ngFor="let e of estadoOpcionesFiltradas" (mousedown)="seleccionarEstadoBusqueda(e)">
+          <span class="ac-nombre">{{ e.nombre }}</span>
+        </div>
+      </div>
+    </div>
+
+    <label class="ctrl-lbl">Pago:</label>
+    <div class="autocomplete-wrap filtro-autocomplete">
+      <input type="text" class="filtro-buscador" placeholder="Todos" autocomplete="off"
+             [(ngModel)]="pagoBusquedaTexto"
+             (focus)="abrirPagoDropdown()" (blur)="cerrarPagoDropdownDiferido()"
+             (ngModelChange)="busquedaPago = ''" (keyup.enter)="buscarEnAgenda()">
+      <div class="autocomplete-dropdown" *ngIf="pagoDropdownAbierto">
+        <div class="autocomplete-item" (mousedown)="seleccionarPagoBusqueda(null)"><span class="ac-nombre">Todos</span></div>
+        <div class="autocomplete-item" *ngFor="let o of pagoOpcionesFiltradas" (mousedown)="seleccionarPagoBusqueda(o)">
+          <span class="ac-nombre">{{ o.label }}</span>
+        </div>
+      </div>
+    </div>
+
+    <label class="ctrl-lbl">Tipo de terapia:</label>
+    <div class="autocomplete-wrap filtro-autocomplete">
+      <input type="text" class="filtro-buscador" placeholder="Todos" autocomplete="off"
+             [(ngModel)]="tipoFiltroBusquedaTexto"
+             (focus)="abrirTipoFiltroDropdown()" (blur)="cerrarTipoFiltroDropdownDiferido()"
+             (ngModelChange)="busquedaTipoId = ''" (keyup.enter)="buscarEnAgenda()">
+      <div class="autocomplete-dropdown" *ngIf="tipoFiltroDropdownAbierto">
+        <div class="autocomplete-item" (mousedown)="seleccionarTipoFiltroBusqueda(null)"><span class="ac-nombre">Todos</span></div>
+        <div class="autocomplete-item" *ngFor="let t of tipoFiltroOpcionesFiltradas" (mousedown)="seleccionarTipoFiltroBusqueda(t)">
+          <span class="ac-nombre">{{ t.nombre }}</span>
+        </div>
+      </div>
+    </div>
+
+    <label class="ctrl-lbl">Paciente:</label>
+    <input type="text" class="filtro-buscador" placeholder="Buscar por nombre..."
+           [(ngModel)]="busquedaPaciente" (keyup.enter)="buscarEnAgenda()">
+
+    <button class="btn-buscar-agenda" (click)="buscarEnAgenda()">Buscar</button>
+    <button class="btn-link" *ngIf="hayFiltrosAgendaActivos" (click)="limpiarBusquedaAgenda()">Limpiar</button>
+
+    <span class="filtro-badge" *ngIf="hayFiltrosAgendaActivos">Filtros de agenda activos</span>
   </div>
 
   <!-- ═══ VISTA SEMANA ═══════════════════════════════════════════════════════ -->
@@ -151,7 +209,7 @@
                     </div>
                     <!-- Mini-formulario de pago inline -->
                     <div class="hc-pago-form" *ngIf="citaPagandoId === c.id" (click)="$event.stopPropagation()">
-                      <div class="hc-pago-deuda" *ngIf="!pagoEsPaquete && pagoPrecioCita > 0">
+                      <div class="hc-pago-deuda" *ngIf="pagoPrecioCita > 0">
                         Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
                         Pagado S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }} ·
                         <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>
@@ -859,7 +917,7 @@
             </button>
           </div>
           <div class="hc-pago-form" *ngIf="citaPagandoId === citaEditando.id">
-            <div class="hc-pago-deuda" *ngIf="!pagoEsPaquete && pagoPrecioCita > 0">
+            <div class="hc-pago-deuda" *ngIf="pagoPrecioCita > 0">
               Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
               Pagado S/ {{ (citaEditando.monto_pagado ?? 0) | number:'1.2-2' }} ·
               <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>

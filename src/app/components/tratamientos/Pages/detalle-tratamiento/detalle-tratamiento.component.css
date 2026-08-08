@@ -1,4 +1,9 @@
 :host{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.modalidad-opts{display:flex;gap:8px;flex-wrap:wrap}
+.modalidad-radio{display:flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;transition:all .15s;user-select:none;background:#fff}
+.modalidad-radio:hover{border-color:#185FA5;color:#185FA5;background:#f0f6ff}
+.modalidad-radio.selected{border-color:#185FA5;background:#dbeafe;color:#1e40af}
+.pac-hint{font-size:11px;color:#94a3b8;line-height:1.4}
 .page{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#f1f5f9;font-family:'DM Sans',system-ui,sans-serif}
 
 /* Header */
