@@ -87,6 +87,8 @@ export interface CrearCitaLocalRequest {
   tipo_nombre: string;
   observacion?: string;
   tipo_recurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
+  /** Monto de la cita (fuera de paquete) — solo el administrador puede editarlo desde el modal. */
+  precio?: number;
 }
 
 export interface PacienteEnCita {

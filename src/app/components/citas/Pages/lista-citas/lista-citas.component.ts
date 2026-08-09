@@ -318,6 +318,8 @@ export class ListaCitasComponent implements OnInit {
   get puedeEliminarCitas(): boolean { return this.authService.puedeEliminar('CITAS'); }
   /** Registrar pago desde el modal de cita usa el mismo permiso que el módulo Pagos. */
   get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
+  /** Terapeuta y monto de una cita ya creada son campos sensibles (afectan cobranza) — solo el administrador los edita. */
+  get esAdmin(): boolean { return this.authService.esAdmin; }
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -1255,6 +1257,7 @@ export class ListaCitasComponent implements OnInit {
     this.fDur       = cita.duracion_minutos;
     this.fObs       = cita.observacion ?? cita.notas_previas ?? '';
     this.fTipoRecurrencia = cita.tipo_recurrencia ?? 'EVENTUAL';
+    this.fPrecio    = cita.precio ?? null;
     this.fAreaId    = this.tiposTerapia.find(t => t.id === this.fTipoId)?.area_id ?? null;
     this.modoProgramacion = 'single';
     this.modalAbierto = true;
@@ -1578,7 +1581,11 @@ export class ListaCitasComponent implements OnInit {
     }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
-    if (!this.fFecha || !this.fHoraInicio) { this.toast.warning('Selecciona fecha y hora'); return; }
+    if (this.modoProgramacion === 'multiple' && !this.citaEditando) {
+      if (!this.bulkFechaInicio || this.bulkPreview.length === 0) { this.toast.warning('Selecciona fecha y hora'); return; }
+    } else if (!this.fFecha || !this.fHoraInicio) {
+      this.toast.warning('Selecciona fecha y hora'); return;
+    }
 
     if (!this.citaEditando) {
       const chequear = this.modoProgramacion === 'multiple' ? this.bulkPreview : [this.parseFechaHora(this.fFecha, this.fHoraInicio)];
@@ -1669,6 +1676,10 @@ export class ListaCitasComponent implements OnInit {
         paciente_correo:   this.pac1.correo   || undefined,
         observacion:       this.fObs || undefined,
         tipo_recurrencia:  this.fTipoRecurrencia,
+        // El monto solo lo puede tocar el administrador (ver gate en el template) — para
+        // cualquier otro rol este campo ni siquiera está en el DOM, así que fPrecio queda
+        // intacto con el valor cargado al abrir el modal y este envío es un no-op.
+        precio: this.esAdmin ? (this.fPrecio ?? undefined) : undefined,
       };
       const actualizar$ = this.citaService.actualizarCitaLocal(this.citaEditando.id, req);
 

@@ -133,6 +133,11 @@ export class AuthService {
     return this.currentUserValue?.citasPuedeCrear ?? true;
   }
 
+  /** Rol ADMIN exacto — para acciones sensibles que no dependen del permiso granular por módulo (ej. editar terapeuta/monto de una cita ya creada). */
+  get esAdmin(): boolean {
+    return this.currentUserValue?.rol === 'ADMIN';
+  }
+
   private permisoDe(modulo: string): Permiso | undefined {
     return this.currentUserValue?.permisos?.find(p => p.modulo === modulo);
   }

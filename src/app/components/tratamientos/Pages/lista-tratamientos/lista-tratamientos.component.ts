@@ -33,6 +33,7 @@ export interface PacienteState {
 import { Terapeuta, terapeutaNombre as nombreDeTerapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { ExcelExportService } from '../../../../core/services/excel-export.service';
 
 @Component({
   selector: 'app-lista-tratamientos',
@@ -129,6 +130,8 @@ export class ListaTratamientosComponent implements OnInit {
   pacienteNombre = tratamientoPaciente;
   terapeutaNombre = tratamientoTerapeuta;
 
+  exportando = false;
+
   constructor(
     private tratamientoService: TratamientoService,
     private pacienteService: PacienteService,
@@ -141,8 +144,46 @@ export class ListaTratamientosComponent implements OnInit {
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private excelExportService: ExcelExportService
   ) {}
+
+  /** Exporta TODOS los paquetes/cronogramas que cumplen los filtros activos (no solo la página visible). */
+  exportarExcel(): void {
+    this.exportando = true;
+    const filtros: TratamientoFiltros = {
+      paciente: this.filtroPaciente,
+      terapeuta: this.filtroTerapeuta,
+      tipoTerapiaId: this.filtroTipoTerapiaId,
+      estado: this.filtroEstado,
+    };
+    this.tratamientoService.getAllPaged(0, 10000, filtros).subscribe({
+      next: res => {
+        this.exportando = false;
+        if (res.content.length === 0) { this.toast.warning('No hay paquetes para exportar con los filtros actuales'); return; }
+        const filas = res.content.map(t => ({
+          'Paquete': t.nombre ?? '',
+          'Paciente': tratamientoPaciente(t),
+          'DNI': t.pacienteDni ?? '',
+          'Terapeuta': tratamientoTerapeuta(t),
+          'Tipo de terapia': t.tipoTerapiaNombre ?? '',
+          'Estado': t.estadoNombre ?? '',
+          'Fecha inicio': t.fechaInicio ?? '',
+          'Fecha creación': t.createdAt ? new Date(t.createdAt).toLocaleDateString('es-PE') : '',
+          'Sesiones totales': t.totalSesiones ?? '',
+          'Sesiones atendidas': t.sesionesAtendidas ?? '',
+          'Sesiones pendientes': t.sesionesPendientes ?? '',
+          'Precio por sesión (S/)': t.precioPorSesion ?? '',
+          'Monto total (S/)': t.montoTotal ?? '',
+          'Total cobrado (S/)': t.totalCobrado ?? '',
+          'Saldo a favor (S/)': t.saldoAFavor ?? '',
+          'Activo': t.activo ? 'Sí' : 'No',
+        }));
+        this.excelExportService.exportar(filas, 'paquetes');
+      },
+      error: () => { this.exportando = false; this.toast.error('Error al exportar paquetes'); }
+    });
+  }
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PAQUETES'); }
   get puedeEditar(): boolean { return this.authService.puedeEditar('PAQUETES'); }

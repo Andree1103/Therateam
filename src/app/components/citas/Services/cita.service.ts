@@ -168,6 +168,7 @@ export class CitaService {
     if (req.estado_id)     body['estado']     = { id: req.estado_id };
     if (req.modalidad_id)  body['modalidad']  = { id: req.modalidad_id };
     if (req.tipo_recurrencia) body['tipoRecurrencia'] = req.tipo_recurrencia;
+    if (req.precio != null) body['precio'] = req.precio;
     return body;
   }
 
