@@ -41,6 +41,14 @@ export class ConfiguracionesComponent implements OnInit {
 
   tabActivo: CatalogoTab = this.tabs[0];
 
+  // ── Datos del negocio (nombre, teléfono, dirección) — solo editable, nunca se agregan filas ──
+  mostrandoNegocio = false;
+  cargandoNegocio = false;
+  guardandoNegocio = false;
+  negocio: { nombre_negocio: string; telefono: string; direccion: string } = {
+    nombre_negocio: '', telefono: '', direccion: '',
+  };
+
   modalAbierto  = false;
   editandoItem: CatalogItem | null = null;
   guardando  = false;
@@ -97,7 +105,7 @@ export class ConfiguracionesComponent implements OnInit {
   get puedeEliminar(): boolean { return this.authService.puedeEliminar('CONFIGURACIONES'); }
 
   ngOnInit(): void {
-    this.seleccionarTab(this.tabs[0]);
+    this.mostrarNegocio();
     this.api.get<CatalogItem[]>('/api/cat-areas').subscribe({
       next: d => this.areas = d,
       error: () => {}
@@ -113,9 +121,39 @@ export class ConfiguracionesComponent implements OnInit {
   }
 
   seleccionarTab(tab: CatalogoTab): void {
+    this.mostrandoNegocio = false;
     this.filtroAreaTerapia = null;
     this.tabActivo = tab;
     if (!tab.cargado) this.cargarTab(tab);
+  }
+
+  mostrarNegocio(): void {
+    this.mostrandoNegocio = true;
+    this.cargarNegocio();
+  }
+
+  private cargarNegocio(): void {
+    this.cargandoNegocio = true;
+    this.api.get<Record<string, string>>('/api/configuracion/negocio').subscribe({
+      next: d => {
+        this.negocio = {
+          nombre_negocio: d['nombre_negocio'] ?? '',
+          telefono:       d['telefono']       ?? '',
+          direccion:      d['direccion']      ?? '',
+        };
+        this.cargandoNegocio = false;
+      },
+      error: () => { this.cargandoNegocio = false; }
+    });
+  }
+
+  guardarNegocio(): void {
+    if (!this.puedeEditar) return;
+    this.guardandoNegocio = true;
+    this.api.put<Record<string, string>>('/api/configuracion/negocio', this.negocio).subscribe({
+      next: () => { this.toast.success('Datos del negocio actualizados correctamente'); this.guardandoNegocio = false; },
+      error: () => { this.toast.error('Error al guardar los datos del negocio'); this.guardandoNegocio = false; }
+    });
   }
 
   cargarTab(tab: CatalogoTab): void {

@@ -5,7 +5,7 @@
       <h1>Configuraciones</h1>
       <p>Gestión de catálogos del sistema</p>
     </div>
-    <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
+    <button class="btn-primary" *ngIf="puedeCrear && !mostrandoNegocio" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo elemento
     </button>
@@ -13,18 +13,56 @@
 
   <div class="page-body">
 
-    <!-- Tabs de catálogos -->
+    <!-- Tabs: datos del negocio + catálogos -->
     <div class="tab-bar">
+      <button class="tab-btn" [class.active]="mostrandoNegocio" (click)="mostrarNegocio()">
+        Datos del negocio
+      </button>
       <button class="tab-btn" *ngFor="let tab of tabs"
-              [class.active]="tab.key === tabActivo.key"
+              [class.active]="!mostrandoNegocio && tab.key === tabActivo.key"
               (click)="seleccionarTab(tab)">
         {{ tab.label }}
         <span class="tab-count" *ngIf="tab.cargado">{{ tab.items.length }}</span>
       </button>
     </div>
 
+    <!-- ── Datos del negocio: solo edición, nunca alta ── -->
+    <div class="card" *ngIf="mostrandoNegocio">
+      <div class="state-box" *ngIf="cargandoNegocio">
+        <div class="spinner"></div>
+        <p>Cargando datos del negocio...</p>
+      </div>
+
+      <form *ngIf="!cargandoNegocio" class="modal-body" style="padding:20px" (ngSubmit)="guardarNegocio()" #negocioForm="ngForm">
+        <div class="frow">
+          <label>Nombre del negocio</label>
+          <input [(ngModel)]="negocio.nombre_negocio" name="nombreNegocio"
+                 placeholder="Ej: TheraTeam Clínica de Rehabilitación"
+                 [disabled]="!puedeEditar">
+        </div>
+        <div class="frow-2">
+          <div class="frow">
+            <label>Teléfono</label>
+            <input [(ngModel)]="negocio.telefono" name="telefonoNegocio"
+                   placeholder="Ej: (01) 234-5678" [disabled]="!puedeEditar">
+          </div>
+          <div class="frow">
+            <label>Dirección</label>
+            <input [(ngModel)]="negocio.direccion" name="direccionNegocio"
+                   placeholder="Ej: Av. Siempre Viva 123, Lima" [disabled]="!puedeEditar">
+          </div>
+        </div>
+        <p class="hint-msg" *ngIf="!puedeEditar">🔒 Solo un administrador puede editar los datos del negocio.</p>
+        <div class="modal-footer" *ngIf="puedeEditar" style="padding:0; margin-top:12px">
+          <button type="submit" class="btn-primary" [disabled]="guardandoNegocio">
+            {{ guardandoNegocio ? 'Guardando...' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
     <!-- Filtro por área (solo Tipos de terapia) -->
-    <div class="filters-bar" *ngIf="esTerapia && tabActivo.cargado && tabActivo.items.length > 0">
+    <div class="filters-bar" *ngIf="!mostrandoNegocio && esTerapia && tabActivo.cargado && tabActivo.items.length > 0">
       <label class="ctrl-lbl">Área:</label>
       <select class="filter-sel" [(ngModel)]="filtroAreaTerapia">
         <option [ngValue]="null">Todas las áreas</option>
@@ -33,7 +71,7 @@
     </div>
 
     <!-- Tabla del tab activo -->
-    <div class="card">
+    <div class="card" *ngIf="!mostrandoNegocio">
 
       <div class="state-box" *ngIf="tabActivo.loading">
         <div class="spinner"></div>
