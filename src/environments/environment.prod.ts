@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://therateamback-production.up.railway.app'
+  apiUrl: 'https://49.13.196.23.sslip.io'
 };
