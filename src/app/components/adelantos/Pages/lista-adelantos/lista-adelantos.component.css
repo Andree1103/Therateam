@@ -1,0 +1,43 @@
+:host{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.page{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#f1f5f9;font-family:'DM Sans',system-ui,sans-serif}
+.page-header{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header-left h1{font-size:18px;font-weight:700;color:#0f172a;margin:0}
+.header-left p{font-size:12px;color:#64748b;margin:3px 0 0}
+.page-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 24px 32px;display:flex;flex-direction:column;gap:14px}
+
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-secondary:hover:not(:disabled){background:#e2e8f0}
+.btn-secondary:disabled{opacity:.6;cursor:not-allowed}
+.btn-link{background:none;border:none;color:#185FA5;font-size:13px;font-weight:600;cursor:pointer;padding:0;font-family:inherit}
+.btn-link:hover{text-decoration:underline}
+
+.filters-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search-inp{flex:1;min-width:220px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#fff}
+.search-inp:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+
+.cards-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:520px}
+.stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.stat-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.stat-val{font-size:20px;font-weight:700;color:#0f172a}
+.stat-card--total{background:#185FA5}
+.stat-card--total .stat-lbl{color:rgba(255,255,255,.75)}
+.stat-card--total .stat-val{color:#fff}
+
+.state-box{padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8}
+.state-box.small{padding:24px}
+.state-box p{margin:0;font-size:14px}
+.spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden}
+.data-table{width:100%;border-collapse:collapse}
+.data-table thead th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.data-table tbody td{padding:11px 16px;border-top:1px solid #f1f5f9;font-size:13px;color:#334155}
+.monto{font-weight:700}
+.txt-success{color:#15803d}
+
+.pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:14px;border-top:1px solid #f1f5f9;font-size:13px;color:#475569}
+.pagination button{background:#fff;border:1px solid #e2e8f0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+
+@media(max-width:768px){.page-header{flex-direction:column;align-items:flex-start;padding-left:64px}.page-body{padding:16px}.cards-row{grid-template-columns:1fr}}

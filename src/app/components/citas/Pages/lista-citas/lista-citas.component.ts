@@ -22,6 +22,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
+import { PacienteService } from '../../../pacientes/Services/paciente.service';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -195,7 +196,7 @@ export class ListaCitasComponent implements OnInit {
   fEstKey = '';
   fModalidad = 'PRESENCIAL';
   fFecha = '';       // "YYYY-MM-DD" — reemplaza fDia
-  fHoraInicio = '08:00'; // "HH:MM"  — reemplaza fH, fM
+  fHoraInicio = '07:00'; // "HH:MM"  — reemplaza fH, fM
   fDur = 45;
   fObs = '';
 
@@ -206,6 +207,11 @@ export class ListaCitasComponent implements OnInit {
   fPrecio: number | null = null;
   fPagado = false;
   fMetodoPagoId: number | null = null;
+  /** N° de operación (solo aplica a métodos tipo Yape/Plin) del pago registrado al crear la cita. */
+  fReferencia = '';
+  /** Crédito que ya tiene el paciente 1 (de adelantos previos) — se descuenta del monto a cobrar en esta cita. */
+  pacienteSaldoAFavor = 0;
+  usarSaldoAFavor = false;
 
   // ── Selector de fecha/hora tipo "slots" (sesión única) — fechas en pastillas +
   //    horas reales disponibles del terapeuta, en vez de inputs libres. ──────
@@ -220,7 +226,7 @@ export class ListaCitasComponent implements OnInit {
   // ── Programación múltiple ─────────────────────────────────────────────────
   modoProgramacion: 'single' | 'multiple' = 'single';
   bulkDias = [true, false, true, false, true, false, false]; // L M X J V S D
-  bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00']; // hora individual por día (L..D)
+  bulkHoras = ['07:00', '07:00', '07:00', '07:00', '07:00', '07:00', '07:00']; // hora individual por día (L..D)
   bulkSesiones = 10;
   bulkFechaInicio = '';
   bulkPreview: Date[] = [];
@@ -235,6 +241,8 @@ export class ListaCitasComponent implements OnInit {
   citaPagandoId: string | null = null;
   pagoMonto: number | null = null;
   pagoMetodoId: number | null = null;
+  /** N° de operación (solo aplica a métodos tipo Yape/Plin) del pago registrado desde "Registrar pago". */
+  pagoReferencia = '';
   pagoTratamientoId: number | null = null;
   pagoSaldoPrevio: number = 0;
   /** true si la cita en pago está ligada a un paquete (se paga contra el tratamiento); false = cita suelta (adelantos contra cita.precio). */
@@ -247,16 +255,19 @@ export class ListaCitasComponent implements OnInit {
   // ── Atención Clínica ─────────────────────────────────────────────────────
   modalAtencion = false;
   guardandoAtencion = false;
+  cargandoAtencionExistente = false;
   citaParaAtencion: Cita | null = null;
   atencionNotas = '';
   atencionMetricas: AtencionMetrica[] = [];
+  /** true si ya existe una atención guardada para esta cita (la estamos editando, no creando). */
+  atencionEsEdicion = false;
 
   readonly DIAS_NOM = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
   readonly DIAS_ABR = ['L','M','X','J','V','S','D'];
 
   // ── Grid con posicionamiento por minuto exacto ──────────────────────────────
   readonly SLOT_H = 90;   // px por fila de 1 hora, debe coincidir con --slot-h en el CSS
-  horasGrid: Slot[] = []; // filas visuales de la agenda (1 por hora, 08:00 .. 19:00)
+  horasGrid: Slot[] = []; // filas visuales de la agenda (1 por hora, 07:00 .. 21:00)
 
   constructor(
     private citaService: CitaService,
@@ -272,7 +283,8 @@ export class ListaCitasComponent implements OnInit {
     private authService: AuthService,
     private configuracionService: ConfiguracionService,
     private notaAtencionPdfService: NotaAtencionPdfService,
-    private excelExportService: ExcelExportService
+    private excelExportService: ExcelExportService,
+    private pacienteService: PacienteService
   ) {}
 
   // ── Exportar a Excel ─────────────────────────────────────────────────────
@@ -544,7 +556,7 @@ export class ListaCitasComponent implements OnInit {
   generarSlots(): void {
     this.slots = [];
     this.horasGrid = [];
-    for (let h = 8; h < 22; h++) {
+    for (let h = 7; h < 22; h++) {
       for (const m of [0, 30]) {
         const lbl = `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '30'}`;
         this.slots.push({ h, m, lbl });
@@ -704,6 +716,7 @@ export class ListaCitasComponent implements OnInit {
     this.pagoTratamientoId = null;
     this.pagoSaldoPrevio   = 0;
     this.pagoMetodoId      = this.metodosPago[0]?.id ?? null;
+    this.pagoReferencia    = '';
     this.guardandoPago     = false;
     this.pagoEsPaquete     = !!cita.sesion_id;
 
@@ -740,7 +753,13 @@ export class ListaCitasComponent implements OnInit {
     }
   }
 
-  cancelarPagoCita(): void { this.citaPagandoId = null; }
+  /** Yape/Plin necesitan el N° de operación para poder rastrear el pago; efectivo u otros métodos no. */
+  metodoRequiereReferencia(metodoId: number | null): boolean {
+    const nombre = this.metodosPago.find(m => m.id === metodoId)?.nombre?.toLowerCase() ?? '';
+    return nombre.includes('yape') || nombre.includes('plin');
+  }
+
+  cancelarPagoCita(): void { this.citaPagandoId = null; this.pagoReferencia = ''; }
 
   confirmarPagoCita(cita: Cita): void {
     if (!this.pagoMonto || this.pagoMonto <= 0) {
@@ -769,10 +788,12 @@ export class ListaCitasComponent implements OnInit {
     };
     if (this.pagoEsPaquete) body.tratamiento = { id: this.pagoTratamientoId };
     if (this.pagoMetodoId) body.metodo = { id: this.pagoMetodoId };
+    if (this.pagoReferencia.trim()) body.referencia = this.pagoReferencia.trim();
     this.pagoService.create(body).subscribe({
       next: () => {
         this.toast.success('Pago registrado correctamente');
         this.citaPagandoId = null;
+        this.pagoReferencia = '';
         this.guardandoPago = false;
         this.recargarSilencioso();
         // `citaEditando` es una copia separada de `citas` — si no se resincroniza tras el pago,
@@ -1066,7 +1087,15 @@ export class ListaCitasComponent implements OnInit {
     pac.dni = encontrado.dni; pac.telefono = encontrado.telefono ?? ''; pac.correo = encontrado.correo ?? '';
     pac.modo = 'encontrado'; pac.colapsado = true; pac.dropdownAbierto = false;
     pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
-    if (pac === this.pac1) this.cargarTratamientosPaciente(pac.id!);
+    if (pac === this.pac1) {
+      this.cargarTratamientosPaciente(pac.id!);
+      this.pacienteSaldoAFavor = 0;
+      this.usarSaldoAFavor = false;
+      this.pacienteService.getById(pac.id!).subscribe({
+        next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+        error: () => {}
+      });
+    }
   }
 
   /** El paciente buscado no existe todavía — pasa a modo "nuevo" precargando nombre/apellido
@@ -1077,7 +1106,11 @@ export class ListaCitasComponent implements OnInit {
     pac.nombre = partes[0] ?? '';
     pac.apellido = partes.slice(1).join(' ');
     pac.modo = 'nuevo'; pac.dropdownAbierto = false;
-    if (pac === this.pac1) this.limpiarTratamientoExistente();
+    if (pac === this.pac1) {
+      this.limpiarTratamientoExistente();
+      this.pacienteSaldoAFavor = 0;
+      this.usarSaldoAFavor = false;
+    }
   }
 
   cambiarPaciente(pac: PacienteState): void {
@@ -1085,7 +1118,11 @@ export class ListaCitasComponent implements OnInit {
     pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = ''; pac.dni = '';
     pac.busquedaNombre = ''; pac.resultadosBusqueda = [];
     pac.colapsado = false;
-    if (pac === this.pac1) this.limpiarTratamientoExistente();
+    if (pac === this.pac1) {
+      this.limpiarTratamientoExistente();
+      this.pacienteSaldoAFavor = 0;
+      this.usarSaldoAFavor = false;
+    }
   }
 
   // ── Tratamiento existente (sesiones pagadas por adelantado) ────────────────
@@ -1295,12 +1332,15 @@ export class ListaCitasComponent implements OnInit {
     this.fPrecio    = primerTipo?.precio_recomendado ?? null;
     this.fPagado    = false;
     this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
+    this.fReferencia = '';
+    this.pacienteSaldoAFavor = 0;
+    this.usarSaldoAFavor = false;
     this.modoProgramacion = 'single';
     this.fFechasOffset = 0;
     this.generarFechasVisiblesSingle();
     this.cargarSlotsSingle();
     this.bulkDias   = [true, false, true, false, true, false, false];
-    this.bulkHoras  = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
+    this.bulkHoras  = ['07:00', '07:00', '07:00', '07:00', '07:00', '07:00', '07:00'];
     this.bulkSesiones        = 10;
     this.bulkFechaInicio     = this.fechaToISO(hoy);
     this.bulkPreview         = [];
@@ -1315,7 +1355,7 @@ export class ListaCitasComponent implements OnInit {
 
   /** Al activar un día, si no tenía hora propia asignada la hereda de "Hora inicio" como default editable. */
   onBulkDiaToggle(i: number): void {
-    if (this.bulkDias[i] && !this.bulkHoras[i]) this.bulkHoras[i] = this.fHoraInicio || '08:00';
+    if (this.bulkDias[i] && !this.bulkHoras[i]) this.bulkHoras[i] = this.fHoraInicio || '07:00';
     this.calcularBulkDates();
     this.onDatosCitaChange();
   }
@@ -1550,7 +1590,7 @@ export class ListaCitasComponent implements OnInit {
       tries++;
       const dow = (cursor.getDay() + 6) % 7; // 0=Lunes … 6=Domingo
       if (diasActivos.includes(dow)) {
-        const [fH, fM] = (this.bulkHoras[dow] || this.fHoraInicio || '08:00').split(':').map(Number);
+        const [fH, fM] = (this.bulkHoras[dow] || this.fHoraInicio || '07:00').split(':').map(Number);
         const date = new Date(cursor);
         date.setHours(fH, fM, 0, 0);
         this.bulkPreview.push(date);
@@ -1581,6 +1621,14 @@ export class ListaCitasComponent implements OnInit {
     }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
+    // Marcar "pagado" (sesión única) o dejar sesiones a pagar (programación múltiple) sin método
+    // de pago hacía que el registro del pago fallara en silencio (el backend lo exige) — se corta
+    // acá con un aviso claro en vez de dejar la cita creada pero el cobro perdido.
+    const seVaACobrarAlCrear = this.fPrecio && this.fPrecio > 0 && this.fTratamientoExistenteId === null &&
+      (this.modoProgramacion === 'multiple' ? this.bulkSesionesAPagar > 0 : (this.fPagado || this.usarSaldoAFavor));
+    if (seVaACobrarAlCrear && !this.fMetodoPagoId) {
+      this.toast.warning('Selecciona el método de pago'); return;
+    }
     if (this.modoProgramacion === 'multiple' && !this.citaEditando) {
       if (!this.bulkFechaInicio || this.bulkPreview.length === 0) { this.toast.warning('Selecciona fecha y hora'); return; }
     } else if (!this.fFecha || !this.fHoraInicio) {
@@ -1741,10 +1789,15 @@ export class ListaCitasComponent implements OnInit {
 
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
-          if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 && this.fPagado && citas.length > 0) {
+          // Se registra un pago si se marca pagado (cobra el precio, usando saldo si aplica) o si
+          // se usa saldo a favor por sí solo (aplica el crédito aunque no alcance para cubrir todo
+          // — la cita queda PARCIAL y el resto se cobra después con "Registrar pago").
+          if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 &&
+              (this.fPagado || this.usarSaldoAFavor) && citas.length > 0) {
             const pacienteId = Number(citas[0].paciente_id);
             const citaId     = Number(citas[0].id);
-            if (pacienteId) this.crearPagoParaCita(pacienteId, this.fPrecio, this.fMetodoPagoId, citaId);
+            const monto      = this.fPagado ? this.montoACobrarAhora : 0;
+            if (pacienteId) this.crearPagoParaCita(pacienteId, monto, this.fMetodoPagoId, citaId);
           }
           this.toast.success('Cita creada correctamente');
           this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
@@ -1824,6 +1877,18 @@ export class ListaCitasComponent implements OnInit {
    * (fTratamientoExistenteId), el pago se aplica contra ese paquete; si no, es un pago
    * normal de la cita puntual, sin ningún tratamiento asociado.
    */
+  /** Cuánto dinero nuevo hay que cobrar ahora — el precio menos el saldo a favor del paciente, si decide usarlo. */
+  get montoACobrarAhora(): number {
+    const precio = this.fPrecio ?? 0;
+    if (!this.usarSaldoAFavor) return precio;
+    return Math.max(0, precio - Math.min(this.pacienteSaldoAFavor, precio));
+  }
+
+  /** Cuánto de su saldo a favor se le descuenta a esta cita (puede no alcanzar para cubrirla entera). */
+  get saldoAplicadoAhora(): number {
+    return Math.min(this.pacienteSaldoAFavor, this.fPrecio ?? 0);
+  }
+
   private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number): void {
     const t = this.tratamientoExistenteSeleccionado;
     const body: any = {
@@ -1837,7 +1902,14 @@ export class ListaCitasComponent implements OnInit {
     };
     if (metodoId) body.metodo = { id: metodoId };
     if (citaId)   body.cita   = { id: citaId };
-    this.pagoService.create(body).subscribe({ error: () => {} });
+    if (this.fReferencia.trim()) body.referencia = this.fReferencia.trim();
+    // Antes el error se ignoraba en silencio: la cita quedaba creada pero el pago no, y no había
+    // ninguna señal de que algo había fallado — ahora se avisa para no perder el caso de vista.
+    this.pagoService.create(body).subscribe({
+      error: () => this.toast.error(
+        `La cita se creó, pero el pago no se pudo registrar${citaId ? ` (cita #${citaId})` : ''} — revísalo desde "Registrar pago".`
+      )
+    });
   }
 
   eliminarCita(): void {
@@ -1877,14 +1949,37 @@ export class ListaCitasComponent implements OnInit {
       this.toast.warning('La cita debe estar pagada por completo para registrar atención'); return;
     }
     this.citaParaAtencion = cita;
+    this.atencionEsEdicion = false;
     this.atencionNotas    = cita.notas_previas ?? '';
     this.atencionMetricas = METRICAS_DEFAULT.map(m => ({ ...m }));
     this.modalAtencion    = true;
+
+    // Si la cita ya está ASISTIDA es porque ya tiene una atención guardada — se precarga en vez
+    // de partir en blanco, para no pisar las notas/métricas anteriores al volver a guardar.
+    if (cita.estado === 'ASISTIDA') {
+      this.cargandoAtencionExistente = true;
+      this.atencionService.getByCita(Number(cita.id)).subscribe({
+        next: existente => {
+          this.cargandoAtencionExistente = false;
+          if (this.citaParaAtencion?.id !== cita.id) return;
+          this.atencionEsEdicion = true;
+          this.atencionNotas = existente.notasPost ?? this.atencionNotas;
+          if (existente.metricas && existente.metricas.length > 0) {
+            this.atencionMetricas = METRICAS_DEFAULT.map(def => {
+              const guardada = existente.metricas!.find(m => m.metrica === def.metrica);
+              return guardada ? { ...def, valor: guardada.valor } : { ...def };
+            });
+          }
+        },
+        error: () => { this.cargandoAtencionExistente = false; }
+      });
+    }
   }
 
   cerrarAtencion(): void {
     this.modalAtencion    = false;
     this.citaParaAtencion = null;
+    this.atencionEsEdicion = false;
     this.atencionNotas    = '';
     this.atencionMetricas = [];
   }

@@ -66,6 +66,13 @@
         <span class="nav-txt">Citas</span>
       </a>
 
+      <a class="nav-item" *ngIf="tieneModulo('CITAS')" routerLink="/atenciones" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        <span class="nav-txt">Atenciones</span>
+      </a>
+
       <a class="nav-item" *ngIf="tieneModulo('PACIENTES')" routerLink="/pacientes" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -95,6 +102,13 @@
           <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
         </svg>
         <span class="nav-txt">Caja</span>
+      </a>
+
+      <a class="nav-item" *ngIf="tieneModulo('PAGOS')" routerLink="/adelantos" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <span class="nav-txt">Adelantos</span>
       </a>
 
       <div class="nav-section-lbl" style="margin-top:16px">Clínica</div>

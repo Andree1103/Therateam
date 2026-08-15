@@ -21,6 +21,7 @@ export interface CronogramaSesion {
   numero: number;
   fecha: Date | null;
   areaNombre: string;
+  estado: string;
 }
 
 export interface CronogramaData {
@@ -144,13 +145,14 @@ export class NotaAtencionPdfService {
 
     autoTable(doc, {
       startY: y,
-      head: [['Sesión', 'Fecha', 'Hora', 'Día', 'Área']],
+      head: [['Sesión', 'Fecha', 'Hora', 'Día', 'Área', 'Estado']],
       body: data.sesiones.map(s => [
         String(s.numero),
         s.fecha ? fechaDDMMYYYY(s.fecha) : '',
         s.fecha ? horaAmPm(s.fecha) : '',
         s.fecha ? DIAS[s.fecha.getDay()] : '',
         s.areaNombre,
+        s.estado || '',
       ]),
       theme: 'grid',
       headStyles: { fillColor: [24, 95, 165] },

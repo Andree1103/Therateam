@@ -70,6 +70,21 @@ export class CitaService {
     }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
   }
 
+  /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha). */
+  getFiltroPaged(page: number, size: number, filtros: {
+    fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string; areaId?: number | null;
+  }): Observable<PageResponse<Cita>> {
+    return this.api.get<PageResponse<CitaApiDTO>>(`${this.PATH}/filtro`, {
+      page: String(page), size: String(size),
+      fechaInicio: filtros.fechaInicio ? this.toISOLocal(filtros.fechaInicio) : undefined,
+      fechaFin:    filtros.fechaFin    ? this.toISOLocal(filtros.fechaFin)    : undefined,
+      terapeuta:   filtros.terapeuta || undefined,
+      estadoKey:   filtros.estadoKey || undefined,
+      paciente:    filtros.paciente || undefined,
+      areaId:      filtros.areaId != null ? String(filtros.areaId) : undefined,
+    }).pipe(map(r => ({ ...r, content: r.content.map(d => this.mapDTO(d)) })));
+  }
+
   getCitaById(id: string): Observable<Cita> {
     return this.api.get<CitaApiDTO>(`${this.PATH}/${id}`).pipe(map(d => this.mapDTO(d)));
   }

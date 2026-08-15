@@ -1,0 +1,71 @@
+<div class="page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Adelantos</h1>
+      <p>Pacientes con saldo a favor — pagaron por adelantado más de lo que llevan consumido</p>
+    </div>
+    <button type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || adelantos.length === 0">
+      {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+    </button>
+  </div>
+
+  <div class="page-body">
+
+    <div class="filters-bar">
+      <input type="text" class="search-inp" [(ngModel)]="busquedaPaciente" (keyup.enter)="buscar()" placeholder="Buscar por paciente...">
+      <button type="button" class="btn-secondary" (click)="buscar()">Buscar</button>
+      <button type="button" class="btn-link" *ngIf="filtroPaciente" (click)="limpiarFiltros()">Limpiar</button>
+    </div>
+
+    <div class="cards-row" *ngIf="!loading && adelantos.length > 0">
+      <div class="stat-card stat-card--total">
+        <span class="stat-lbl">Saldo a favor (esta página)</span>
+        <span class="stat-val">S/ {{ totalSaldoAFavor | number:'1.2-2' }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-lbl">Pacientes con adelanto</span>
+        <span class="stat-val">{{ totalElementos }}</span>
+      </div>
+    </div>
+
+    <div class="state-box" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Cargando adelantos...</p>
+    </div>
+
+    <div class="state-box small" *ngIf="!loading && adelantos.length === 0">
+      <p>{{ filtroPaciente ? 'Ningún paciente con ese nombre tiene saldo a favor.' : 'Nadie tiene saldo a favor por ahora.' }}</p>
+    </div>
+
+    <div class="card" *ngIf="!loading && adelantos.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Paciente</th>
+            <th>DNI</th>
+            <th>Teléfono</th>
+            <th>Correo</th>
+            <th>Saldo a favor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of adelantos">
+            <td>{{ p.nombre }} {{ p.apellido }}</td>
+            <td>{{ p.dni || '—' }}</td>
+            <td>{{ p.telefono || '—' }}</td>
+            <td>{{ p.correo || '—' }}</td>
+            <td class="monto txt-success">S/ {{ (p.saldoAFavor ?? 0) | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="pagination" *ngIf="totalPaginas > 1">
+        <button type="button" (click)="irAPagina(paginaActual - 1)" [disabled]="paginaActual === 0">‹</button>
+        <span>Página {{ paginaActual + 1 }} de {{ totalPaginas }}</span>
+        <button type="button" (click)="irAPagina(paginaActual + 1)" [disabled]="paginaActual >= totalPaginas - 1">›</button>
+      </div>
+    </div>
+
+  </div>
+</div>

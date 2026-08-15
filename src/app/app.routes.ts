@@ -31,6 +31,8 @@ export const routes: Routes = [
       { path: 'terapeutas',      data: { modulo: 'TERAPEUTAS' },      canActivate: [moduloGuard], loadChildren: () => import('./components/terapeutas/terapeutas.module').then(m => m.TerapeutasModule) },
       { path: 'pagos',           data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/pagos/pagos.module').then(m => m.PagosModule) },
       { path: 'caja',            data: { modulo: 'CAJA' },            canActivate: [moduloGuard], loadChildren: () => import('./components/caja/caja.module').then(m => m.CajaModule) },
+      { path: 'adelantos',       data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/adelantos/adelantos.module').then(m => m.AdelantosModule) },
+      { path: 'atenciones',      data: { modulo: 'CITAS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/atenciones/atenciones.module').then(m => m.AtencionesModule) },
       { path: 'tratamientos',    data: { modulo: 'PAQUETES' },        canActivate: [moduloGuard], loadChildren: () => import('./components/tratamientos/tratamientos.module').then(m => m.TratamientosModule) },
       { path: 'configuraciones', data: { modulo: 'CONFIGURACIONES' }, canActivate: [moduloGuard], loadChildren: () => import('./components/configuraciones/configuraciones.module').then(m => m.ConfiguracionesModule) },
       { path: 'seguridad',       data: { modulo: 'SEGURIDAD' },       canActivate: [moduloGuard], loadChildren: () => import('./components/seguridad/seguridad.module').then(m => m.SeguridadModule) },

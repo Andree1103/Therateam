@@ -95,6 +95,9 @@ export class ListaTratamientosComponent implements OnInit {
   // ── Cascada (igual que Citas): Área → Tipo de terapia → Terapeuta ─────────
   fAreaId: number | null = null;
   fEspecialidadId: number | null = null;
+  areaBusqueda = '';
+  areaDropdownAbierto = false;
+  areaBusquedaTocado = false;
   tipoBusqueda = '';
   tipoDropdownAbierto = false;
   nombreDeTerapeuta = nombreDeTerapeuta;
@@ -241,6 +244,7 @@ export class ListaTratamientosComponent implements OnInit {
     } else if (p.tipoTerapia?.area?.id) {
       this.fAreaId = p.tipoTerapia.area.id;
     }
+    if (this.fAreaId != null) this.areaBusqueda = this.areas.find(a => a.id === this.fAreaId)?.nombre ?? p.area?.nombre ?? '';
     if (p.tipoTerapia?.id) {
       const tipoCompleto = this.tiposTerapia.find(t => t.id === p.tipoTerapia!.id);
       if (tipoCompleto) this.seleccionarTipo(tipoCompleto);
@@ -365,6 +369,23 @@ export class ListaTratamientosComponent implements OnInit {
     this.onTerapeutaCambiadoParaHorario();
   }
 
+  // ── Buscador de área (autocompletar, igual patrón que Tipo de terapia) ────
+
+  get areasFiltradas(): CatalogItem[] {
+    const q = this.areaBusqueda.toLowerCase().trim();
+    return !q ? this.areas : this.areas.filter(a => a.nombre.toLowerCase().includes(q));
+  }
+
+  abrirAreaDropdown(): void { this.areaDropdownAbierto = true; }
+  cerrarAreaDropdownDiferido(): void { setTimeout(() => this.areaDropdownAbierto = false, 150); }
+
+  seleccionarArea(a: CatalogItem): void {
+    this.fAreaId = a.id;
+    this.areaBusqueda = a.nombre;
+    this.areaDropdownAbierto = false;
+    this.onAreaChange();
+  }
+
   abrirTipoDropdown(): void { this.tipoDropdownAbierto = true; }
   cerrarTipoDropdownDiferido(): void { setTimeout(() => this.tipoDropdownAbierto = false, 150); }
 
@@ -375,7 +396,7 @@ export class ListaTratamientosComponent implements OnInit {
     // Refleja la especialidad y área de este tipo, aunque haya llegado por catálogo (elegido a
     // mano o autocompletado) — el área si acaba de quedar vacía o no calza con la del tipo.
     this.fEspecialidadId = t.especialidad?.id ?? this.fEspecialidadId;
-    if (t.area?.id != null) this.fAreaId = t.area.id;
+    if (t.area?.id != null) { this.fAreaId = t.area.id; this.areaBusqueda = t.area.nombre ?? this.areaBusqueda; }
     // El terapeuta ya elegido puede no pertenecer a la nueva área — se limpia para forzar re-selección.
     const terapeutaActual = this.terapeutasTodos.find(x => x.id === this.formData.terapeutaId);
     if (terapeutaActual && terapeutaActual.area?.id !== t.area?.id) {
@@ -614,6 +635,8 @@ export class ListaTratamientosComponent implements OnInit {
     this.pac = this.emptyPac();
     this.tipoBusqueda = '';
     this.fAreaId = null;
+    this.areaBusqueda = '';
+    this.areaBusquedaTocado = false;
     this.fEspecialidadId = null;
     this.plantillaSeleccionadaId = null;
     this.plantillaBusqueda = '';
@@ -658,6 +681,8 @@ export class ListaTratamientosComponent implements OnInit {
     };
     this.fEspecialidadId = tipo?.especialidad?.id ?? null;
     this.fAreaId = tipo?.area?.id ?? null;
+    this.areaBusqueda = tipo?.area?.nombre ?? (this.areas.find(a => a.id === this.fAreaId)?.nombre ?? '');
+    this.areaBusquedaTocado = false;
     this.tipoBusqueda = tipo?.nombre ?? '';
     this.ultimaSesionFecha = null;
     this.duracionSesionMin = tipo?.duracionMinutos ?? null;

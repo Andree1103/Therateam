@@ -10,6 +10,9 @@
       <label>Fecha</label>
       <input type="date" [(ngModel)]="fecha" (ngModelChange)="onFechaChange()">
     </div>
+    <button type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || historial.length === 0">
+      {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+    </button>
   </div>
 
   <div class="page-body">

@@ -26,6 +26,10 @@
           <span class="pstat-val">S/ {{ deudaTotal.toFixed(2) }}</span>
           <span class="pstat-lbl">Deuda total</span>
         </div>
+        <div class="pstat pstat--success" *ngIf="(paciente.saldoAFavor ?? 0) > 0">
+          <span class="pstat-val">S/ {{ (paciente.saldoAFavor ?? 0).toFixed(2) }}</span>
+          <span class="pstat-lbl">Saldo a favor</span>
+        </div>
       </div>
     </div>
   </div>
@@ -179,7 +183,7 @@
             <td>{{ formatFechaHora(a.fechaInicioReal) }}</td>
             <td>{{ citaDeAtencion(a)?.terapeuta_nombre || '—' }}</td>
             <td>{{ citaDeAtencion(a)?.tipo_terapia_nombre || '—' }}</td>
-            <td>{{ a.duracionRealMin ? a.duracionRealMin + ' min' : '—' }}</td>
+            <td>{{ (a.duracionRealMin ?? citaDeAtencion(a)?.duracion_minutos) ? (a.duracionRealMin ?? citaDeAtencion(a)?.duracion_minutos) + ' min' : '—' }}</td>
             <td class="text-muted">{{ a.notasPost || '—' }}</td>
             <td>
               <span *ngFor="let m of a.metricas" class="chip-estado" style="margin-right:4px">

@@ -164,11 +164,11 @@
                       </span>
                     </div>
                     <button class="btn-atencion"
-                            *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA'"
+                            *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA' || c.estado === 'ASISTIDA'"
                             [disabled]="c.estado_pago_key !== 'PAGADA'"
                             [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
                             (click)="abrirAtencion(c, $event)">
-                      Registrar atención
+                      {{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}
                     </button>
                   </div>
 
@@ -230,6 +230,9 @@
                           <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
                         </select>
                       </div>
+                      <div class="hc-pago-row" *ngIf="metodoRequiereReferencia(pagoMetodoId)">
+                        <input type="text" class="hc-pago-inp" [(ngModel)]="pagoReferencia" placeholder="N° de operación">
+                      </div>
                       <div class="hc-pago-actions">
                         <button class="hc-btn-cancel-pago" (click)="cancelarPagoCita()">Cancelar</button>
                         <button class="hc-btn-confirm-pago" (click)="confirmarPagoCita(c)"
@@ -248,10 +251,10 @@
                         Registrar pago
                       </button>
                       <button class="hc-btn-at"
-                              *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO'"
+                              *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO' || c.estado === 'ASISTIDA'"
                               [disabled]="c.estado_pago_key !== 'PAGADA'"
                               [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
-                              (click)="abrirAtencion(c, $event)">Registrar atención</button>
+                              (click)="abrirAtencion(c, $event)">{{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}</button>
                       <button class="hc-btn-edit" title="Descargar nota de atención (PDF) para enviar por WhatsApp"
                               (click)="descargarNotaCita(c, $event)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -851,6 +854,28 @@
               </select>
             </div>
           </div>
+          <div class="frow" *ngIf="fPrecio && fPrecio > 0 && metodoRequiereReferencia(fMetodoPagoId)">
+            <label>N° de operación</label>
+            <input type="text" [(ngModel)]="fReferencia" placeholder="Ej: 123456789">
+          </div>
+          <!-- Saldo a favor del paciente — solo tiene sentido para sesión única (una sola cita a cobrar). -->
+          <div class="saldo-favor-box" *ngIf="pacienteSaldoAFavor > 0 && fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
+            <label class="toggle-label" (click)="usarSaldoAFavor = !usarSaldoAFavor">
+              <div class="toggle-box" [class.on]="usarSaldoAFavor">
+                <div class="toggle-knob"></div>
+              </div>
+              <span>Usar saldo a favor (S/ {{ pacienteSaldoAFavor | number:'1.2-2' }} disponible)</span>
+            </label>
+            <p class="pago-hint" *ngIf="usarSaldoAFavor && !fPagado">
+              Se aplican S/ {{ saldoAplicadoAhora | number:'1.2-2' }} de su saldo a esta cita
+              <ng-container *ngIf="montoACobrarAhora > 0">
+                — queda <strong>PARCIAL</strong>, con S/ {{ montoACobrarAhora | number:'1.2-2' }} pendiente por cobrar después.
+              </ng-container>
+              <ng-container *ngIf="montoACobrarAhora === 0">
+                — cubre el precio completo, queda <strong>PAGADA</strong>.
+              </ng-container>
+            </p>
+          </div>
           <!-- Toggle solo para sesión única -->
           <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
             <label class="toggle-label" (click)="fPagado = !fPagado">
@@ -859,6 +884,9 @@
               </div>
               <span>{{ fPagado ? 'Marcar como PAGADO' : 'Dejar como PENDIENTE' }}</span>
             </label>
+            <p class="pago-hint" *ngIf="fPagado && usarSaldoAFavor">
+              Se cobra S/ {{ montoACobrarAhora | number:'1.2-2' }} ahora — el resto sale de su saldo a favor.
+            </p>
           </div>
           <!-- Control de pago parcial para programación múltiple -->
           <div class="bulk-pago-ctrl" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'multiple'">
@@ -955,6 +983,9 @@
                 <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
               </select>
             </div>
+            <div class="hc-pago-row" *ngIf="metodoRequiereReferencia(pagoMetodoId)">
+              <input type="text" class="hc-pago-inp" [(ngModel)]="pagoReferencia" placeholder="N° de operación">
+            </div>
             <div class="hc-pago-actions">
               <button class="hc-btn-cancel-pago" (click)="cancelarPagoCita()">Cancelar</button>
               <button class="hc-btn-confirm-pago" (click)="confirmarPagoCita(citaEditando)"
@@ -990,7 +1021,7 @@
 
     <div class="modal-hdr-at">
       <div class="modal-hdr-info">
-        <h2>Registrar atención clínica</h2>
+        <h2>{{ atencionEsEdicion ? 'Editar atención clínica' : 'Registrar atención clínica' }}</h2>
         <p *ngIf="citaParaAtencion">
           {{ citaParaAtencion.paciente_nombre }} {{ citaParaAtencion.paciente_apellido }}
           &middot; {{ citaParaAtencion.terapeuta_nombre }}
@@ -1000,6 +1031,7 @@
     </div>
 
     <div class="modal-body-at">
+      <p *ngIf="cargandoAtencionExistente" class="at-opt">Cargando atención registrada...</p>
       <div class="at-section">
         <div class="at-section-lbl">Notas post-sesión</div>
         <textarea class="at-textarea" [(ngModel)]="atencionNotas" rows="4"
@@ -1021,7 +1053,7 @@
     <div class="modal-footer-at">
       <button class="btn-cancel" (click)="cerrarAtencion()">Cancelar</button>
       <button class="btn-primary-at" (click)="guardarAtencion()" [disabled]="guardandoAtencion">
-        {{ guardandoAtencion ? 'Guardando...' : 'Registrar atención' }}
+        {{ guardandoAtencion ? 'Guardando...' : (atencionEsEdicion ? 'Guardar cambios' : 'Registrar atención') }}
       </button>
     </div>
 

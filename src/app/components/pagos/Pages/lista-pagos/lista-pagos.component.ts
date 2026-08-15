@@ -141,7 +141,10 @@ export class ListaPagosComponent implements OnInit {
         const filas = res.content.map(p => ({
           'Fecha': p.fechaPago ? new Date(p.fechaPago).toLocaleString('es-PE') : '',
           'Paciente': p.paciente ? `${p.paciente.nombre} ${p.paciente.apellido}` : '',
+          'DNI': p.paciente?.dni ?? '',
           'Paquete': p.tratamiento?.nombre ?? '',
+          'Terapeuta': p.tratamiento?.terapeutaNombre ?? '',
+          'Tipo': p.tratamiento?.tipoTerapiaNombre ?? '',
           'Método de pago': p.metodo?.nombre ?? '',
           'Monto recibido (S/)': p.montoRecibido ?? '',
           'Monto aplicado (S/)': p.montoAplicado ?? '',

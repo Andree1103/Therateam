@@ -3,6 +3,7 @@ import { CajaService } from '../../Services/caja.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CajaResumen, CierreCaja } from '../../Models/caja.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { ExcelExportService } from '../../../../core/services/excel-export.service';
 
 @Component({
   selector: 'app-lista-caja',
@@ -29,10 +30,13 @@ export class ListaCajaComponent implements OnInit {
   horaCorteForm = '13:00';
   guardandoHoraCorte = false;
 
+  exportando = false;
+
   constructor(
     private cajaService: CajaService,
     private toast: ToastService,
-    private authService: AuthService
+    private authService: AuthService,
+    private excelExportService: ExcelExportService
   ) {}
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('CAJA'); }
@@ -92,6 +96,23 @@ export class ListaCajaComponent implements OnInit {
 
   onFechaChange(): void {
     this.cargar();
+  }
+
+  /** Exporta el historial de cierres visible (últimos 30 días) — mismo rango que se ve en pantalla. */
+  exportarExcel(): void {
+    if (this.historial.length === 0) return;
+    this.exportando = true;
+    const filas = this.historial.map(h => ({
+      'Fecha': new Date(h.fecha).toLocaleDateString('es-PE'),
+      'Turno': h.turno,
+      'Saldo inicial (S/)': h.saldoInicial,
+      'Ingresos (S/)': h.totalIngresos,
+      'Egresos (S/)': h.egresos,
+      'Saldo final (S/)': h.saldoFinal,
+      'Comentario': h.comentario ?? '',
+    }));
+    this.excelExportService.exportar(filas, 'caja');
+    this.exportando = false;
   }
 
   cambiarTurno(t: 1 | 2): void {

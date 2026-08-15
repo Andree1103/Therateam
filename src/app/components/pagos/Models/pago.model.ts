@@ -4,6 +4,8 @@ import { Paciente } from '../../pacientes/Models/paciente.model';
 export interface TratamientoBasico {
   id: number;
   nombre: string;
+  terapeutaNombre?: string;
+  tipoTerapiaNombre?: string;
   totalSesiones?: number;
   precioPorSesion?: number;
   montoTotal?: number;

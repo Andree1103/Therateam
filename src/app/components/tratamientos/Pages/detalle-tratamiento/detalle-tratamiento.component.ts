@@ -316,6 +316,7 @@ export class DetalleTratamientoComponent implements OnInit {
           numero: s.numero,
           fecha: s.citaActiva?.fechaInicio ? new Date(s.citaActiva.fechaInicio) : null,
           areaNombre,
+          estado: s.citaActiva?.estado?.nombre ?? s.estado?.nombre ?? '',
         })),
       }, {
         nombreNegocio: valores['nombre_negocio'] || 'Thera Team',

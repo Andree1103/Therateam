@@ -407,6 +407,8 @@ tbody tr{height:var(--slot-h)}
 .pago-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:12px}
 .pago-section-hdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:10px}
 .precio-inp{width:100%;padding:7px 10px;border:0.5px solid #e2e8f2;border-radius:8px;font-size:13px;background:#fff;color:#111827;font-family:inherit}
+.saldo-favor-box{margin-top:10px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px}
+.saldo-favor-box .toggle-label{color:#15803d}
 .pago-toggle{margin-top:6px}
 .toggle-label{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13px;color:#334155;font-weight:600}
 .toggle-box{width:36px;height:20px;border-radius:10px;background:#cbd5e1;position:relative;transition:background .2s;flex-shrink:0}

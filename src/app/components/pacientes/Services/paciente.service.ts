@@ -37,6 +37,14 @@ export class PacienteService {
     });
   }
 
+  /** Reporte de adelantos: pacientes con saldo a favor disponible. */
+  getAdelantos(page: number, size: number, nombre?: string): Observable<PageResponse<Paciente>> {
+    return this.api.get<PageResponse<Paciente>>(`${this.PATH}/adelantos`, {
+      page: String(page), size: String(size),
+      nombre: nombre?.trim() || undefined,
+    });
+  }
+
   getById(id: number): Observable<Paciente> {
     return this.api.get<Paciente>(`${this.PATH}/${id}`);
   }

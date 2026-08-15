@@ -61,6 +61,14 @@ export class TratamientoService {
     return this.api.get<Tratamiento[]>(`${this.PATH}/terapeuta/${terapeutaId}`);
   }
 
+  /** Reporte de adelantos: paquetes con saldo a favor (pagado de más contra lo ya consumido). */
+  getAdelantos(page: number, size: number, paciente?: string): Observable<PageResponse<Tratamiento>> {
+    return this.api.get<PageResponse<Tratamiento>>(`${this.PATH}/adelantos`, {
+      page: String(page), size: String(size),
+      paciente: paciente?.trim() || undefined,
+    });
+  }
+
   create(t: any): Observable<Tratamiento> {
     return this.api.post<Tratamiento>(this.PATH, t);
   }

@@ -12,6 +12,8 @@ export interface Paciente {
   sede?: Sede;
   notas?: string;
   activo?: boolean;
+  /** Crédito del paciente (adelantos pagados de más contra cualquier paquete o cita suya, aún sin aplicar). */
+  saldoAFavor?: number;
   createdAt?: string;
   updatedAt?: string;
 }

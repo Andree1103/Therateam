@@ -199,14 +199,21 @@
         </div>
 
         <!-- Área (primero, igual que en Citas): filtra tipo de terapia y terapeuta -->
-        <div class="frow">
+        <div class="frow autocomplete-wrap">
           <label>Área *</label>
-          <select [(ngModel)]="fAreaId" name="areaId" (ngModelChange)="onAreaChange()" required #areaRef="ngModel"
-                  [class.err-input]="areaRef.invalid && areaRef.touched">
-            <option [ngValue]="null">— Seleccionar —</option>
-            <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
-          </select>
-          <span class="err-msg" *ngIf="areaRef.invalid && areaRef.touched">Requerido</span>
+          <input type="text" [(ngModel)]="areaBusqueda" name="areaBusqueda"
+                 (focus)="abrirAreaDropdown()" (blur)="cerrarAreaDropdownDiferido(); areaBusquedaTocado = true"
+                 (ngModelChange)="fAreaId = null; abrirAreaDropdown()"
+                 placeholder="Buscar área..." autocomplete="off"
+                 [class.err-input]="!fAreaId && areaBusquedaTocado">
+          <div class="autocomplete-dropdown" *ngIf="areaDropdownAbierto && areasFiltradas.length > 0">
+            <div class="autocomplete-item" *ngFor="let a of areasFiltradas" (mousedown)="seleccionarArea(a)">
+              <span class="ac-nombre">{{ a.nombre }}</span>
+            </div>
+          </div>
+          <div class="dur-info" *ngIf="areaDropdownAbierto && areasFiltradas.length === 0">Sin resultados.</div>
+          <input type="hidden" [(ngModel)]="fAreaId" name="areaId" required>
+          <span class="err-msg" *ngIf="!fAreaId && areaBusquedaTocado">Requerido</span>
         </div>
 
         <!-- Paciente por DNI: busca uno existente o permite darlo de alta ahí mismo -->

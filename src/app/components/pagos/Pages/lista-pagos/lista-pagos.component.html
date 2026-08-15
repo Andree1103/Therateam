@@ -70,7 +70,10 @@
           <tr>
             <th>Fecha</th>
             <th>Paciente</th>
+            <th>DNI</th>
             <th>Paquete</th>
+            <th>Terapeuta</th>
+            <th>Tipo</th>
             <th>Método</th>
             <th>Monto</th>
             <th>Referencia</th>
@@ -83,7 +86,10 @@
             <td>
               <div class="entity-name">{{ p.paciente?.nombre }} {{ p.paciente?.apellido }}</div>
             </td>
+            <td class="text-muted small">{{ p.paciente?.dni || '—' }}</td>
             <td class="text-muted">{{ p.tratamiento?.nombre || '—' }}</td>
+            <td class="text-muted small">{{ p.tratamiento?.terapeutaNombre || '—' }}</td>
+            <td class="text-muted small">{{ p.tratamiento?.tipoTerapiaNombre || '—' }}</td>
             <td>
               <span class="metodo-badge" *ngIf="p.metodo">{{ p.metodo.nombre }}</span>
               <span *ngIf="!p.metodo">—</span>
