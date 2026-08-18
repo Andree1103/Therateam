@@ -78,6 +78,20 @@
           <span class="if-lbl">Fecha de nacimiento</span>
           <span class="if-val">{{ formatFecha(paciente.fechaNacimiento) }} ({{ edad }})</span>
         </div>
+        <ng-container *ngIf="esMenorDeEdad">
+          <div class="info-field">
+            <span class="if-lbl">DNI apoderado</span>
+            <span class="if-val">{{ paciente.dniApoderado || '—' }}</span>
+          </div>
+          <div class="info-field">
+            <span class="if-lbl">Nombre apoderado</span>
+            <span class="if-val">{{ paciente.nombreApoderado || '—' }}</span>
+          </div>
+          <div class="info-field">
+            <span class="if-lbl">Celular apoderado</span>
+            <span class="if-val">{{ paciente.celularApoderado || '—' }}</span>
+          </div>
+        </ng-container>
         <div class="info-field">
           <span class="if-lbl">Sede</span>
           <span class="if-val">{{ paciente.sede?.nombre || '—' }}</span>

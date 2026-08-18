@@ -28,6 +28,13 @@ export interface Pago {
   fechaPago?: string;
   registradoPor?: { id: number; nombre: string; apellido: string };
   createdAt?: string;
+  /** Concepto libre para cobros adicionales (ej. "Material adicional"). */
+  concepto?: string;
+  /** true = cobro adicional: ingreso aparte, no paga deuda ni genera saldo a favor. */
+  esAdicional?: boolean;
+  /** true = este registro es la devolución de otro pago (dinero que salió, no que entró). */
+  esDevolucion?: boolean;
+  usuarioCreacionNombre?: string;
 }
 
 export interface PagoForm {

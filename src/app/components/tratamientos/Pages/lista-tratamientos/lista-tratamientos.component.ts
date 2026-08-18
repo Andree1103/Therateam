@@ -181,6 +181,7 @@ export class ListaTratamientosComponent implements OnInit {
           'Total cobrado (S/)': t.totalCobrado ?? '',
           'Saldo a favor (S/)': t.saldoAFavor ?? '',
           'Activo': t.activo ? 'Sí' : 'No',
+          'Usuario creación': t.usuarioCreacionNombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'paquetes');
       },

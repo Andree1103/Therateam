@@ -182,6 +182,28 @@
           </div>
         </div>
 
+        <!-- Solo obligatorio si el paciente es menor de 18 años según la fecha de nacimiento -->
+        <div class="apoderado-section" *ngIf="esMenorDeEdad">
+          <div class="apoderado-hdr">Datos del apoderado <span class="opc-tag">paciente menor de edad</span></div>
+          <div class="frow-2">
+            <div class="frow">
+              <label>DNI del apoderado *</label>
+              <input [(ngModel)]="formData.dniApoderado" name="dniApoderado" required #dniApoRef="ngModel"
+                     [class.err-input]="dniApoRef.invalid && dniApoRef.touched" placeholder="DNI">
+            </div>
+            <div class="frow">
+              <label>Celular del apoderado *</label>
+              <input [(ngModel)]="formData.celularApoderado" name="celularApoderado" required #celApoRef="ngModel"
+                     [class.err-input]="celApoRef.invalid && celApoRef.touched" placeholder="999 000 111">
+            </div>
+          </div>
+          <div class="frow">
+            <label>Nombre del apoderado *</label>
+            <input [(ngModel)]="formData.nombreApoderado" name="nombreApoderado" required #nomApoRef="ngModel"
+                   [class.err-input]="nomApoRef.invalid && nomApoRef.touched" placeholder="Nombre y apellido">
+          </div>
+        </div>
+
         <div class="frow-2">
           <div class="frow">
             <label>Sede</label>

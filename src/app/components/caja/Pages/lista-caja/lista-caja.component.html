@@ -10,8 +10,10 @@
       <label>Fecha</label>
       <input type="date" [(ngModel)]="fecha" (ngModelChange)="onFechaChange()">
     </div>
-    <button type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || historial.length === 0">
-      {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+    <button type="button" class="btn-secondary" (click)="exportarExcel()"
+            [disabled]="exportando || !resumen || resumen.ingresosPorMetodo.length === 0"
+            title="Exporta los ingresos por método del turno que estás viendo">
+      {{ exportando ? 'Exportando...' : 'Exportar día' }}
     </button>
   </div>
 
@@ -112,7 +114,12 @@
     </ng-container>
 
     <div class="card">
-      <div class="card-hdr">Historial (últimos 30 días)</div>
+      <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center">
+        Historial (últimos 30 días)
+        <button type="button" class="btn-secondary" (click)="exportarHistorial()" [disabled]="exportando || historial.length === 0">
+          {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+        </button>
+      </div>
       <div class="state-box small" *ngIf="!cargandoHistorial && historial.length === 0">
         <p>Sin cierres registrados en este rango</p>
       </div>

@@ -80,4 +80,10 @@ export class TratamientoService {
   delete(id: number): Observable<void> {
     return this.api.delete<void>(`${this.PATH}/${id}`);
   }
+
+  /** Anula todas las citas pendientes del paquete (no toca las ya atendidas ni las ya canceladas). */
+  anularPaquete(id: number, devolucion: 'SALDO' | 'DINERO' = 'SALDO', metodoId?: number | null): Observable<unknown> {
+    const qs = metodoId != null ? `?devolucion=${devolucion}&metodoId=${metodoId}` : `?devolucion=${devolucion}`;
+    return this.api.post<unknown>(`${this.PATH}/${id}/anular${qs}`, {});
+  }
 }

@@ -424,6 +424,19 @@
           <span class="paquete-banner-link">Ver paquete →</span>
         </div>
 
+        <!-- Cita agrupada (lote de "citas masivas") — solo informativo, no es un paquete -->
+        <div class="paquete-banner" *ngIf="citaEditando && citaEditando.lote_masivo_id && !citaEditando.sesion_id">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="13" width="7" height="7" rx="1"/><rect x="14" y="13" width="7" height="7" rx="1"/></svg>
+          <span class="paquete-banner-txt" *ngIf="loteResumen as lr; else cargandoLote">
+            Esta cita es parte de un grupo de <strong>{{ lr.totalPlaneado ?? lr.total }}</strong> citas masivas —
+            <strong>{{ lr.atendidas }}</strong> atendida{{ lr.atendidas === 1 ? '' : 's' }},
+            <strong>{{ lr.pendientes }}</strong> pendiente{{ lr.pendientes === 1 ? '' : 's' }}
+            <ng-container *ngIf="lr.canceladas > 0">, {{ lr.canceladas }} anulada{{ lr.canceladas === 1 ? '' : 's' }}</ng-container>
+            <ng-container *ngIf="lr.faltanPorCrear">, {{ lr.faltanPorCrear }} por crear</ng-container>
+          </span>
+          <ng-template #cargandoLote><span class="paquete-banner-txt">Cargando resumen del grupo...</span></ng-template>
+        </div>
+
         <!-- Área — determina qué tipos de terapia se pueden elegir -->
         <div class="frow">
           <label>Área</label>
@@ -688,14 +701,17 @@
         <!-- Al editar una cita ya creada se mantienen los inputs libres (la propia cita ocupa su
              slot, así que el selector de horas disponibles la mostraría como "no disponible"). -->
         <div *ngIf="modoProgramacion === 'single' && citaEditando">
+          <p class="pago-hint" *ngIf="citaEditando.estado === 'ASISTIDA'">
+            Esta cita ya fue atendida — no se puede reprogramar (cambiar fecha/hora).
+          </p>
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
-              <input type="date" [(ngModel)]="fFecha" [min]="hoyISO" (ngModelChange)="onDatosCitaChange()" class="date-inp">
+              <input type="date" [(ngModel)]="fFecha" [min]="hoyISO" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora inicio <span class="opc-tag">libre</span></label>
-              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="onDatosCitaChange()" class="time-inp">
+              <input type="time" [(ngModel)]="fHoraInicio" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="time-inp">
             </div>
           </div>
 
@@ -799,6 +815,18 @@
             <div class="dur-info" *ngIf="cuposDisponiblesTratamiento !== null">
               🔒 El paquete seleccionado solo tiene <strong>{{ cuposDisponiblesTratamiento }}</strong> cupo{{ cuposDisponiblesTratamiento === 1 ? '' : 's' }} libre{{ cuposDisponiblesTratamiento === 1 ? '' : 's' }} (sesiones sin cita creada aún).
             </div>
+          </div>
+
+          <!-- Agrupar (liviano, sin crear paquete): solo tiene sentido si no se eligió ya un paquete existente -->
+          <div class="frow" *ngIf="fTratamientoExistenteId === null">
+            <label class="bulk-dia-check" style="cursor:pointer">
+              <input type="checkbox" [(ngModel)]="bulkAgruparComoPaquete">
+              <span>Agrupar estas {{ bulkSesiones }} sesiones (para saber cuántas faltan / ya se atendieron)</span>
+            </label>
+            <p class="pago-hint" *ngIf="bulkAgruparComoPaquete">
+              No crea ningún paquete nuevo en tu catálogo — cada cita sigue siendo suelta e independiente
+              (con su propio precio y pago), solo quedan marcadas como parte del mismo grupo.
+            </p>
           </div>
 
           <!-- Duración -->
@@ -955,7 +983,7 @@
             </span>
           </div>
           <!-- Mini-form si no está pagada y citaPagandoId apunta a esta cita -->
-          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id && puedeRegistrarPago">
+          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id && puedeRegistrarPago && !esCitaCancelada(citaEditando)">
             <button class="hc-btn-pagar" style="margin-top:6px" (click)="abrirPagoCita(citaEditando, $event)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               Registrar pago
@@ -994,12 +1022,56 @@
               </button>
             </div>
           </div>
+
+          <!-- Cobro adicional: ingreso aparte de esta cita (ej. algo extra vendido al paciente) -->
+          <div style="margin-top:10px" *ngIf="!mostrarCobroAdicional && !esCitaCancelada(citaEditando)">
+            <button class="hc-btn-pagar" (click)="abrirCobroAdicional()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Cobro adicional
+            </button>
+          </div>
+          <div class="hc-pago-form" *ngIf="mostrarCobroAdicional">
+            <div class="hc-pago-row">
+              <div class="hc-pago-monto-input">
+                <span class="hc-pago-lbl">Monto (S/)</span>
+                <input type="number" min="0" step="0.01" [(ngModel)]="cobroAdicionalMonto" class="hc-pago-inp" placeholder="0.00">
+              </div>
+              <select class="hc-pago-sel" [(ngModel)]="cobroAdicionalMetodoId">
+                <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+              </select>
+            </div>
+            <div class="hc-pago-row">
+              <input type="text" class="hc-pago-inp" [(ngModel)]="cobroAdicionalConcepto" placeholder="Concepto (ej. Material adicional)">
+            </div>
+            <div class="hc-pago-row" *ngIf="metodoRequiereReferencia(cobroAdicionalMetodoId)">
+              <input type="text" class="hc-pago-inp" [(ngModel)]="cobroAdicionalReferencia" placeholder="N° de operación">
+            </div>
+            <p class="pago-hint">Este cobro es un ingreso aparte: no descuenta ninguna deuda ni genera saldo a favor.</p>
+            <div class="hc-pago-actions">
+              <button class="hc-btn-cancel-pago" (click)="cancelarCobroAdicional()">Cancelar</button>
+              <button class="hc-btn-confirm-pago" (click)="confirmarCobroAdicional()"
+                      [disabled]="guardandoCobroAdicional || !cobroAdicionalMonto">
+                {{ guardandoCobroAdicional ? '...' : 'Registrar cobro' }}
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>
 
+      <!-- Anular cita: elegir qué pasa con el dinero ya pagado -->
+      <div class="edit-pago-section" *ngIf="citaEditando && mostrarAnularOpciones">
+        <div class="edit-pago-hdr">¿Qué hacemos con el dinero ya pagado de esta cita?</div>
+        <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px">
+          <button class="hc-btn-pagar" [disabled]="anulando" (click)="confirmarAnular('SALDO')">Queda como saldo a favor</button>
+          <button class="btn-eliminar" [disabled]="anulando" (click)="confirmarAnular('DINERO')">Devolver el dinero</button>
+          <button class="hc-btn-cancel-pago" [disabled]="anulando" (click)="cancelarAnular()">Cancelar</button>
+        </div>
+      </div>
+
       <div class="modal-footer">
-        <button *ngIf="citaEditando && puedeEliminarCitas" class="btn-eliminar" (click)="eliminarCita()">Eliminar</button>
+        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !mostrarAnularOpciones"
+                class="btn-eliminar" (click)="abrirAnular()">Anular</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
         <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"
                 *ngIf="citaEditando ? puedeEditarCitas : puedeCrearCitas">

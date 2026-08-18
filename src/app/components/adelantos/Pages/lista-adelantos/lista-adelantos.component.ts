@@ -83,6 +83,7 @@ export class ListaAdelantosComponent implements OnInit {
           'Teléfono': p.telefono ?? '',
           'Correo': p.correo ?? '',
           'Saldo a favor (S/)': p.saldoAFavor ?? '',
+          'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'adelantos');
       },

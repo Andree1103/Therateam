@@ -98,6 +98,15 @@ export class PerfilPacienteComponent implements OnInit {
     return `${anos} años`;
   }
 
+  get esMenorDeEdad(): boolean {
+    if (!this.paciente?.fechaNacimiento) return false;
+    const nac = new Date(this.paciente.fechaNacimiento);
+    const hoy = new Date();
+    const anos = hoy.getFullYear() - nac.getFullYear() -
+      (hoy < new Date(hoy.getFullYear(), nac.getMonth(), nac.getDate()) ? 1 : 0);
+    return anos < 18;
+  }
+
   // ── Helpers de formato ────────────────────────────────────────────────────
 
   formatFecha(f?: string | Date): string {

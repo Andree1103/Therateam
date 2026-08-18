@@ -8,6 +8,10 @@ export interface Paciente {
   telefono?: string;
   correo?: string;
   fechaNacimiento?: string;
+  /** Solo obligatorios cuando el paciente es menor de 18 años. */
+  dniApoderado?: string;
+  nombreApoderado?: string;
+  celularApoderado?: string;
   origen?: CatalogItem;
   sede?: Sede;
   notas?: string;
@@ -16,6 +20,7 @@ export interface Paciente {
   saldoAFavor?: number;
   createdAt?: string;
   updatedAt?: string;
+  usuarioCreacionNombre?: string;
 }
 
 export interface PacienteForm {
@@ -25,6 +30,9 @@ export interface PacienteForm {
   telefono: string;
   correo: string;
   fechaNacimiento: string;
+  dniApoderado: string;
+  nombreApoderado: string;
+  celularApoderado: string;
   notas: string;
   activo: boolean;
   sedeId: number | null;

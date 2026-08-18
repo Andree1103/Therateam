@@ -85,6 +85,9 @@
             <td class="text-muted small">{{ (p.fechaPago || p.createdAt) | date:'d MMM yyyy HH:mm' }}</td>
             <td>
               <div class="entity-name">{{ p.paciente?.nombre }} {{ p.paciente?.apellido }}</div>
+              <span class="metodo-badge" style="background:#fee2e2;color:#b91c1c" *ngIf="p.esDevolucion">Devolución</span>
+              <span class="metodo-badge" style="background:#e0e7ff;color:#4338ca" *ngIf="p.esAdicional">Adicional</span>
+              <div class="text-muted small" *ngIf="p.concepto">{{ p.concepto }}</div>
             </td>
             <td class="text-muted small">{{ p.paciente?.dni || '—' }}</td>
             <td class="text-muted">{{ p.tratamiento?.nombre || '—' }}</td>
@@ -95,7 +98,9 @@
               <span *ngIf="!p.metodo">—</span>
             </td>
             <td>
-              <span class="monto">S/ {{ p.montoRecibido | number:'1.2-2' }}</span>
+              <span class="monto" [style.color]="p.esDevolucion ? '#b91c1c' : null">
+                {{ p.esDevolucion ? '-' : '' }}S/ {{ p.montoRecibido | number:'1.2-2' }}
+              </span>
             </td>
             <td class="text-muted small">{{ p.referencia || '—' }}</td>
             <td>

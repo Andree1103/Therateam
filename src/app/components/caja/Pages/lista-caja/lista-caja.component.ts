@@ -98,8 +98,36 @@ export class ListaCajaComponent implements OnInit {
     this.cargar();
   }
 
-  /** Exporta el historial de cierres visible (últimos 30 días) — mismo rango que se ve en pantalla. */
+  /**
+   * Exporta el día/turno que se está viendo (ingresos por método + totales) — antes el único
+   * botón exportaba el historial de cierres y quedaba deshabilitado si todavía no se había
+   * cerrado ningún turno en los últimos 30 días, aunque el día seleccionado sí tuviera ingresos.
+   */
   exportarExcel(): void {
+    if (!this.resumen) return;
+    if (this.resumen.ingresosPorMetodo.length === 0) {
+      this.toast.warning('No hay ingresos registrados para exportar en este turno'); return;
+    }
+    this.exportando = true;
+    const fechaStr = new Date(this.resumen.fecha + 'T00:00:00').toLocaleDateString('es-PE');
+    const filas = this.resumen.ingresosPorMetodo.map(m => ({
+      'Fecha': fechaStr,
+      'Turno': this.resumen!.turno,
+      'Método': m.metodoNombre,
+      'Monto (S/)': m.monto,
+    }));
+    filas.push({
+      'Fecha': fechaStr,
+      'Turno': this.resumen.turno,
+      'Método': 'TOTAL',
+      'Monto (S/)': this.resumen.totalIngresos,
+    });
+    this.excelExportService.exportar(filas, `caja_${this.fecha}_turno${this.turno}`);
+    this.exportando = false;
+  }
+
+  /** Exporta el historial de cierres visible (últimos 30 días) — mismo rango que se ve en pantalla. */
+  exportarHistorial(): void {
     if (this.historial.length === 0) return;
     this.exportando = true;
     const filas = this.historial.map(h => ({
@@ -110,8 +138,9 @@ export class ListaCajaComponent implements OnInit {
       'Egresos (S/)': h.egresos,
       'Saldo final (S/)': h.saldoFinal,
       'Comentario': h.comentario ?? '',
+      'Usuario creación': h.cerradoPor ? `${h.cerradoPor.nombre ?? ''} ${h.cerradoPor.apellido ?? ''}`.trim() : '',
     }));
-    this.excelExportService.exportar(filas, 'caja');
+    this.excelExportService.exportar(filas, 'caja_historial');
     this.exportando = false;
   }
 

@@ -48,6 +48,9 @@ export interface Cita {
   total_sesiones?: number | null;
   tratamiento_id?: number | null;
   tratamiento_nombre?: string | null;
+  metodo_pago_nombre?: string | null;
+  lote_masivo_id?: string | null;
+  usuario_creacion_nombre?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -116,6 +119,18 @@ export interface CrearCitaConPacienteRequest {
   tratamientoId?: number | null;
   /** Clasificación de la cita: FIJO (horario recurrente permanente), EVENTUAL (ocasional) o SOLO_HOY (única vez). */
   tipoRecurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
+  /** Agrupador liviano de "citas masivas" — mismo valor en todas las citas del mismo lote, no crea ningún paquete. */
+  loteMasivoId?: string;
+}
+
+export interface LoteResumen {
+  loteMasivoId: string;
+  total: number;
+  atendidas: number;
+  pendientes: number;
+  canceladas: number;
+  totalPlaneado?: number | null;
+  faltanPorCrear?: number | null;
 }
 
 export interface PacienteResumen {
@@ -174,4 +189,7 @@ export interface CitaApiDTO {
   total_sesiones?: number | null;
   tratamiento_id?: number | null;
   tratamiento_nombre?: string | null;
+  metodo_pago_nombre?: string | null;
+  lote_masivo_id?: string | null;
+  usuario_creacion_nombre?: string | null;
 }

@@ -151,6 +151,7 @@ export class ListaPagosComponent implements OnInit {
           'Saldo generado (S/)': p.saldoGenerado ?? '',
           'Referencia': p.referencia ?? '',
           'Notas': p.notas ?? '',
+          'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'pagos');
       },

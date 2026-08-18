@@ -38,11 +38,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Fecha</th>
-            <th>Paciente</th>
-            <th>Terapeuta</th>
+            <th class="th-sort" (click)="ordenarPorColumna('fechaInicio')">Fecha {{ iconoOrden('fechaInicio') }}</th>
+            <th class="th-sort" (click)="ordenarPorColumna('paciente.nombre')">Paciente {{ iconoOrden('paciente.nombre') }}</th>
+            <th class="th-sort" (click)="ordenarPorColumna('terapeuta.usuario.nombre')">Terapeuta {{ iconoOrden('terapeuta.usuario.nombre') }}</th>
             <th>Tipo de terapia</th>
-            <th>Estado de pago</th>
+            <th class="th-sort" (click)="ordenarPorColumna('precio')">Precio {{ iconoOrden('precio') }}</th>
+            <th class="th-sort" (click)="ordenarPorColumna('estadoPago.key')">Estado de pago {{ iconoOrden('estadoPago.key') }}</th>
+            <th>Medio de pago</th>
             <th></th>
           </tr>
         </thead>
@@ -52,11 +54,13 @@
             <td>{{ c.paciente_nombre }} {{ c.paciente_apellido }}</td>
             <td>{{ c.terapeuta_nombre }}</td>
             <td>{{ c.tipo_terapia_nombre }}</td>
+            <td>{{ c.precio != null ? ('S/ ' + (c.precio | number:'1.2-2')) : '—' }}</td>
             <td>
               <span class="pago-badge" [style.background]="(c.estado_pago_color || '#185FA5') + '1a'" [style.color]="c.estado_pago_color || '#185FA5'">
                 {{ c.estado_pago_nombre || 'Pagada' }}
               </span>
             </td>
+            <td>{{ c.metodo_pago_nombre || '—' }}</td>
             <td><button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button></td>
           </tr>
         </tbody>

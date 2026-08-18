@@ -24,6 +24,7 @@ export interface User {
   terapeutaId: number | null;
   citasSoloPropias: boolean;
   citasPuedeCrear: boolean;
+  pacientesVerTelefono: boolean;
 }
 
 interface LoginResponse {
@@ -38,6 +39,7 @@ interface LoginResponse {
   terapeutaId: number | null;
   citasSoloPropias: boolean;
   citasPuedeCrear: boolean;
+  pacientesVerTelefono: boolean;
 }
 
 @Injectable({
@@ -80,6 +82,7 @@ export class AuthService {
           email: res.email, rol: res.rol, modulos: res.modulos, permisos: res.permisos ?? [],
           terapeutaId: res.terapeutaId, citasSoloPropias: res.citasSoloPropias,
           citasPuedeCrear: res.citasPuedeCrear,
+          pacientesVerTelefono: res.pacientesVerTelefono,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -131,6 +134,12 @@ export class AuthService {
   /** false solo si el usuario está explícitamente restringido a no crear citas (configurable en Seguridad). */
   puedeCrearCitas(): boolean {
     return this.currentUserValue?.citasPuedeCrear ?? true;
+  }
+
+  /** Dato sensible: true solo si el usuario tiene el permiso activado explícitamente en Seguridad
+   *  (a diferencia de puedeCrearCitas, acá el default es NO ver). */
+  puedeVerTelefonoPacientes(): boolean {
+    return this.currentUserValue?.pacientesVerTelefono ?? false;
   }
 
   /** Rol ADMIN exacto — para acciones sensibles que no dependen del permiso granular por módulo (ej. editar terapeuta/monto de una cita ya creada). */

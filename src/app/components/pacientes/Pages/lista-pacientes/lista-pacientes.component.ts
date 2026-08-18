@@ -81,10 +81,14 @@ export class ListaPacientesComponent implements OnInit {
           'Teléfono': p.telefono ?? '',
           'Correo': p.correo ?? '',
           'Fecha de nacimiento': p.fechaNacimiento ?? '',
+          'DNI apoderado': p.dniApoderado ?? '',
+          'Nombre apoderado': p.nombreApoderado ?? '',
+          'Celular apoderado': p.celularApoderado ?? '',
           'Sede': p.sede?.nombre ?? '',
           'Origen': p.origen?.nombre ?? '',
           'Activo': p.activo ? 'Sí' : 'No',
           'Notas': p.notas ?? '',
+          'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'pacientes');
       },
@@ -171,24 +175,45 @@ export class ListaPacientesComponent implements OnInit {
     if (!this.puedeEditar) return;
     this.editando = p;
     this.formData = {
-      nombre:          p.nombre,
-      apellido:        p.apellido,
-      dni:             p.dni             || '',
-      telefono:        p.telefono        || '',
-      correo:          p.correo          || '',
-      fechaNacimiento: p.fechaNacimiento || '',
-      notas:           p.notas           || '',
-      activo:          p.activo          ?? true,
-      sedeId:          p.sede?.id        ?? null,
-      origenId:        p.origen?.id      ?? null,
+      nombre:            p.nombre,
+      apellido:          p.apellido,
+      dni:               p.dni               || '',
+      telefono:          p.telefono          || '',
+      correo:            p.correo            || '',
+      fechaNacimiento:   p.fechaNacimiento   || '',
+      dniApoderado:      p.dniApoderado      || '',
+      nombreApoderado:   p.nombreApoderado   || '',
+      celularApoderado:  p.celularApoderado  || '',
+      notas:             p.notas             || '',
+      activo:            p.activo            ?? true,
+      sedeId:            p.sede?.id          ?? null,
+      origenId:          p.origen?.id        ?? null,
     };
     this.modalAbierto = true;
+  }
+
+  /** true si la fecha de nacimiento ingresada corresponde a un menor de 18 años — controla si los
+   *  campos del apoderado se muestran y son obligatorios en el formulario. */
+  get esMenorDeEdad(): boolean {
+    if (!this.formData.fechaNacimiento) return false;
+    const nacimiento = new Date(this.formData.fechaNacimiento);
+    if (isNaN(nacimiento.getTime())) return false;
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const noCumplioAunEsteAnio = hoy.getMonth() < nacimiento.getMonth() ||
+      (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+    if (noCumplioAunEsteAnio) edad--;
+    return edad < 18;
   }
 
   cerrarModal(): void { this.modalAbierto = false; }
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
+    if (this.esMenorDeEdad && (!this.formData.dniApoderado.trim() || !this.formData.nombreApoderado.trim() || !this.formData.celularApoderado.trim())) {
+      this.toast.warning('El paciente es menor de edad — completa el DNI, nombre y celular del apoderado.');
+      return;
+    }
     this.guardando = true;
     const body = this.buildBody();
     const esEdicion = !!this.editando;
@@ -249,22 +274,26 @@ export class ListaPacientesComponent implements OnInit {
     // Por defecto, la primera sede activa (típicamente Sede Principal) — el backend hace lo mismo
     // si de todos modos llega sin sede, esto solo evita que el admin vea "Sin sede" en el form.
     return { nombre: '', apellido: '', dni: '', telefono: '', correo: '',
-             fechaNacimiento: '', notas: '', activo: true, sedeId: this.sedes[0]?.id ?? null, origenId: null };
+             fechaNacimiento: '', dniApoderado: '', nombreApoderado: '', celularApoderado: '',
+             notas: '', activo: true, sedeId: this.sedes[0]?.id ?? null, origenId: null };
   }
 
   private buildBody(): Partial<Paciente> {
     const f = this.formData;
     return {
-      nombre:          f.nombre,
-      apellido:        f.apellido,
-      dni:             f.dni             || undefined,
-      telefono:        f.telefono        || undefined,
-      correo:          f.correo          || undefined,
-      fechaNacimiento: f.fechaNacimiento || undefined,
-      notas:           f.notas           || undefined,
-      activo:          f.activo,
-      origen:          f.origenId ? { id: f.origenId } as any : undefined,
-      sede:            f.sedeId   ? { id: f.sedeId   } as any : undefined,
+      nombre:            f.nombre,
+      apellido:          f.apellido,
+      dni:               f.dni               || undefined,
+      telefono:          f.telefono          || undefined,
+      correo:            f.correo            || undefined,
+      fechaNacimiento:   f.fechaNacimiento   || undefined,
+      dniApoderado:      f.dniApoderado      || undefined,
+      nombreApoderado:   f.nombreApoderado   || undefined,
+      celularApoderado:  f.celularApoderado  || undefined,
+      notas:             f.notas             || undefined,
+      activo:            f.activo,
+      origen:            f.origenId ? { id: f.origenId } as any : undefined,
+      sede:              f.sedeId   ? { id: f.sedeId   } as any : undefined,
     };
   }
 }

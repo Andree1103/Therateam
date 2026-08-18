@@ -326,6 +326,35 @@ export class DetalleTratamientoComponent implements OnInit {
     });
   }
 
+  // ── Anular paquete (todas las citas pendientes, no las ya atendidas) ──────
+
+  mostrarAnularPaquete = false;
+  anulandoPaquete = false;
+
+  abrirAnularPaquete(): void { this.mostrarAnularPaquete = true; }
+  cancelarAnularPaquete(): void { this.mostrarAnularPaquete = false; }
+
+  confirmarAnularPaquete(devolucion: 'SALDO' | 'DINERO'): void {
+    if (!this.tratamiento?.id) return;
+    const msg = devolucion === 'SALDO'
+      ? '¿Anular todas las citas pendientes de este paquete? Lo ya pagado por ellas quedará como saldo a favor del paciente. Las sesiones ya atendidas no se tocan.'
+      : '¿Anular todas las citas pendientes y devolver el dinero? Se registra la devolución de cada sesión cancelada, sin generar saldo a favor. Las sesiones ya atendidas no se tocan.';
+    if (!confirm(msg)) return;
+    this.anulandoPaquete = true;
+    this.tratamientoService.anularPaquete(this.tratamiento.id, devolucion).subscribe({
+      next: () => {
+        this.toast.success('Citas pendientes del paquete anuladas correctamente');
+        this.anulandoPaquete = false;
+        this.mostrarAnularPaquete = false;
+        this.cargar();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al anular el paquete');
+        this.anulandoPaquete = false;
+      }
+    });
+  }
+
   // ── Navegación ────────────────────────────────────────────────────────────
 
   volver(): void { this.router.navigate(['/tratamientos']); }

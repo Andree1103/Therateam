@@ -35,4 +35,6 @@ export interface CierreCaja {
   egresos: number;
   saldoFinal: number;
   comentario: string | null;
+  /** Quien registró/cerró este turno — mismo usuario de creación del cierre. */
+  cerradoPor?: { nombre?: string; apellido?: string } | null;
 }

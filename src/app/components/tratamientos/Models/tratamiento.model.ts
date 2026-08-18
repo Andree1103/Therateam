@@ -37,6 +37,8 @@ export interface Tratamiento {
   totalSesiones?: number;
   sesionesAtendidas?: number;
   sesionesPendientes?: number;
+
+  usuarioCreacionNombre?: string;
 }
 
 /** Cuántas sesiones ya tienen cita creada y cuántas de esas están pagadas/pendientes de pago. */

@@ -64,6 +64,7 @@
                     {{ p.modulo.nombre }}<span class="text-muted" *ngIf="!p.crear && !p.editar && !p.eliminar"> (solo ver)</span>
                   </span>
                   <span class="text-muted" *ngIf="!r.permisos?.length">Sin módulos</span>
+                  <span class="modulo-chip" *ngIf="r.pacientesVerTelefono" title="Ve el celular de los pacientes">Ve celulares</span>
                 </div>
               </td>
               <td>
@@ -225,6 +226,13 @@
             <option [ngValue]="true">Activo</option>
             <option [ngValue]="false">Inactivo</option>
           </select>
+        </div>
+        <div class="frow">
+          <label>Datos sensibles</label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPacientesVerTelefono" name="pacientesVerTelefono">
+            Este rol puede ver el celular de los pacientes
+          </label>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-secondary" (click)="cerrarModalRol()">Cancelar</button>

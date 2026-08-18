@@ -40,6 +40,10 @@ export class ListaAtencionesComponent implements OnInit {
   totalElementos = 0;
   totalPaginas = 0;
 
+  // ── Ordenamiento personalizado (server-side, vía Pageable de Spring) ───────
+  ordenarPor: 'fechaInicio' | 'paciente.nombre' | 'terapeuta.usuario.nombre' | 'estadoPago.key' | 'precio' = 'fechaInicio';
+  direccionOrden: 'asc' | 'desc' = 'desc';
+
   // ── Modal de detalle de atención (solo lectura) ─────────────────────────────
   modalAbierto = false;
   cargandoDetalle = false;
@@ -72,7 +76,8 @@ export class ListaAtencionesComponent implements OnInit {
 
   cargar(): void {
     this.loading = true;
-    this.citaService.getFiltroPaged(this.paginaActual, this.tamanioPagina, this.buildFiltros()).subscribe({
+    const sort = `${this.ordenarPor},${this.direccionOrden}`;
+    this.citaService.getFiltroPaged(this.paginaActual, this.tamanioPagina, this.buildFiltros(), sort).subscribe({
       next: res => {
         this.atenciones = res.content;
         this.totalElementos = res.totalElements;
@@ -81,6 +86,24 @@ export class ListaAtencionesComponent implements OnInit {
       },
       error: () => { this.loading = false; this.toast.error('Error al cargar las atenciones'); }
     });
+  }
+
+  /** Clic en un encabezado de columna: si ya se estaba ordenando por esa columna invierte la
+   *  dirección, si no, la elige y arranca ascendente. */
+  ordenarPorColumna(campo: typeof this.ordenarPor): void {
+    if (this.ordenarPor === campo) {
+      this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.ordenarPor = campo;
+      this.direccionOrden = 'asc';
+    }
+    this.paginaActual = 0;
+    this.cargar();
+  }
+
+  iconoOrden(campo: typeof this.ordenarPor): string {
+    if (this.ordenarPor !== campo) return '';
+    return this.direccionOrden === 'asc' ? '▲' : '▼';
   }
 
   buscar(): void {
@@ -145,7 +168,9 @@ export class ListaAtencionesComponent implements OnInit {
           'Tipo de terapia': c.tipo_terapia_nombre ?? '',
           'Precio (S/)': c.precio ?? '',
           'Estado de pago': c.estado_pago_nombre ?? '',
+          'Medio de pago': c.metodo_pago_nombre ?? '',
           'Paquete': c.tratamiento_nombre ?? '',
+          'Usuario creación': c.usuario_creacion_nombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'atenciones');
       },

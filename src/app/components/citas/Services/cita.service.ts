@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map, catchError, of } from 'rxjs';
 import { PageResponse } from '../../../core/models/page.model';
-import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, PacienteResumen, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
+import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, LoteResumen, PacienteResumen, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
 import { ApiService } from '../../../core/services/api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -70,10 +70,11 @@ export class CitaService {
     }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
   }
 
-  /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha). */
+  /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha).
+   *  `sort` es el formato de Spring Data: "propiedad,asc|desc" (ej. "paciente.nombre,asc"). */
   getFiltroPaged(page: number, size: number, filtros: {
     fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string; areaId?: number | null;
-  }): Observable<PageResponse<Cita>> {
+  }, sort?: string): Observable<PageResponse<Cita>> {
     return this.api.get<PageResponse<CitaApiDTO>>(`${this.PATH}/filtro`, {
       page: String(page), size: String(size),
       fechaInicio: filtros.fechaInicio ? this.toISOLocal(filtros.fechaInicio) : undefined,
@@ -82,11 +83,19 @@ export class CitaService {
       estadoKey:   filtros.estadoKey || undefined,
       paciente:    filtros.paciente || undefined,
       areaId:      filtros.areaId != null ? String(filtros.areaId) : undefined,
+      sort:        sort || undefined,
     }).pipe(map(r => ({ ...r, content: r.content.map(d => this.mapDTO(d)) })));
   }
 
   getCitaById(id: string): Observable<Cita> {
     return this.api.get<CitaApiDTO>(`${this.PATH}/${id}`).pipe(map(d => this.mapDTO(d)));
+  }
+
+  /** Cuántas citas de un lote de "citas masivas" faltan/ya se atendieron/se cancelaron. */
+  getResumenLote(loteMasivoId: string): Observable<LoteResumen | null> {
+    return this.api.get<LoteResumen>(`${this.PATH}/lote/${loteMasivoId}/resumen`).pipe(
+      catchError(() => of(null))
+    );
   }
 
   /** Historial de citas de un paciente — directo, ya no depende de sesión/tratamiento. */
@@ -116,6 +125,18 @@ export class CitaService {
   // ── Eliminar ───────────────────────────────────────────────────────────────
   eliminarCitaLocal(id: string): Observable<void> {
     return this.api.delete<void>(`${this.PATH}/${id}`);
+  }
+
+  /**
+   * Anula la cita (queda CANCELADA_CLINICA) y resuelve el pago asociado:
+   * `devolucion` = 'SALDO' (default) deja el monto como saldo a favor del paciente;
+   * 'DINERO' revierte y elimina el pago (devolución real, no genera saldo).
+   */
+  anularCita(id: string, devolucion: 'SALDO' | 'DINERO' = 'SALDO', metodoId?: number | null): Observable<Cita> {
+    const qs = metodoId != null ? `?devolucion=${devolucion}&metodoId=${metodoId}` : `?devolucion=${devolucion}`;
+    return this.api.post<CitaApiDTO>(`${this.PATH}/${id}/anular${qs}`, {}).pipe(
+      map(d => this.mapDTO(d))
+    );
   }
 
   // ── Crear cita (usado por crear-cita component) ───────────────────────────
@@ -226,6 +247,9 @@ export class CitaService {
       total_sesiones:      dto.total_sesiones ?? null,
       tratamiento_id:      dto.tratamiento_id ?? null,
       tratamiento_nombre:  dto.tratamiento_nombre ?? null,
+      metodo_pago_nombre:  dto.metodo_pago_nombre ?? null,
+      lote_masivo_id:      dto.lote_masivo_id ?? null,
+      usuario_creacion_nombre: dto.usuario_creacion_nombre ?? null,
     };
   }
 

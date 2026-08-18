@@ -32,6 +32,22 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Registrar pago
       </button>
+      <button class="btn-secondary" style="color:#b91c1c;border-color:#fecaca;background:#fef2f2"
+              *ngIf="!mostrarAnularPaquete" (click)="abrirAnularPaquete()"
+              title="Anula todas las citas pendientes de este paquete (no toca las ya atendidas)">
+        Anular paquete
+      </button>
+    </div>
+  </div>
+
+  <div class="page-body" *ngIf="mostrarAnularPaquete" style="margin-top:-8px">
+    <div class="state-box" style="align-items:flex-start;gap:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px">
+      <p style="margin:0;font-size:13px;color:#7f1d1d">¿Qué hacemos con el dinero de las sesiones pendientes que se anulen?</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-secondary" [disabled]="anulandoPaquete" (click)="confirmarAnularPaquete('SALDO')">Queda como saldo a favor</button>
+        <button class="btn-secondary" style="color:#b91c1c" [disabled]="anulandoPaquete" (click)="confirmarAnularPaquete('DINERO')">Devolver el dinero</button>
+        <button class="btn-secondary" [disabled]="anulandoPaquete" (click)="cancelarAnularPaquete()">Cancelar</button>
+      </div>
     </div>
   </div>
 

@@ -11,7 +11,7 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
-import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita, PacienteResumen, TipoTerapia } from '../../Models/cita.model';
+import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, LoteResumen, PacienteEnCita, PacienteResumen, TipoTerapia } from '../../Models/cita.model';
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
@@ -236,6 +236,12 @@ export class ListaCitasComponent implements OnInit {
   bulkHorarioCargado = false;
   /** Paralelo a bulkPreview: true si esa fecha/hora choca con otra cita ya existente del terapeuta. */
   bulkConflictos: boolean[] = [];
+  /** Si está activo (y no se eligió un paquete existente), las citas masivas comparten un
+   *  `loteMasivoId` liviano — NO crea ningún paquete en el catálogo, solo permite contar
+   *  cuántas del grupo faltan / ya se atendieron. Cada cita sigue siendo suelta e independiente. */
+  bulkAgruparComoPaquete = false;
+  /** Resumen del grupo (lote de citas masivas) de la cita que se está editando — se carga on-demand. */
+  loteResumen: LoteResumen | null = null;
 
   // ── Pago individual de cita ───────────────────────────────────────────────
   citaPagandoId: string | null = null;
@@ -308,6 +314,7 @@ export class ListaCitasComponent implements OnInit {
         'Estado de pago': c.estado_pago_nombre ?? '',
         'Precio (S/)': c.precio ?? '',
         'Paquete': c.tratamiento_nombre ?? '',
+        'Usuario creación': c.usuario_creacion_nombre ?? '',
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar con los filtros actuales');
@@ -1302,9 +1309,14 @@ export class ListaCitasComponent implements OnInit {
     // de la carga inicial de la página, el filtro de "quién puede atender" no debe seguir
     // usando datos viejos.
     this.cargarDisponibilidadSemana();
+
+    this.loteResumen = null;
+    if (cita.lote_masivo_id && !cita.sesion_id) {
+      this.citaService.getResumenLote(cita.lote_masivo_id).subscribe(r => this.loteResumen = r);
+    }
   }
 
-  cerrarModal(): void { this.modalAbierto = false; this.citaEditando = null; }
+  cerrarModal(): void { this.modalAbierto = false; this.citaEditando = null; this.loteResumen = null; }
 
   irAPaquete(): void {
     const id = this.citaEditando?.tratamiento_id;
@@ -1348,6 +1360,7 @@ export class ListaCitasComponent implements OnInit {
     this.bulkHorarioTerapeuta = [];
     this.bulkHorarioCargado  = false;
     this.bulkConflictos      = [];
+    this.bulkAgruparComoPaquete = false;
     this.calcularBulkDates();
   }
 
@@ -1825,6 +1838,12 @@ export class ListaCitasComponent implements OnInit {
     let primerError: string | null = null;
     const total = this.bulkPreview.length;
 
+    // Agrupador liviano: mismo id en todas las citas del lote — no crea ningún paquete, solo
+    // permite luego contar cuántas faltan/ya se atendieron. Cada cita sigue siendo independiente
+    // en precio/pago, exactamente igual que cualquier cita suelta.
+    const loteMasivoId = (this.bulkAgruparComoPaquete && this.fTratamientoExistenteId === null)
+      ? this.generarLoteId() : undefined;
+
     const crearSiguiente = (index: number): void => {
       if (index >= total) {
         if (creadas === total) {
@@ -1851,6 +1870,7 @@ export class ListaCitasComponent implements OnInit {
         totalSesionesPlan: total,
         precioPorSesion:   this.fPrecio ?? 0,
         tratamientoId:     this.fTratamientoExistenteId,
+        loteMasivoId,
       };
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {
@@ -1870,6 +1890,11 @@ export class ListaCitasComponent implements OnInit {
     };
 
     crearSiguiente(0);
+  }
+
+  private generarLoteId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+    return `lote-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   /**
@@ -1912,12 +1937,125 @@ export class ListaCitasComponent implements OnInit {
     });
   }
 
-  eliminarCita(): void {
+  // ── Anular cita (con devolución) ──────────────────────────────────────────
+
+  mostrarAnularOpciones = false;
+  anulando = false;
+
+  /** "Anular" cambia el estado a Cancelada — no borra nada, así que aplica sobre cualquier cita
+   *  que no esté ya cancelada ni atendida. Una vez cancelada, no tiene sentido anularla de nuevo. */
+  esCitaCancelada(cita: Cita | null): boolean {
+    return cita?.estado === 'CANCELADA_PACIENTE' || cita?.estado === 'CANCELADA_CLINICA';
+  }
+
+  abrirAnular(): void {
     if (!this.citaEditando) return;
-    if (!confirm('¿Eliminar esta cita?')) return;
-    this.citaService.eliminarCitaLocal(this.citaEditando.id).subscribe({
-      next: () => { this.toast.success('Cita eliminada correctamente'); this.cerrarModal(); this.recargarSilencioso(); },
-      error: () => { this.toast.error('Error al eliminar la cita') }
+    if (this.citaEditando.estado === 'ASISTIDA') {
+      this.toast.warning('No se puede anular una cita ya atendida.'); return;
+    }
+    if (this.esCitaCancelada(this.citaEditando)) return;
+
+    // Si no tiene ningún pago, no hay nada que devolver — se cancela directo sin preguntar.
+    const sinPago = !this.citaEditando.estado_pago_key || this.citaEditando.estado_pago_key === 'SIN_PAGO';
+    if (sinPago) {
+      if (!confirm('¿Anular esta cita? No tiene ningún pago registrado.')) return;
+      this.anulando = true;
+      this.citaService.anularCita(this.citaEditando.id, 'SALDO').subscribe({
+        next: () => {
+          this.toast.success('Cita anulada correctamente');
+          this.anulando = false;
+          this.cerrarModal();
+          this.recargarSilencioso();
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.error || 'Error al anular la cita');
+          this.anulando = false;
+        }
+      });
+      return;
+    }
+
+    this.mostrarAnularOpciones = true;
+  }
+
+  cancelarAnular(): void { this.mostrarAnularOpciones = false; }
+
+  confirmarAnular(devolucion: 'SALDO' | 'DINERO'): void {
+    if (!this.citaEditando) return;
+    const msg = devolucion === 'SALDO'
+      ? '¿Anular esta cita? El pago ya registrado quedará como saldo a favor del paciente.'
+      : '¿Anular esta cita y devolver el dinero? El pago se elimina y NO genera saldo a favor.';
+    if (!confirm(msg)) return;
+    this.anulando = true;
+    this.citaService.anularCita(this.citaEditando.id, devolucion).subscribe({
+      next: () => {
+        this.toast.success('Cita anulada correctamente');
+        this.anulando = false;
+        this.mostrarAnularOpciones = false;
+        this.cerrarModal();
+        this.recargarSilencioso();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al anular la cita');
+        this.anulando = false;
+      }
+    });
+  }
+
+  // ── Cobro adicional (ingreso aparte, no descuenta deuda ni genera saldo) ──
+
+  mostrarCobroAdicional = false;
+  guardandoCobroAdicional = false;
+  cobroAdicionalMonto: number | null = null;
+  cobroAdicionalConcepto = '';
+  cobroAdicionalMetodoId: number | null = null;
+  cobroAdicionalReferencia = '';
+
+  abrirCobroAdicional(): void {
+    this.mostrarCobroAdicional = true;
+    this.cobroAdicionalMonto = null;
+    this.cobroAdicionalConcepto = '';
+    this.cobroAdicionalMetodoId = this.metodosPago[0]?.id ?? null;
+    this.cobroAdicionalReferencia = '';
+  }
+
+  cancelarCobroAdicional(): void { this.mostrarCobroAdicional = false; }
+
+  confirmarCobroAdicional(): void {
+    if (!this.citaEditando) return;
+    if (!this.cobroAdicionalMonto || this.cobroAdicionalMonto <= 0) {
+      this.toast.warning('Ingresa un monto válido'); return;
+    }
+    if (!this.cobroAdicionalConcepto.trim()) {
+      this.toast.warning('Describe el concepto del cobro adicional'); return;
+    }
+    const pacienteId = Number(this.citaEditando.paciente_id);
+    const citaId = Number(this.citaEditando.id);
+    if (!pacienteId) return;
+
+    this.guardandoCobroAdicional = true;
+    const body: any = {
+      paciente: { id: pacienteId },
+      cita: { id: citaId },
+      montoRecibido: this.cobroAdicionalMonto,
+      esAdicional: true,
+      concepto: this.cobroAdicionalConcepto.trim(),
+      notas: this.cobroAdicionalConcepto.trim(),
+    };
+    if (this.cobroAdicionalMetodoId) body.metodo = { id: this.cobroAdicionalMetodoId };
+    if (this.cobroAdicionalReferencia.trim()) body.referencia = this.cobroAdicionalReferencia.trim();
+
+    this.pagoService.create(body).subscribe({
+      next: () => {
+        this.toast.success('Cobro adicional registrado');
+        this.guardandoCobroAdicional = false;
+        this.mostrarCobroAdicional = false;
+        this.recargarSilencioso();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al registrar el cobro adicional');
+        this.guardandoCobroAdicional = false;
+      }
     });
   }
 
