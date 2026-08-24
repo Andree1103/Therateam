@@ -37,6 +37,10 @@ export interface PacienteState {
   apellido: string;
   telefono: string;
   correo: string;
+  fechaNacimiento: string;
+  dniApoderado: string;
+  nombreApoderado: string;
+  celularApoderado: string;
   busquedaNombre: string;
   resultadosBusqueda: PacienteResumen[];
   dropdownAbierto: boolean;
@@ -1119,6 +1123,7 @@ export class ListaCitasComponent implements OnInit {
    *  con lo ya escrito en el buscador, para no hacer retipear. */
   crearPacienteNuevo(pac: PacienteState): void {
     pac.id = null; pac.dni = ''; pac.telefono = ''; pac.correo = '';
+    this.limpiarApoderado(pac);
     const partes = pac.busquedaNombre.trim().split(/\s+/).filter(Boolean);
     pac.nombre = partes[0] ?? '';
     pac.apellido = partes.slice(1).join(' ');
@@ -1133,6 +1138,7 @@ export class ListaCitasComponent implements OnInit {
   cambiarPaciente(pac: PacienteState): void {
     pac.modo = 'buscar'; pac.id = null;
     pac.nombre = ''; pac.apellido = ''; pac.telefono = ''; pac.correo = ''; pac.dni = '';
+    this.limpiarApoderado(pac);
     pac.busquedaNombre = ''; pac.resultadosBusqueda = [];
     pac.colapsado = false;
     if (pac === this.pac1) {
@@ -1296,6 +1302,9 @@ export class ListaCitasComponent implements OnInit {
       apellido: cita.paciente_apellido ?? '',
       telefono: cita.paciente_telefono ?? '',
       correo:   cita.paciente_correo   ?? '',
+      // Al editar, el paciente ya existe: estos campos no se editan desde aquí (se hace en
+      // Pacientes) y van vacíos para que el backend no los toque.
+      fechaNacimiento: '', dniApoderado: '', nombreApoderado: '', celularApoderado: '',
       busquedaNombre: `${cita.paciente_nombre ?? ''} ${cita.paciente_apellido ?? ''}`.trim(),
       resultadosBusqueda: [], dropdownAbierto: false,
     };
@@ -1642,6 +1651,22 @@ export class ListaCitasComponent implements OnInit {
     if (this.esMultipaciente && this.pac2habilitado && this.pac2.modo === 'nuevo' && this.pac2.nombre.trim() && !this.pac2.correo.trim()) {
       this.toast.warning('El correo del paciente 2 es obligatorio (se usa para crear su cuenta de acceso)'); return;
     }
+    // La fecha de nacimiento define si hace falta apoderado, así que sin ella no se puede dar
+    // de alta a nadie — el backend la exige igual, esto solo evita el viaje al servidor.
+    if (this.pac1.modo === 'nuevo' && !this.pac1.fechaNacimiento) {
+      this.toast.warning('La fecha de nacimiento del paciente 1 es obligatoria'); return;
+    }
+    if (this.esMultipaciente && this.pac2habilitado && this.pac2.modo === 'nuevo' &&
+        this.pac2.nombre.trim() && !this.pac2.fechaNacimiento) {
+      this.toast.warning('La fecha de nacimiento del paciente 2 es obligatoria'); return;
+    }
+    // Menor de edad: el apoderado es obligatorio también acá, no solo en el módulo Pacientes.
+    if (this.faltaApoderado(this.pac1)) {
+      this.toast.warning('El paciente 1 es menor de edad — completa el DNI, nombre y celular del apoderado.'); return;
+    }
+    if (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim() && this.faltaApoderado(this.pac2)) {
+      this.toast.warning('El paciente 2 es menor de edad — completa el DNI, nombre y celular del apoderado.'); return;
+    }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
     // Marcar "pagado" (sesión única) o dejar sesiones a pagar (programación múltiple) sin método
@@ -1716,6 +1741,12 @@ export class ListaCitasComponent implements OnInit {
       apellido: p.apellido,
       telefono: p.telefono || undefined,
       correo:   p.correo   || undefined,
+      // Solo aplican al alta de un paciente nuevo; para uno ya registrado el backend
+      // lo busca por id/DNI y ni los mira.
+      fechaNacimiento:  p.fechaNacimiento  || undefined,
+      dniApoderado:     p.dniApoderado     || undefined,
+      nombreApoderado:  p.nombreApoderado  || undefined,
+      celularApoderado: p.celularApoderado || undefined,
     });
 
     if (this.citaEditando) {
@@ -1864,6 +1895,10 @@ export class ListaCitasComponent implements OnInit {
     const buildPac = (p: PacienteState): PacienteEnCita => ({
       id: p.id ?? undefined, dni: p.dni, nombre: p.nombre, apellido: p.apellido,
       telefono: p.telefono || undefined, correo: p.correo || undefined,
+      fechaNacimiento:  p.fechaNacimiento  || undefined,
+      dniApoderado:     p.dniApoderado     || undefined,
+      nombreApoderado:  p.nombreApoderado  || undefined,
+      celularApoderado: p.celularApoderado || undefined,
     });
 
     let creadas = 0;
@@ -2204,9 +2239,34 @@ export class ListaCitasComponent implements OnInit {
     return new Date(f).toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
+  private limpiarApoderado(pac: PacienteState): void {
+    pac.fechaNacimiento = ''; pac.dniApoderado = ''; pac.nombreApoderado = ''; pac.celularApoderado = '';
+  }
+
+  /** true si la fecha de nacimiento escrita corresponde a un menor de 18 — misma regla que el
+   *  backend, para avisar antes de mandar en vez de que vuelva un 400. */
+  esMenorPac(pac: PacienteState): boolean {
+    if (!pac.fechaNacimiento) return false;
+    const nac = new Date(pac.fechaNacimiento);
+    if (isNaN(nac.getTime())) return false;
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const noCumplioAun = hoy.getMonth() < nac.getMonth() ||
+      (hoy.getMonth() === nac.getMonth() && hoy.getDate() < nac.getDate());
+    if (noCumplioAun) edad--;
+    return edad < 18;
+  }
+
+  /** Falta algún dato del apoderado en un paciente nuevo que es menor de edad. */
+  private faltaApoderado(pac: PacienteState): boolean {
+    return pac.modo === 'nuevo' && this.esMenorPac(pac) &&
+      (!pac.dniApoderado.trim() || !pac.nombreApoderado.trim() || !pac.celularApoderado.trim());
+  }
+
   private emptyPac(): PacienteState {
     return {
       colapsado: false, modo: 'buscar', buscando: false, id: null, dni: '', nombre: '', apellido: '', telefono: '', correo: '',
+      fechaNacimiento: '', dniApoderado: '', nombreApoderado: '', celularApoderado: '',
       busquedaNombre: '', resultadosBusqueda: [], dropdownAbierto: false,
     };
   }

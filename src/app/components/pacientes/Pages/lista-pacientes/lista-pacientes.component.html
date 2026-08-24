@@ -170,8 +170,10 @@
 
         <div class="frow-2">
           <div class="frow">
-            <label>Fecha de nacimiento</label>
-            <input [(ngModel)]="formData.fechaNacimiento" name="fechaNacimiento" type="date">
+            <label>Fecha de nacimiento <span *ngIf="!editando">*</span></label>
+            <!-- Obligatoria solo al crear: los pacientes antiguos quedaron sin fecha y hay que
+                 poder seguir editandolos sin quedar bloqueado por un dato que quiza no se tiene. -->
+            <input [(ngModel)]="formData.fechaNacimiento" name="fechaNacimiento" type="date" [required]="!editando">
           </div>
           <div class="frow">
             <label>Estado</label>

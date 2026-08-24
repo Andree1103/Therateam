@@ -515,6 +515,19 @@
                 <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac1.telefono" placeholder="999 000 111"></div>
                 <div class="frow"><label>Correo <span class="opc-tag" *ngIf="pac1.modo !== 'nuevo'">(opcional)</span><span *ngIf="pac1.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac1.correo" placeholder="email@ejemplo.com" type="email"></div>
               </div>
+              <!-- Fecha de nacimiento solo al dar de alta: define si hace falta apoderado. -->
+              <div class="frow" *ngIf="pac1.modo === 'nuevo'">
+                <label>Fecha de nacimiento *</label>
+                <input type="date" [(ngModel)]="pac1.fechaNacimiento">
+              </div>
+              <div class="apoderado-box" *ngIf="pac1.modo === 'nuevo' && esMenorPac(pac1)">
+                <div class="apoderado-hd">Datos del apoderado &mdash; obligatorios por ser menor de edad</div>
+                <div class="frow-2">
+                  <div class="frow"><label>DNI apoderado *</label><input [(ngModel)]="pac1.dniApoderado" placeholder="12345678" maxlength="12"></div>
+                  <div class="frow"><label>Celular apoderado *</label><input [(ngModel)]="pac1.celularApoderado" placeholder="999 000 111"></div>
+                </div>
+                <div class="frow"><label>Nombre apoderado *</label><input [(ngModel)]="pac1.nombreApoderado" placeholder="Nombre y apellido"></div>
+              </div>
             </ng-container>
           </div>
         </div>
@@ -611,6 +624,18 @@
                 <div class="frow-2">
                   <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac2.telefono" placeholder="999 000 111"></div>
                   <div class="frow"><label>Correo<span *ngIf="pac2.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac2.correo" placeholder="email@ejemplo.com" type="email"></div>
+                </div>
+                <div class="frow" *ngIf="pac2.modo === 'nuevo'">
+                  <label>Fecha de nacimiento *</label>
+                  <input type="date" [(ngModel)]="pac2.fechaNacimiento">
+                </div>
+                <div class="apoderado-box" *ngIf="pac2.modo === 'nuevo' && esMenorPac(pac2)">
+                  <div class="apoderado-hd">Datos del apoderado &mdash; obligatorios por ser menor de edad</div>
+                  <div class="frow-2">
+                    <div class="frow"><label>DNI apoderado *</label><input [(ngModel)]="pac2.dniApoderado" placeholder="12345678" maxlength="12"></div>
+                    <div class="frow"><label>Celular apoderado *</label><input [(ngModel)]="pac2.celularApoderado" placeholder="999 000 111"></div>
+                  </div>
+                  <div class="frow"><label>Nombre apoderado *</label><input [(ngModel)]="pac2.nombreApoderado" placeholder="Nombre y apellido"></div>
                 </div>
               </ng-container>
             </div>

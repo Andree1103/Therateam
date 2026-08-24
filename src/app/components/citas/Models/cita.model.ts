@@ -101,6 +101,12 @@ export interface PacienteEnCita {
   apellido: string;
   telefono?: string;
   correo?: string;
+  /** Solo se mandan al crear un paciente nuevo desde la cita. Si la fecha indica menor de 18,
+   *  el backend exige los tres datos del apoderado, igual que en el módulo Pacientes. */
+  fechaNacimiento?: string;
+  dniApoderado?: string;
+  nombreApoderado?: string;
+  celularApoderado?: string;
 }
 
 export interface CrearCitaConPacienteRequest {
