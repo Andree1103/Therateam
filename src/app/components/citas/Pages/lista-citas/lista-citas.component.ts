@@ -297,7 +297,17 @@ export class ListaCitasComponent implements OnInit {
   // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
   // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
   exportarExcel(): void {
+    // getCitas() trae todo el histórico y la semana se recorta recién al pintar la grilla, así
+    // que aquí hay que aplicar el rango a mano — si no, el excel sale con todas las citas de
+    // siempre aunque en pantalla se vea una sola semana.
+    const desde = this.diasSemana.length ? this.fechaToISO(this.diasSemana[0].fecha) : null;
+    const hasta = this.diasSemana.length ? this.fechaToISO(this.diasSemana[6].fecha) : null;
     const filas = this.citas
+      .filter(c => {
+        if (!desde || !hasta) return true;
+        const dia = this.fechaToISO(new Date(c.fecha_inicio));
+        return dia >= desde && dia <= hasta;
+      })
       .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
       .filter(c => this.pasaFiltrosAgenda(c))
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
@@ -317,10 +327,10 @@ export class ListaCitasComponent implements OnInit {
         'Usuario creación': c.usuario_creacion_nombre ?? '',
       }));
     if (filas.length === 0) {
-      this.toast.warning('No hay citas para exportar con los filtros actuales');
+      this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
       return;
     }
-    this.excelExportService.exportar(filas, 'citas');
+    this.excelExportService.exportar(filas, desde && hasta ? `citas_${desde}_a_${hasta}` : 'citas');
   }
 
   ngOnInit(): void {
@@ -1715,6 +1725,19 @@ export class ListaCitasComponent implements OnInit {
         this.toast.warning('Para cambiar el paciente de una cita existente, elige uno ya registrado desde el buscador.');
         return;
       }
+      // "Asistida" no se pone a mano: es el registro de la atención el que marca la cita
+      // (AtencionClinicaService). Permitirlo desde el select dejaba citas asistidas sin
+      // atención, que después no aparecen en el reporte ni suman sesión del paquete.
+      if (this.fEstKey === 'ASISTIDA' && this.citaEditando.estado !== 'ASISTIDA') {
+        this.toast.warning('Para marcar la cita como asistida registra la atención — el estado se actualiza solo.');
+        return;
+      }
+      // El camino inverso borra la atención en el backend (notas y métricas incluidas) y le
+      // devuelve la sesión al paquete, así que se avisa antes en vez de hacerlo en silencio.
+      if (this.citaEditando.estado === 'ASISTIDA' && this.fEstKey !== 'ASISTIDA' &&
+          !confirm('Esta cita ya tiene una atención registrada. Al sacarla de "Asistida" se eliminarán sus notas y métricas, y la sesión volverá a contar como pendiente en su paquete. ¿Continuar?')) {
+        return;
+      }
       this.guardando = true;
       const req: CrearCitaLocalRequest = {
         terapeuta_id: terapeutaSel?.id ?? (Number(this.citaEditando.terapeuta_id) || undefined),
@@ -1805,15 +1828,24 @@ export class ListaCitasComponent implements OnInit {
           // Se registra un pago si se marca pagado (cobra el precio, usando saldo si aplica) o si
           // se usa saldo a favor por sí solo (aplica el crédito aunque no alcance para cubrir todo
           // — la cita queda PARCIAL y el resto se cobra después con "Registrar pago").
+          let cobrando = false;
           if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 &&
               (this.fPagado || this.usarSaldoAFavor) && citas.length > 0) {
             const pacienteId = Number(citas[0].paciente_id);
             const citaId     = Number(citas[0].id);
             const monto      = this.fPagado ? this.montoACobrarAhora : 0;
-            if (pacienteId) this.crearPagoParaCita(pacienteId, monto, this.fMetodoPagoId, citaId);
+            if (pacienteId) {
+              cobrando = true;
+              // La grilla se recarga recién cuando el pago terminó, para que la cita aparezca
+              // con su estado de pago real y no como pendiente.
+              this.crearPagoParaCita(pacienteId, monto, this.fMetodoPagoId, citaId,
+                                     () => this.recargarSilencioso());
+            }
           }
           this.toast.success('Cita creada correctamente');
-          this.cerrarModal(); this.recargarSilencioso(); this.guardando = false;
+          this.cerrarModal();
+          if (!cobrando) this.recargarSilencioso();
+          this.guardando = false;
         },
         error: (err) => { this.toast.error(err?.error?.error || 'Error al crear la cita'); this.guardando = false; }
       });
@@ -1878,7 +1910,10 @@ export class ListaCitasComponent implements OnInit {
           if (this.fTratamientoExistenteId === null && this.fPrecio && this.fPrecio > 0 && index < this.bulkSesionesAPagar && citas.length > 0) {
             const pid    = Number(citas[0].paciente_id);
             const citaId = Number(citas[0].id);
-            if (pid) this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId);
+            // Se encadena la siguiente cita al pago de esta: si se dispararan en paralelo, la
+            // recarga final podía adelantarse a los últimos pagos y mostrarlos como pendientes.
+            if (pid) { this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId,
+                                              () => crearSiguiente(index + 1)); return; }
           }
           crearSiguiente(index + 1);
         },
@@ -1914,7 +1949,13 @@ export class ListaCitasComponent implements OnInit {
     return Math.min(this.pacienteSaldoAFavor, this.fPrecio ?? 0);
   }
 
-  private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number): void {
+  /**
+   * `onDone` corre cuando el POST del pago ya terminó (bien o mal). Sin eso, quien llama recargaba
+   * la grilla en paralelo con el pago y el GET —más liviano— llegaba primero, repintando la cita
+   * como no pagada aunque el pago sí se hubiera registrado.
+   */
+  private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number,
+                            onDone?: () => void): void {
     const t = this.tratamientoExistenteSeleccionado;
     const body: any = {
       tratamiento:   t ? { id: t.id } : undefined,
@@ -1931,9 +1972,13 @@ export class ListaCitasComponent implements OnInit {
     // Antes el error se ignoraba en silencio: la cita quedaba creada pero el pago no, y no había
     // ninguna señal de que algo había fallado — ahora se avisa para no perder el caso de vista.
     this.pagoService.create(body).subscribe({
-      error: () => this.toast.error(
-        `La cita se creó, pero el pago no se pudo registrar${citaId ? ` (cita #${citaId})` : ''} — revísalo desde "Registrar pago".`
-      )
+      next: () => onDone?.(),
+      error: () => {
+        this.toast.error(
+          `La cita se creó, pero el pago no se pudo registrar${citaId ? ` (cita #${citaId})` : ''} — revísalo desde "Registrar pago".`
+        );
+        onDone?.();
+      }
     });
   }
 
@@ -2112,6 +2157,14 @@ export class ListaCitasComponent implements OnInit {
         error: () => { this.cargandoAtencionExistente = false; }
       });
     }
+  }
+
+  /** Abre la atención desde el modal de edición — cierra ese primero para no apilar dos modales. */
+  abrirAtencionDesdeEdicion(e: Event): void {
+    const cita = this.citaEditando;
+    if (!cita) return;
+    this.cerrarModal();
+    this.abrirAtencion(cita, e);
   }
 
   cerrarAtencion(): void {

@@ -964,8 +964,26 @@
           <div class="estado-select-wrapper">
             <div class="estado-dot" [style.background]="getEstadoColor(fEstKey)"></div>
             <select [(ngModel)]="fEstKey" class="estado-select">
-              <option *ngFor="let e of estadosCita" [value]="e.key">{{ e.nombre }}</option>
+              <option *ngFor="let e of estadosCita" [value]="e.key"
+                      [disabled]="e.key === 'ASISTIDA' && citaEditando.estado !== 'ASISTIDA'">{{ e.nombre }}</option>
             </select>
+          </div>
+          <div class="pago-hint" *ngIf="citaEditando.estado !== 'ASISTIDA'">
+            "Asistida" se marca sola al registrar la atención.
+          </div>
+        </div>
+
+        <!-- Atención clínica: mismo acceso que desde la grilla y la hover card, para no tener
+             que cerrar el modal y buscar la cita otra vez. -->
+        <div class="frow" *ngIf="citaEditando && !esCitaCancelada(citaEditando)">
+          <button class="hc-btn-at"
+                  [disabled]="citaEditando.estado_pago_key !== 'PAGADA'"
+                  [title]="citaEditando.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
+                  (click)="abrirAtencionDesdeEdicion($event)">
+            {{ citaEditando.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}
+          </button>
+          <div class="pago-hint" *ngIf="citaEditando.estado_pago_key !== 'PAGADA'">
+            La cita debe estar pagada por completo.
           </div>
         </div>
 

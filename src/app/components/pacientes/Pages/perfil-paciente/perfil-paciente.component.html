@@ -184,6 +184,7 @@
       <table class="data-table" *ngIf="atenciones.length > 0">
         <thead>
           <tr>
+            <th>Fecha y hora de la cita</th>
             <th>Fecha real</th>
             <th>Terapeuta</th>
             <th>Tipo</th>
@@ -194,6 +195,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let a of atenciones">
+            <td>{{ formatFechaHora(citaDeAtencion(a)?.fecha_inicio) }}</td>
             <td>{{ formatFechaHora(a.fechaInicioReal) }}</td>
             <td>{{ citaDeAtencion(a)?.terapeuta_nombre || '—' }}</td>
             <td>{{ citaDeAtencion(a)?.tipo_terapia_nombre || '—' }}</td>
