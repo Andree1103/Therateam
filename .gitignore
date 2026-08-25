@@ -40,3 +40,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Configuración local de herramientas (dev server para previsualizar, etc.)
+.claude/

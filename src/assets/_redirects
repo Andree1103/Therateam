@@ -1,1 +1,11 @@
-/*    /index.html   200
+# Un asset con hash que no existe es un deploy desincronizado, no una ruta de la app.
+# Sin estas lineas el comodin de abajo le devuelve index.html y el navegador falla con
+# "Expected a JavaScript-or-Wasm module script but the server responded with MIME type text/html",
+# que no dice nada util. Con 404 el error es claro y Angular puede reaccionar.
+/*.js     /404.html   404
+/*.mjs    /404.html   404
+/*.css    /404.html   404
+/*.map    /404.html   404
+
+# Rutas de la app: las resuelve el router de Angular.
+/*        /index.html 200

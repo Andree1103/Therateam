@@ -16,9 +16,20 @@
 
   <!-- ── CONTROLES ────────────────────────────────────────────────────────── -->
   <div class="controls-bar">
-    <button class="nb" (click)="navSemana(-1)">&#8249;</button>
-    <span class="wlbl">{{ weekLabel }}</span>
-    <button class="nb" (click)="navSemana(1)">&#8250;</button>
+    <!-- Escritorio: se navega por semana. Móvil: día a día, porque 7 columnas no entran. -->
+    <ng-container *ngIf="!vistaDia">
+      <button class="nb" (click)="navSemana(-1)" aria-label="Semana anterior">&#8249;</button>
+      <span class="wlbl">{{ weekLabel }}</span>
+      <button class="nb" (click)="navSemana(1)" aria-label="Semana siguiente">&#8250;</button>
+    </ng-container>
+    <ng-container *ngIf="vistaDia">
+      <button class="nb" (click)="navDia(-1)" aria-label="Día anterior">&#8249;</button>
+      <span class="wlbl dlbl">
+        {{ diaVisible?.nombre }}
+        <small>{{ diaVisible?.fecha | date:'d MMM' }}</small>
+      </span>
+      <button class="nb" (click)="navDia(1)" aria-label="Día siguiente">&#8250;</button>
+    </ng-container>
     <button class="btn-hoy" (click)="irHoy()">Hoy</button>
     <div class="sep"></div>
 
@@ -43,7 +54,13 @@
   </div>
 
   <!-- ── FILTROS DE AGENDA (estado, pago, paciente, tipo de terapia) ─────────── -->
-  <div class="controls-bar agenda-filtros-bar">
+  <button class="btn-filtros-movil" (click)="filtrosMovilAbiertos = !filtrosMovilAbiertos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    Filtros
+    <span class="filtro-punto" *ngIf="hayFiltrosAgendaActivos"></span>
+    <span class="chev" [class.abierto]="filtrosMovilAbiertos">&#8250;</span>
+  </button>
+  <div class="controls-bar agenda-filtros-bar" [class.abierta]="filtrosMovilAbiertos">
     <label class="ctrl-lbl">Estado:</label>
     <div class="autocomplete-wrap filtro-autocomplete">
       <input type="text" class="filtro-buscador" placeholder="Todos" autocomplete="off"
@@ -86,6 +103,23 @@
       </div>
     </div>
 
+    <!-- Terapeuta: en escritorio se filtra desde el sidebar de checkboxes, que en movil
+         esta oculto. Sin esto no habia forma de filtrar por terapeuta en el telefono. -->
+    <label class="ctrl-lbl solo-movil">Terapeuta:</label>
+    <div class="autocomplete-wrap filtro-autocomplete solo-movil">
+      <input type="text" class="filtro-buscador" placeholder="Todos" autocomplete="off"
+             [(ngModel)]="terapeutaFiltroBusquedaTexto"
+             (focus)="abrirTerapeutaFiltroDropdown()" (blur)="cerrarTerapeutaFiltroDropdownDiferido()">
+      <div class="autocomplete-dropdown" *ngIf="terapeutaFiltroDropdownAbierto">
+        <div class="autocomplete-item" (mousedown)="seleccionarTerapeutaFiltro(null)"><span class="ac-nombre">Todos</span></div>
+        <div class="autocomplete-item" *ngFor="let t of terapeutaFiltroOpcionesFiltradas"
+             (mousedown)="seleccionarTerapeutaFiltro(t)">
+          <span class="ac-nombre">{{ getNombreTerapeuta(t) }}</span>
+          <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
+        </div>
+      </div>
+    </div>
+
     <label class="ctrl-lbl">Paciente:</label>
     <input type="text" class="filtro-buscador" placeholder="Buscar por nombre..."
            [(ngModel)]="busquedaPaciente" (keyup.enter)="buscarEnAgenda()">
@@ -123,17 +157,20 @@
         <thead>
           <tr>
             <th class="th-hora">Hora</th>
-            <th *ngFor="let dia of diasSemana" class="th-dia" [class.hoy-th]="esHoy(dia.fecha)">
-              <span class="dn">{{ dia.nombre }}</span>
-              <span class="dd" [class.hoy-dd]="esHoy(dia.fecha)">{{ dia.fecha | date:'d' }}</span>
-              <span class="dm">{{ dia.fecha | date:'MMM' }}</span>
-            </th>
+            <ng-container *ngFor="let dia of diasSemana; let di = index">
+              <th *ngIf="esDiaVisible(di)" class="th-dia" [class.hoy-th]="esHoy(dia.fecha)">
+                <span class="dn">{{ dia.nombre }}</span>
+                <span class="dd" [class.hoy-dd]="esHoy(dia.fecha)">{{ dia.fecha | date:'d' }}</span>
+                <span class="dm">{{ dia.fecha | date:'MMM' }}</span>
+              </th>
+            </ng-container>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let s of horasGrid" class="hora-mark">
             <td class="td-hora">{{ s.lbl }}</td>
-            <td *ngFor="let dia of diasSemana; let di = index" class="td-dia"
+            <ng-container *ngFor="let dia of diasSemana; let di = index">
+            <td *ngIf="esDiaVisible(di)" class="td-dia"
                 [class.hoy-col]="esHoy(dia.fecha)">
               <ng-container *ngFor="let cl of getClustersHora(di, s.h); trackBy: trackByCluster">
               <ng-container *ngIf="cl.citas.length === 1; else multiChip">
@@ -289,6 +326,7 @@
                 </div>
               </ng-container>
             </td>
+            </ng-container>
           </tr>
         </tbody>
       </table>
@@ -1067,7 +1105,9 @@
           </div>
 
           <!-- Cobro adicional: ingreso aparte de esta cita (ej. algo extra vendido al paciente) -->
-          <div style="margin-top:10px" *ngIf="!mostrarCobroAdicional && !esCitaCancelada(citaEditando)">
+          <!-- Mismo permiso que "Registrar pago": el cobro adicional también crea un pago, y el
+               backend lo exige (MODULO_PAGOS_CREAR). Sin esto se mostraba un botón que devolvía 403. -->
+          <div style="margin-top:10px" *ngIf="!mostrarCobroAdicional && puedeRegistrarPago && !esCitaCancelada(citaEditando)">
             <button class="hc-btn-pagar" (click)="abrirCobroAdicional()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Cobro adicional

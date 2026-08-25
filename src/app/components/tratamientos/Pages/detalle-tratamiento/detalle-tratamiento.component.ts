@@ -12,6 +12,7 @@ import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-detalle-tratamiento',
@@ -56,8 +57,13 @@ export class DetalleTratamientoComponent implements OnInit {
     private atencionService: AtencionClinicaService,
     private toast: ToastService,
     private configuracionService: ConfiguracionService,
-    private notaAtencionPdfService: NotaAtencionPdfService
+    private notaAtencionPdfService: NotaAtencionPdfService,
+    private authService: AuthService
   ) {}
+
+  /** Registrar un pago usa el permiso del módulo Pagos, igual que en Citas — el backend lo
+   *  exige con MODULO_PAGOS_CREAR, así que sin esto el botón devolvía 403. */
+  get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
 
   ngOnInit(): void {
     this.tratamientoId = Number(this.route.snapshot.paramMap.get('id'));

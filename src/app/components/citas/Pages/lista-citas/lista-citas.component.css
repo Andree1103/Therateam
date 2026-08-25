@@ -114,10 +114,66 @@ tbody tr{height:var(--slot-h)}
 .btn-cancel{padding:6px 14px;border:0.5px solid #e2e8f2;border-radius:var(--radius);background:none;font-size:13px;cursor:pointer;color:#6b7280;font-family:inherit}
 .btn-save{padding:6px 16px;border:none;border-radius:var(--radius);background:#185FA5;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 /* ── RESPONSIVE ───────────────────────────────────────────────────────────── */
+/* El boton de filtros solo existe en movil; en escritorio la barra va siempre visible.
+   Va antes del media query a proposito: si fuera despues, ganaria por orden. */
+.btn-filtros-movil{display:none}
+/* Controles que solo existen en movil (en escritorio su equivalente es el sidebar). */
+.solo-movil{display:none}
+
 @media(max-width:768px){
   .sidebar{display:none}
-  .th-dia{min-width:80px}
-  .chip-pac{max-width:72px}
+
+  /* Alturas: con una sola columna caben mas horas si el slot es mas bajo. */
+  :host{--slot-h:64px;--hora-w:46px}
+
+  /* Primera barra: la etiqueta "Area:" quedaba huerfana al envolver, separada de su
+     desplegable. Se oculta (el propio select dice "Todas las areas") y se fuerza el
+     reparto: navegacion arriba, area en su linea, acciones abajo. */
+  /* Solo la barra de arriba: la de filtros SI necesita sus etiquetas, o quedan
+     cuatro campos que dicen "Todos" sin decir de que. */
+  .controls-bar:not(.agenda-filtros-bar) > .ctrl-lbl{display:none}
+  .controls-bar .tipo-select{flex:1 1 100%}
+  .controls-bar .ml-auto{margin-left:0}
+  .btn-secondary,.btn-nueva{flex:1 1 auto;justify-content:center}
+
+  /* El boton dentro del chip obligaba a un chip alto; en movil se accede tocando
+     la cita y usando el boton del modal. */
+  .chip .btn-atencion{display:none}
+  .chip-body{padding:3px 5px 3px 7px}
+  .chip-pac{font-size:12.5px}
+
+  /* Cabecera mas compacta: el titulo partia en dos lineas y comia altura. */
+  .topbar{padding:8px 12px 8px 50px}
+  .topbar-left h1{font-size:14px;white-space:nowrap}
+  .topbar-left .subtitle{display:none}
+  .vtab{padding:5px 10px;font-size:11px}
+
+  /* Filtros: plegados por defecto, y al abrirse cada etiqueta va sobre su campo
+     en una sola columna. Antes envolvian sueltos y las etiquetas se montaban
+     encima de los inputs del siguiente filtro. */
+  .btn-filtros-movil{
+    display:flex;align-items:center;gap:6px;width:100%;
+    padding:8px 14px;border:none;border-bottom:0.5px solid #e2e8f2;
+    background:#fff;color:#334155;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+  }
+  .btn-filtros-movil .chev{margin-left:auto;font-size:16px;color:#94a3b8;transition:transform .15s}
+  .btn-filtros-movil .chev.abierto{transform:rotate(90deg)}
+  .filtro-punto{width:7px;height:7px;border-radius:50%;background:#f97316}
+  .agenda-filtros-bar{display:none}
+  .agenda-filtros-bar.abierta{display:flex;flex-direction:column;align-items:stretch;gap:2px}
+  .agenda-filtros-bar .ctrl-lbl{margin-top:6px}
+  .agenda-filtros-bar .filtro-buscador,
+  .agenda-filtros-bar .autocomplete-wrap{width:100%}
+  .agenda-filtros-bar .btn-buscar-agenda{margin-top:8px;width:100%}
+  .agenda-filtros-bar .solo-movil{display:block}
+
+  /* La leyenda son 8 filas de colores: en un telefono se come media pantalla
+     y el color de cada cita ya se ve en la grilla. */
+  .leyenda{display:none}
+  /* Un solo dia visible: la tabla debe llenar el ancho, no forzar scroll lateral. */
+  .agenda-table{min-width:0}
+  .th-dia{min-width:0}
+  .chip-pac{max-width:none}
   .topbar{padding:10px 14px 10px 54px} /* espacio para hamburger */
   .controls-bar{padding:6px 14px 6px 14px;gap:6px}
   .wlbl{font-size:11px}
@@ -431,3 +487,6 @@ tbody tr{height:var(--slot-h)}
 .edit-pago-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px}
 .edit-pago-hdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}.apoderado-box{border:1px solid #fde68a;background:#fffbeb;border-radius:var(--radius);padding:10px 12px;margin-bottom:12px}
 .apoderado-hd{font-size:11px;font-weight:700;color:#92400e;margin-bottom:8px}
+/* Etiqueta del día en la vista móvil: el nombre manda, la fecha va debajo en chico. */
+.wlbl.dlbl{display:inline-flex;flex-direction:column;line-height:1.15;min-width:88px;text-align:center}
+.wlbl.dlbl small{font-size:10px;font-weight:500;color:#6b7280;text-transform:uppercase}

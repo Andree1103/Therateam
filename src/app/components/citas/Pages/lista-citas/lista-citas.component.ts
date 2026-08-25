@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { forkJoin, of, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -51,7 +51,7 @@ export interface PacienteState {
   templateUrl: './lista-citas.component.html',
   styleUrls: ['./lista-citas.component.css']
 })
-export class ListaCitasComponent implements OnInit {
+export class ListaCitasComponent implements OnInit, OnDestroy {
 
   citas: Cita[] = [];
   loading = true;
@@ -89,6 +89,8 @@ export class ListaCitasComponent implements OnInit {
   pagoDropdownAbierto = false;
   tipoFiltroBusquedaTexto = '';
   tipoFiltroDropdownAbierto = false;
+  terapeutaFiltroBusquedaTexto = '';
+  terapeutaFiltroDropdownAbierto = false;
 
   readonly PAGO_OPCIONES = [
     { value: 'SIN_PAGO', label: 'Sin pago' },
@@ -104,6 +106,13 @@ export class ListaCitasComponent implements OnInit {
   get pagoOpcionesFiltradas(): { value: string; label: string }[] {
     const q = this.pagoBusquedaTexto.toLowerCase().trim();
     return !q ? this.PAGO_OPCIONES : this.PAGO_OPCIONES.filter(o => o.label.toLowerCase().includes(q));
+  }
+
+  /** Terapeutas que calzan con lo escrito, ya acotados por el area seleccionada. */
+  get terapeutaFiltroOpcionesFiltradas(): Terapeuta[] {
+    const q = this.terapeutaFiltroBusquedaTexto.toLowerCase().trim();
+    const lista = this.terapeutasFiltrados;
+    return !q ? lista : lista.filter(t => terapeutaNombre(t).toLowerCase().includes(q));
   }
 
   get tipoFiltroOpcionesFiltradas(): TipoTerapia[] {
@@ -135,6 +144,17 @@ export class ListaCitasComponent implements OnInit {
     this.tipoFiltroDropdownAbierto = false;
   }
 
+  abrirTerapeutaFiltroDropdown(): void { this.terapeutaFiltroDropdownAbierto = true; }
+  cerrarTerapeutaFiltroDropdownDiferido(): void { setTimeout(() => this.terapeutaFiltroDropdownAbierto = false, 150); }
+  /** Escribe sobre el mismo filtrosTerapeutas que usa el sidebar en escritorio, para no
+   *  duplicar logica: el que se elige aqui queda marcado alla y viceversa. */
+  seleccionarTerapeutaFiltro(t: Terapeuta | null): void {
+    const nombre = t ? terapeutaNombre(t) : '';
+    this.filtrosTerapeutas = nombre ? [nombre] : [];
+    this.terapeutaFiltroBusquedaTexto = nombre;
+    this.terapeutaFiltroDropdownAbierto = false;
+  }
+
   get hayFiltrosAgendaActivos(): boolean {
     return !!(this.filtroEstado || this.filtroPago || this.filtroPaciente || this.filtroTipoId);
   }
@@ -149,6 +169,7 @@ export class ListaCitasComponent implements OnInit {
   limpiarBusquedaAgenda(): void {
     this.busquedaEstado = ''; this.busquedaPago = ''; this.busquedaPaciente = ''; this.busquedaTipoId = '';
     this.estadoBusquedaTexto = ''; this.pagoBusquedaTexto = ''; this.tipoFiltroBusquedaTexto = '';
+    this.terapeutaFiltroBusquedaTexto = ''; this.filtrosTerapeutas = [];
     this.filtroEstado = ''; this.filtroPago = ''; this.filtroPaciente = ''; this.filtroTipoId = '';
   }
 
@@ -173,6 +194,22 @@ export class ListaCitasComponent implements OnInit {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   vista: 'semana' | 'libre' = 'semana';
+
+  // ── Vista por día (móvil) ─────────────────────────────────────────────────
+  // En pantallas chicas no entran 7 columnas legibles, así que se muestra un día
+  // a la vez y se navega con flechas. En escritorio sigue siendo la semana completa.
+  vistaDia = false;
+  diaIdx = 0;                       // 0 = lunes … 6 = domingo
+  /** En móvil los 4 filtros ocupan media pantalla, así que arrancan plegados. */
+  filtrosMovilAbiertos = false;
+  private mqMovil?: MediaQueryList;
+  private onMqCambio = (e: MediaQueryListEvent | MediaQueryList) => {
+    this.vistaDia = e.matches;
+    // El breakpoint cambia --slot-h, hay que releerlo o los chips se desalinean.
+    setTimeout(() => this.leerSlotH());
+    // Al pasar a móvil, abrir en el día de hoy si la semana visible lo contiene.
+    if (e.matches) this.diaIdx = this.idxDeHoyEnSemana() ?? this.diaIdx;
+  };
   configVisible = false;
 
   fechaInicioSemana!: Date;
@@ -276,7 +313,17 @@ export class ListaCitasComponent implements OnInit {
   readonly DIAS_ABR = ['L','M','X','J','V','S','D'];
 
   // ── Grid con posicionamiento por minuto exacto ──────────────────────────────
-  readonly SLOT_H = 90;   // px por fila de 1 hora, debe coincidir con --slot-h en el CSS
+  /** Px por fila de 1 hora. Tiene que coincidir SIEMPRE con --slot-h del CSS, o los chips
+   *  quedan desalineados de la rejilla de horas — por eso se lee del propio CSS en vez de
+   *  repetir el numero aqui. */
+  private slotHCache = 90;
+  get SLOT_H(): number { return this.slotHCache; }
+
+  private leerSlotH(): void {
+    const v = getComputedStyle(this.host.nativeElement).getPropertyValue('--slot-h').trim();
+    const px = parseFloat(v);
+    if (!isNaN(px) && px > 0) this.slotHCache = px;
+  }
   horasGrid: Slot[] = []; // filas visuales de la agenda (1 por hora, 07:00 .. 21:00)
 
   constructor(
@@ -294,7 +341,8 @@ export class ListaCitasComponent implements OnInit {
     private configuracionService: ConfiguracionService,
     private notaAtencionPdfService: NotaAtencionPdfService,
     private excelExportService: ExcelExportService,
-    private pacienteService: PacienteService
+    private pacienteService: PacienteService,
+    private host: ElementRef<HTMLElement>
   ) {}
 
   // ── Exportar a Excel ─────────────────────────────────────────────────────
@@ -341,6 +389,14 @@ export class ListaCitasComponent implements OnInit {
     this.generarSlots();
     this.irHoy();
     this.cargarCatalogos();
+    // 768px es el mismo corte que ya usa el CSS del componente.
+    this.mqMovil = window.matchMedia('(max-width: 768px)');
+    this.onMqCambio(this.mqMovil);
+    this.mqMovil.addEventListener('change', this.onMqCambio);
+  }
+
+  ngOnDestroy(): void {
+    this.mqMovil?.removeEventListener('change', this.onMqCambio);
   }
 
   /** Requiere el permiso granular CREAR del módulo Citas Y no estar restringido a nivel de usuario (ambos configurables en Seguridad). */
@@ -594,8 +650,33 @@ export class ListaCitasComponent implements OnInit {
     lunes.setHours(0, 0, 0, 0);
     this.fechaInicioSemana = lunes;
     this.construirSemana();
+    // dow: 0=domingo … 6=sabado; la grilla arranca en lunes.
+    this.diaIdx = dow === 0 ? 6 : dow - 1;
     this.cargarCitas();
     this.cargarDisponibilidadSemana();
+  }
+
+  /** Índice del día de hoy dentro de la semana visible, o null si hoy no cae en ella. */
+  private idxDeHoyEnSemana(): number | null {
+    const i = this.diasSemana.findIndex(d => this.esHoy(d.fecha));
+    return i >= 0 ? i : null;
+  }
+
+  /** En móvil, ¿esta columna es la que toca mostrar? En escritorio se muestran todas. */
+  esDiaVisible(di: number): boolean {
+    return !this.vistaDia || di === this.diaIdx;
+  }
+
+  /** Avanza o retrocede un día. Al pasarse del lunes o del domingo, salta de semana. */
+  navDia(dir: -1 | 1): void {
+    const siguiente = this.diaIdx + dir;
+    if (siguiente < 0)      { this.diaIdx = 6; this.navSemana(-1); return; }
+    if (siguiente > 6)      { this.diaIdx = 0; this.navSemana(1);  return; }
+    this.diaIdx = siguiente;
+  }
+
+  get diaVisible(): DiaSemana | undefined {
+    return this.diasSemana[this.diaIdx];
   }
 
   navSemana(dir: -1 | 1): void {
@@ -996,7 +1077,11 @@ export class ListaCitasComponent implements OnInit {
   getChipHeight(c: Cita): number {
     const pxPorMin = this.SLOT_H / 60;
     const proporcional = c.duracion_minutos * pxPorMin - 2;
-    const minimo = (c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA') ? 78 : 56;
+    // En movil el chip no lleva el boton "Registrar atencion" (se usa el del modal), asi que
+    // necesita menos alto: con el minimo de escritorio, una cita de 45min se desbordaba
+    // siempre a la hora siguiente y la rejilla se veia rota.
+    const conBoton = c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA';
+    const minimo = this.vistaDia ? (conBoton ? 46 : 40) : (conBoton ? 78 : 56);
     return Math.max(minimo, proporcional);
   }
 
