@@ -110,18 +110,25 @@ export class ListaCajaComponent implements OnInit {
     }
     this.exportando = true;
     const fechaStr = new Date(this.resumen.fecha + 'T00:00:00').toLocaleDateString('es-PE');
-    const filas = this.resumen.ingresosPorMetodo.map(m => ({
+    const turno = this.resumen.turno;
+    // Tres bloques en la misma hoja, distinguidos por la columna Tipo: el mismo total visto
+    // por concepto, por método, y el detalle de qué productos salieron.
+    const fila = (tipo: string, detalle: string, monto: number, unidades: number | '' = '') => ({
       'Fecha': fechaStr,
-      'Turno': this.resumen!.turno,
-      'Método': m.metodoNombre,
-      'Monto (S/)': m.monto,
-    }));
-    filas.push({
-      'Fecha': fechaStr,
-      'Turno': this.resumen.turno,
-      'Método': 'TOTAL',
-      'Monto (S/)': this.resumen.totalIngresos,
+      'Turno': turno,
+      'Tipo': tipo,
+      'Detalle': detalle,
+      'Unidades': unidades,
+      'Monto (S/)': monto,
     });
+
+    const filas = [
+      ...(this.resumen.ingresosPorConcepto ?? []).map(c => fila('Concepto', c.nombre, c.monto)),
+      ...this.resumen.ingresosPorMetodo.map(m => fila('Método de pago', m.metodoNombre, m.monto)),
+      ...(this.resumen.ventasPorProducto ?? []).map(v => fila('Producto vendido', v.nombreProducto, v.total, v.unidades)),
+      fila('TOTAL', 'Ingresos del turno', this.resumen.totalIngresos),
+    ];
+
     this.excelExportService.exportar(filas, `caja_${this.fecha}_turno${this.turno}`);
     this.exportando = false;
   }

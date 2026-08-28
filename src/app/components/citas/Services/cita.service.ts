@@ -203,6 +203,9 @@ export class CitaService {
     if (req.sesion_id)     body['sesion']     = { id: req.sesion_id };
     if (req.estado_id)     body['estado']     = { id: req.estado_id };
     if (req.modalidad_id)  body['modalidad']  = { id: req.modalidad_id };
+    // El tipo de terapia se identifica por su key (TipoTerapia.id ES la key del catalogo).
+    // Sin esto el PUT respondia OK pero el cambio de tipo se perdia en silencio.
+    if (req.tipo_key) body['tipoTerapiaKey'] = req.tipo_key;
     if (req.tipo_recurrencia) body['tipoRecurrencia'] = req.tipo_recurrencia;
     if (req.precio != null) body['precio'] = req.precio;
     return body;

@@ -21,6 +21,10 @@ export interface Paciente {
   createdAt?: string;
   updatedAt?: string;
   usuarioCreacionNombre?: string;
+  /** Último movimiento del saldo a favor — solo viene en el reporte de Adelantos. */
+  saldoUltimoMotivo?: string;
+  saldoUltimoTerapeuta?: string;
+  saldoUltimaFecha?: string;
 }
 
 export interface PacienteForm {
@@ -37,4 +41,18 @@ export interface PacienteForm {
   activo: boolean;
   sedeId: number | null;
   origenId: number | null;
+}
+
+/** Una linea del estado de cuenta del saldo a favor. */
+export interface SaldoMovimiento {
+  id: number;
+  pacienteId: number;
+  /** Con signo: positivo suma saldo, negativo lo consume. */
+  monto: number;
+  saldoResultante: number;
+  motivo: string;
+  terapeutaNombre?: string | null;
+  citaId?: number | null;
+  pagoId?: number | null;
+  fecha: string;
 }

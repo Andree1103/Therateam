@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
-import { Paciente } from '../../../pacientes/Models/paciente.model';
+import { Paciente, SaldoMovimiento } from '../../../pacientes/Models/paciente.model';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { ToastService } from '../../../../core/services/toast.service';
 
@@ -12,6 +12,11 @@ import { ToastService } from '../../../../core/services/toast.service';
 export class ListaAdelantosComponent implements OnInit {
 
   adelantos: Paciente[] = [];
+
+  // ── Estado de cuenta del saldo (panel lateral) ────────────────────────────
+  pacienteDetalle: Paciente | null = null;
+  movimientos: SaldoMovimiento[] = [];
+  cargandoMovimientos = false;
   loading = false;
   exportando = false;
 
@@ -44,6 +49,33 @@ export class ListaAdelantosComponent implements OnInit {
       },
       error: () => { this.loading = false; this.toast.error('Error al cargar los adelantos'); }
     });
+  }
+
+  /** Abre el estado de cuenta: de donde salio el saldo del paciente y en que se fue gastando. */
+  verEstadoDeCuenta(p: Paciente): void {
+    if (!p.id) return;
+    this.pacienteDetalle = p;
+    this.movimientos = [];
+    this.cargandoMovimientos = true;
+    this.pacienteService.getSaldoMovimientos(p.id).subscribe({
+      next: m => { this.movimientos = m; this.cargandoMovimientos = false; },
+      error: () => {
+        this.cargandoMovimientos = false;
+        this.toast.error('No se pudo cargar el estado de cuenta');
+      }
+    });
+  }
+
+  cerrarEstadoDeCuenta(): void { this.pacienteDetalle = null; this.movimientos = []; }
+
+  /** Total que el paciente llego a tener a favor (suma de las entradas). */
+  get totalIngresado(): number {
+    return this.movimientos.filter(m => m.monto > 0).reduce((a, m) => a + m.monto, 0);
+  }
+
+  /** Total ya consumido en citas o paquetes (las salidas, en positivo). */
+  get totalUsado(): number {
+    return this.movimientos.filter(m => m.monto < 0).reduce((a, m) => a - m.monto, 0);
   }
 
   /** El filtro solo se aplica al clic en "Buscar" (o Enter) — nunca mientras se tipea. */
@@ -82,6 +114,9 @@ export class ListaAdelantosComponent implements OnInit {
           'DNI': p.dni ?? '',
           'Teléfono': p.telefono ?? '',
           'Correo': p.correo ?? '',
+          'Motivo del saldo': p.saldoUltimoMotivo ?? '',
+          'Terapeuta': p.saldoUltimoTerapeuta ?? '',
+          'Fecha del movimiento': p.saldoUltimaFecha ? new Date(p.saldoUltimaFecha).toLocaleDateString('es-PE') : '',
           'Saldo a favor (S/)': p.saldoAFavor ?? '',
           'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));

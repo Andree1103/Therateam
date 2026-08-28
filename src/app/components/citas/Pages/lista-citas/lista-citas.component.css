@@ -490,3 +490,19 @@ tbody tr{height:var(--slot-h)}
 /* Etiqueta del día en la vista móvil: el nombre manda, la fecha va debajo en chico. */
 .wlbl.dlbl{display:inline-flex;flex-direction:column;line-height:1.15;min-width:88px;text-align:center}
 .wlbl.dlbl small{font-size:10px;font-weight:500;color:#6b7280;text-transform:uppercase}
+
+/* ── Venta de productos dentro del cobro adicional ─────────────────────────── */
+.venta-bloque{display:flex;flex-direction:column;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px}
+.venta-picker{display:flex;gap:6px;align-items:center}
+.venta-sel{flex:1;min-width:0}
+.venta-cant{width:64px;flex:none;text-align:center}
+.venta-add{background:#185FA5;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.venta-add:disabled{opacity:.5;cursor:not-allowed}
+.venta-lineas{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.venta-lineas li{display:flex;align-items:center;gap:8px;font-size:12px;color:#334155}
+.venta-l-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.venta-l-sub{font-weight:700;white-space:nowrap}
+.venta-l-del{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:12px;line-height:1;padding:0 2px}
+.venta-l-del:hover{color:#dc2626}
+.venta-total{border-top:1px solid #e2e8f0;padding-top:5px;margin-top:2px;color:#0f172a}
+.venta-total .venta-l-nom{font-weight:700}

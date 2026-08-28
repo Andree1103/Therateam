@@ -57,6 +57,9 @@
       <button class="tab-btn" [class.active]="tabActivo==='pagos'"        (click)="tabActivo='pagos'">
         Pagos <span class="tab-count">{{ pagos.length }}</span>
       </button>
+      <button class="tab-btn" [class.active]="tabActivo==='saldo'"        (click)="tabActivo='saldo'">
+        Saldo a favor <span class="tab-count">{{ movimientosSaldo.length }}</span>
+      </button>
     </div>
 
     <!-- TAB: DATOS PERSONALES -->
@@ -207,6 +210,44 @@
               </span>
               <span *ngIf="!a.metricas?.length">—</span>
             </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TAB: SALDO A FAVOR ─────────────────────────────────────────────────
+         De donde salio el saldo y en que se gasto. Se muestra aqui ademas de en
+         Adelantos porque ese listado solo trae a quien tiene saldo disponible. -->
+    <div class="tab-panel" *ngIf="tabActivo === 'saldo'">
+      <div class="ec-resumen">
+        <div><span class="ec-lbl">Ingresó</span><strong class="txt-success">S/ {{ saldoIngresado | number:'1.2-2' }}</strong></div>
+        <div><span class="ec-lbl">Usó</span><strong class="txt-danger">S/ {{ saldoUsado | number:'1.2-2' }}</strong></div>
+        <div><span class="ec-lbl">Disponible</span><strong>S/ {{ (paciente?.saldoAFavor ?? 0) | number:'1.2-2' }}</strong></div>
+      </div>
+
+      <div class="state-box" *ngIf="movimientosSaldo.length === 0">
+        <p>Sin movimientos de saldo</p>
+      </div>
+
+      <table class="data-table" *ngIf="movimientosSaldo.length > 0">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Concepto</th>
+            <th>Terapeuta</th>
+            <th class="ta-r">Movimiento</th>
+            <th class="ta-r">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of movimientosSaldo">
+            <td class="nowrap">{{ m.fecha | date:'d MMM y, HH:mm' }}</td>
+            <td>{{ m.motivo }}</td>
+            <td>{{ m.terapeutaNombre || '—' }}</td>
+            <td class="ta-r" [class.txt-success]="m.monto > 0" [class.txt-danger]="m.monto < 0">
+              {{ m.monto > 0 ? '+' : '' }}{{ m.monto | number:'1.2-2' }}
+            </td>
+            <td class="ta-r">{{ m.saldoResultante | number:'1.2-2' }}</td>
           </tr>
         </tbody>
       </table>

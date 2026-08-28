@@ -1,0 +1,216 @@
+<div class="page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Productos</h1>
+      <p>Artículos que se venden aparte de las terapias — pelotas, therabands, bajalenguas, material</p>
+    </div>
+    <button type="button" class="btn-primary" *ngIf="puedeCrear" (click)="nuevo()">Nuevo producto</button>
+  </div>
+
+  <div class="page-body">
+
+    <div class="tabs">
+      <button type="button" [class.tab--activa]="pestania === 'catalogo'" (click)="pestania = 'catalogo'">Catálogo</button>
+      <button type="button" [class.tab--activa]="pestania === 'ventas'" (click)="irAVentas()">Qué se vendió</button>
+    </div>
+
+    <!-- ── CATÁLOGO ─────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="pestania === 'catalogo'">
+
+      <div class="filters-bar">
+        <input type="text" class="search-inp" [(ngModel)]="busqueda" placeholder="Buscar producto...">
+        <label class="chk">
+          <input type="checkbox" [(ngModel)]="mostrarInactivos"> Ver desactivados
+        </label>
+      </div>
+
+      <div class="aviso" *ngIf="sinStock.length > 0">
+        <strong>Sin stock:</strong>
+        {{ sinStock.length }} producto{{ sinStock.length === 1 ? '' : 's' }} en cero — no se podrá{{ sinStock.length === 1 ? '' : 'n' }} vender hasta reponer.
+      </div>
+
+      <div class="cards-row" *ngIf="!loading && visibles.length > 0">
+        <div class="stat-card stat-card--total">
+          <span class="stat-lbl">Valor del inventario</span>
+          <span class="stat-val">S/ {{ valorInventario | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-lbl">Productos</span>
+          <span class="stat-val">{{ visibles.length }}</span>
+        </div>
+      </div>
+
+      <div class="state-box" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Cargando productos...</p>
+      </div>
+
+      <div class="state-box small" *ngIf="!loading && visibles.length === 0">
+        <p>{{ busqueda ? 'Ningún producto coincide con esa búsqueda.' : 'Todavía no hay productos. Crea el primero para poder venderlo desde una cita.' }}</p>
+      </div>
+
+      <div class="card" *ngIf="!loading && visibles.length > 0">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Descripción</th>
+              <th class="ta-r">Precio</th>
+              <th class="ta-r">Stock</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of visibles" [class.fila-inactiva]="p.activo === false">
+              <td><strong>{{ p.nombre }}</strong></td>
+              <td class="txt-muted">{{ p.descripcion || '—' }}</td>
+              <td class="ta-r monto">S/ {{ p.precio | number:'1.2-2' }}</td>
+              <td class="ta-r">
+                <span class="pill" [class.pill--cero]="(p.stock ?? 0) <= 0" [class.pill--bajo]="(p.stock ?? 0) > 0 && (p.stock ?? 0) <= 3">
+                  {{ p.stock ?? 0 }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [class.badge--off]="p.activo === false">{{ p.activo === false ? 'Desactivado' : 'Activo' }}</span>
+              </td>
+              <td class="acciones">
+                <button class="btn-link" *ngIf="puedeEditar && p.activo !== false" (click)="abrirReponer(p)">Reponer</button>
+                <button class="btn-link" *ngIf="puedeEditar" (click)="editar(p)">Editar</button>
+                <button class="btn-link txt-danger" *ngIf="puedeEliminar && p.activo !== false" (click)="desactivar(p)">Desactivar</button>
+                <button class="btn-link" *ngIf="puedeEditar && p.activo === false" (click)="reactivar(p)">Reactivar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+    <!-- ── QUÉ SE VENDIÓ ────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="pestania === 'ventas'">
+
+      <div class="filters-bar">
+        <label class="ctrl">
+          <span class="ctrl-lbl">Desde</span>
+          <input type="date" [(ngModel)]="desde">
+        </label>
+        <label class="ctrl">
+          <span class="ctrl-lbl">Hasta</span>
+          <input type="date" [(ngModel)]="hasta">
+        </label>
+        <button type="button" class="btn-secondary" (click)="cargarVentas()">Consultar</button>
+      </div>
+
+      <div class="cards-row" *ngIf="!cargandoVentas && ventas.length > 0">
+        <div class="stat-card stat-card--total">
+          <span class="stat-lbl">Total vendido</span>
+          <span class="stat-val">S/ {{ totalVendido | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-lbl">Unidades</span>
+          <span class="stat-val">{{ unidadesVendidas }}</span>
+        </div>
+      </div>
+
+      <div class="state-box" *ngIf="cargandoVentas">
+        <div class="spinner"></div>
+        <p>Cargando ventas...</p>
+      </div>
+
+      <div class="state-box small" *ngIf="!cargandoVentas && ventas.length === 0">
+        <p>No hay ventas de productos en este rango.</p>
+      </div>
+
+      <div class="card" *ngIf="!cargandoVentas && ventas.length > 0">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th class="ta-r">Unidades</th>
+              <th class="ta-r">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let v of ventas">
+              <td><strong>{{ v.nombreProducto }}</strong></td>
+              <td class="ta-r">{{ v.unidades }}</td>
+              <td class="ta-r monto txt-success">S/ {{ v.total | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+  </div>
+</div>
+
+<!-- ── Modal alta / edición ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" *ngIf="mostrarForm" (click)="cerrarForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ editandoId ? 'Editar producto' : 'Nuevo producto' }}</h2>
+      <button type="button" class="modal-close" (click)="cerrarForm()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <label class="campo">
+        <span class="campo-lbl">Nombre *</span>
+        <input type="text" [(ngModel)]="form.nombre" placeholder="Ej. Pelota terapéutica 65 cm" maxlength="120">
+      </label>
+
+      <label class="campo">
+        <span class="campo-lbl">Descripción</span>
+        <input type="text" [(ngModel)]="form.descripcion" placeholder="Opcional — color, medida, marca" maxlength="255">
+      </label>
+
+      <div class="campo-row">
+        <label class="campo">
+          <span class="campo-lbl">Precio (S/) *</span>
+          <input type="number" [(ngModel)]="form.precio" min="0" step="0.10">
+        </label>
+        <label class="campo">
+          <span class="campo-lbl">Stock</span>
+          <input type="number" [(ngModel)]="form.stock" min="0" step="1">
+        </label>
+      </div>
+
+      <p class="hint">
+        El precio del catálogo es el que se cobra al vender: no se puede cambiar desde la cita.
+        Para ajustarlo, edítalo acá.
+      </p>
+    </div>
+
+    <div class="modal-ftr">
+      <button type="button" class="btn-secondary" (click)="cerrarForm()">Cancelar</button>
+      <button type="button" class="btn-primary" (click)="guardar()" [disabled]="guardando">
+        {{ guardando ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal reposición ──────────────────────────────────────────────────────── -->
+<div class="modal-overlay" *ngIf="reponiendo" (click)="cerrarReponer()">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>Reponer stock</h2>
+      <button type="button" class="modal-close" (click)="cerrarReponer()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="hint">
+        <strong>{{ reponiendo.nombre }}</strong> — quedan {{ reponiendo.stock ?? 0 }} unidades.
+      </p>
+      <label class="campo">
+        <span class="campo-lbl">¿Cuántas unidades ingresaron?</span>
+        <input type="number" [(ngModel)]="unidadesAReponer" min="1" step="1" placeholder="Ej. 10">
+      </label>
+    </div>
+
+    <div class="modal-ftr">
+      <button type="button" class="btn-secondary" (click)="cerrarReponer()">Cancelar</button>
+      <button type="button" class="btn-primary" (click)="confirmarReponer()">Sumar al stock</button>
+    </div>
+  </div>
+</div>

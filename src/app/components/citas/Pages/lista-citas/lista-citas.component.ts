@@ -23,6 +23,8 @@ import { ConfiguracionService } from '../../../../core/services/configuracion.se
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { ProductoService } from '../../../productos/Services/producto.service';
+import { Producto } from '../../../productos/Models/producto.model';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -222,8 +224,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   citaEditando: Cita | null = null;
 
   pac1: PacienteState = this.emptyPac();
-  pac2: PacienteState = this.emptyPac();
-  pac2habilitado = false;
+  /** Acompañantes: del 2do paciente en adelante. El tipo de terapia manda cuantos caben
+   *  (maxPacientes), asi que Estimulacion Temprana admite 4 acompañantes y no 1 como antes. */
+  pacsExtra: PacienteState[] = [];
 
   // ── Tratamiento existente (sesiones pagadas por adelantado) ────────────────
   pacienteTratamientos: Tratamiento[] = [];
@@ -342,6 +345,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private notaAtencionPdfService: NotaAtencionPdfService,
     private excelExportService: ExcelExportService,
     private pacienteService: PacienteService,
+    private productoService: ProductoService,
     private host: ElementRef<HTMLElement>
   ) {}
 
@@ -393,6 +397,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.mqMovil = window.matchMedia('(max-width: 768px)');
     this.onMqCambio(this.mqMovil);
     this.mqMovil.addEventListener('change', this.onMqCambio);
+    this.cargarProductos();
   }
 
   ngOnDestroy(): void {
@@ -538,9 +543,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return 'Sin datos';
   }
 
-  get pac2Resumen(): string {
-    if (this.pac2.nombre) return `${this.pac2.nombre} ${this.pac2.apellido}`.trim();
-    if (this.pac2.dni)    return `DNI: ${this.pac2.dni}`;
+  /** Acompañantes realmente completados (los slots vacios se ignoran al guardar). */
+  get acompanantesConNombre(): PacienteState[] {
+    return this.esMultipaciente ? this.pacsExtra.filter(p => p.nombre.trim()) : [];
+  }
+
+  pacResumen(p: PacienteState): string {
+    if (p.nombre) return `${p.nombre} ${p.apellido}`.trim();
+    if (p.dni)    return `DNI: ${p.dni}`;
     return 'Sin datos';
   }
 
@@ -1144,7 +1154,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // La duración del tipo es solo un default sugerido — el usuario puede ajustarla después,
     // por eso se re-setea aquí (al cambiar de tipo) pero queda libre de tocar mientras tanto.
     if (tipo) this.fDur = tipo.duracion_minutos;
-    if (tipo && !this.esMultipaciente) this.pac2habilitado = false;
+    if (tipo && !this.esMultipaciente) this.pacsExtra = [];
     // Precio sugerido para citas sueltas (sin paquete) — solo un default, sigue siendo editable.
     if (tipo?.precio_recomendado != null && this.fTratamientoExistenteId === null) {
       this.fPrecio = tipo.precio_recomendado;
@@ -1292,6 +1302,23 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   /** Si ya no hay cupo para un segundo paciente en el horario elegido (ej. CONVENCIONAL ya
    *  tiene sus 2 pacientes en ese slot), no tiene sentido ofrecer el toggle de "agregar
    *  segundo paciente" — se ocultaría solo para volver a fallar al guardar. */
+  /** Cuantos acompañantes admite todavia el horario, segun el maxPacientes del tipo y las
+   *  citas que ya ocupan ese slot. */
+  get puedeAgregarAcompanante(): boolean {
+    const tipo = this.tipoSeleccionado;
+    if (!tipo || !this.esMultipaciente) return false;
+    // 1 (titular) + los que ya agregue en el formulario
+    if (1 + this.pacsExtra.length >= tipo.max_pacientes) return false;
+    return this.cupoLibreParaPac2;
+  }
+
+  agregarAcompanante(): void {
+    if (!this.puedeAgregarAcompanante) return;
+    this.pacsExtra.push(this.emptyPac());
+  }
+
+  quitarAcompanante(i: number): void { this.pacsExtra.splice(i, 1); }
+
   get cupoLibreParaPac2(): boolean {
     const tipo = this.tipoSeleccionado;
     if (!tipo || !this.esMultipaciente || !this.fTer || !this.fFecha || !this.fHoraInicio) return true;
@@ -1304,7 +1331,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       if (this.citaEditando && c.id === this.citaEditando.id) return false;
       return fechaSlot < new Date(c.fecha_fin) && fechaFin > new Date(c.fecha_inicio);
     });
-    return conflictos.length + 1 < tipo.max_pacientes;
+    return conflictos.length + 1 + this.pacsExtra.length <= tipo.max_pacientes;
   }
 
   get cuposDisponiblesTratamiento(): number | null {
@@ -1393,8 +1420,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       busquedaNombre: `${cita.paciente_nombre ?? ''} ${cita.paciente_apellido ?? ''}`.trim(),
       resultadosBusqueda: [], dropdownAbierto: false,
     };
-    this.pac2 = this.emptyPac();
-    this.pac2habilitado = false;
+    this.pacsExtra = [];
     this.fTer       = cita.terapeuta_nombre ?? '';
     this.terapeutaBusqueda = this.fTer;
     this.fTipoId    = (cita.tipo_terapia_key ?? '').toUpperCase() || (this.tiposTerapia[0]?.id ?? '');
@@ -1429,8 +1455,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   resetForm(): void {
     this.pac1 = this.emptyPac();
-    this.pac2 = this.emptyPac();
-    this.pac2habilitado = false;
+    this.pacsExtra = [];
     this.limpiarTratamientoExistente();
     this.fTer    = this.terapeutasNombres[0] ?? '';
     this.terapeutaBusqueda = this.fTer;
@@ -1733,24 +1758,26 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     if (this.pac1.modo === 'nuevo' && !this.pac1.correo.trim()) {
       this.toast.warning('El correo del paciente 1 es obligatorio (se usa para crear su cuenta de acceso)'); return;
     }
-    if (this.esMultipaciente && this.pac2habilitado && this.pac2.modo === 'nuevo' && this.pac2.nombre.trim() && !this.pac2.correo.trim()) {
-      this.toast.warning('El correo del paciente 2 es obligatorio (se usa para crear su cuenta de acceso)'); return;
+    const faltaCorreo = this.acompanantesConNombre.findIndex(p => p.modo === 'nuevo' && !p.correo.trim());
+    if (faltaCorreo >= 0) {
+      this.toast.warning(`El correo del paciente ${faltaCorreo + 2} es obligatorio (se usa para crear su cuenta de acceso)`); return;
     }
     // La fecha de nacimiento define si hace falta apoderado, así que sin ella no se puede dar
     // de alta a nadie — el backend la exige igual, esto solo evita el viaje al servidor.
     if (this.pac1.modo === 'nuevo' && !this.pac1.fechaNacimiento) {
       this.toast.warning('La fecha de nacimiento del paciente 1 es obligatoria'); return;
     }
-    if (this.esMultipaciente && this.pac2habilitado && this.pac2.modo === 'nuevo' &&
-        this.pac2.nombre.trim() && !this.pac2.fechaNacimiento) {
-      this.toast.warning('La fecha de nacimiento del paciente 2 es obligatoria'); return;
+    const faltaFecha = this.acompanantesConNombre.findIndex(p => p.modo === 'nuevo' && !p.fechaNacimiento);
+    if (faltaFecha >= 0) {
+      this.toast.warning(`La fecha de nacimiento del paciente ${faltaFecha + 2} es obligatoria`); return;
     }
     // Menor de edad: el apoderado es obligatorio también acá, no solo en el módulo Pacientes.
     if (this.faltaApoderado(this.pac1)) {
       this.toast.warning('El paciente 1 es menor de edad — completa el DNI, nombre y celular del apoderado.'); return;
     }
-    if (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim() && this.faltaApoderado(this.pac2)) {
-      this.toast.warning('El paciente 2 es menor de edad — completa el DNI, nombre y celular del apoderado.'); return;
+    const faltaApo = this.acompanantesConNombre.findIndex(p => this.faltaApoderado(p));
+    if (faltaApo >= 0) {
+      this.toast.warning(`El paciente ${faltaApo + 2} es menor de edad — completa el DNI, nombre y celular del apoderado.`); return;
     }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
@@ -1805,7 +1832,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
 
     // Conflicto de capacidad
-    const nuevosCount = (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim()) ? 2 : 1;
+    const nuevosCount = 1 + this.acompanantesConNombre.length;
     const conflictos = this.citas.filter(c => {
       if (c.terapeuta_nombre !== this.fTer) return false;
       if (this.citaEditando && c.id === this.citaEditando.id) return false;
@@ -1886,8 +1913,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       // Agregar un segundo paciente a una cita ya creada implica crear una cita NUEVA para ese
       // paciente en el mismo slot (cada cita solo tiene un paciente) — no se fusiona en la que
       // ya existe.
-      const agregarPac2 = this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim() && this.pac2.apellido.trim();
-      if (!agregarPac2) {
+      const nuevosAcompanantes = this.acompanantesConNombre.filter(p => p.apellido.trim());
+      if (nuevosAcompanantes.length === 0) {
         actualizar$.subscribe({
           next: () => {
             this.toast.success('Cita actualizada correctamente');
@@ -1897,8 +1924,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         });
       } else {
         const crearPac2$ = this.citaService.crearConPaciente({
-          paciente:  buildPac(this.pac2),
+          paciente:  buildPac(nuevosAcompanantes[0]),
           paciente2: null,
+          pacientesAdicionales: nuevosAcompanantes.slice(1).map(buildPac),
           terapeutaNombre: this.fTer,
           tipoKey:         this.fTipoId,
           fechaInicio:     this.toLocalDT(fechaSlot),
@@ -1924,8 +1952,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
       const req: CrearCitaConPacienteRequest = {
         paciente:  buildPac(this.pac1),
-        paciente2: (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim())
-                    ? buildPac(this.pac2) : null,
+        paciente2: null,
+        pacientesAdicionales: this.acompanantesConNombre.map(buildPac),
         terapeutaNombre: this.fTer,
         tipoKey:         this.fTipoId,
         fechaInicio:     this.toLocalDT(fechaSlot),
@@ -2009,8 +2037,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       const fecha = this.bulkPreview[index];
       const req: CrearCitaConPacienteRequest = {
         paciente:  buildPac(this.pac1),
-        paciente2: (this.esMultipaciente && this.pac2habilitado && this.pac2.nombre.trim())
-                    ? buildPac(this.pac2) : null,
+        paciente2: null,
+        pacientesAdicionales: this.acompanantesConNombre.map(buildPac),
         terapeutaNombre: this.fTer,
         tipoKey:         this.fTipoId,
         fechaInicio:     this.toLocalDT(fecha),
@@ -2182,17 +2210,68 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.cobroAdicionalConcepto = '';
     this.cobroAdicionalMetodoId = this.metodosPago[0]?.id ?? null;
     this.cobroAdicionalReferencia = '';
+    this.ventaLineas = [];
+    this.ventaProductoId = null;
+    this.ventaCantidad = 1;
+  }
+
+  // ── Venta de productos dentro del cobro adicional ─────────────────────────
+  // El cobro adicional ya registraba la plata, pero con concepto libre: no habia forma de saber
+  // cuantas pelotas se vendieron ni de fijar el precio. Estas lineas salen del catalogo.
+  productosVendibles: Producto[] = [];
+  ventaProductoId: number | null = null;
+  ventaCantidad = 1;
+  ventaLineas: { productoId: number; nombre: string; precio: number; cantidad: number }[] = [];
+
+  private cargarProductos(): void {
+    if (!this.puedeRegistrarPago) return;
+    this.productoService.getVendibles().subscribe({
+      next: p => this.productosVendibles = p,
+      // Sin catalogo el cobro adicional sigue funcionando con monto libre: no vale molestar al usuario.
+      error: () => this.productosVendibles = []
+    });
+  }
+
+  agregarLineaVenta(): void {
+    const producto = this.productosVendibles.find(p => p.id === this.ventaProductoId);
+    if (!producto?.id) return;
+
+    const cantidad = Math.max(1, Math.floor(this.ventaCantidad || 1));
+    const yaEnLista = this.ventaLineas.find(l => l.productoId === producto.id);
+    const totalPedido = (yaEnLista?.cantidad ?? 0) + cantidad;
+    if (totalPedido > (producto.stock ?? 0)) {
+      this.toast.warning(`Solo quedan ${producto.stock ?? 0} de ${producto.nombre}`);
+      return;
+    }
+
+    // Repetir el mismo producto acumula en la linea existente en vez de duplicarla.
+    if (yaEnLista) yaEnLista.cantidad = totalPedido;
+    else this.ventaLineas.push({ productoId: producto.id, nombre: producto.nombre, precio: producto.precio ?? 0, cantidad });
+
+    this.ventaProductoId = null;
+    this.ventaCantidad = 1;
+  }
+
+  quitarLineaVenta(i: number): void { this.ventaLineas.splice(i, 1); }
+
+  get totalVenta(): number {
+    return this.ventaLineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
   }
 
   cancelarCobroAdicional(): void { this.mostrarCobroAdicional = false; }
 
   confirmarCobroAdicional(): void {
     if (!this.citaEditando) return;
-    if (!this.cobroAdicionalMonto || this.cobroAdicionalMonto <= 0) {
-      this.toast.warning('Ingresa un monto válido'); return;
-    }
-    if (!this.cobroAdicionalConcepto.trim()) {
-      this.toast.warning('Describe el concepto del cobro adicional'); return;
+    const esVenta = this.ventaLineas.length > 0;
+    // Con productos el monto y el concepto los arma el catálogo; sin productos siguen siendo
+    // obligatorios, porque un cobro suelto sin descripción no se puede auditar después.
+    if (!esVenta) {
+      if (!this.cobroAdicionalMonto || this.cobroAdicionalMonto <= 0) {
+        this.toast.warning('Ingresa un monto válido'); return;
+      }
+      if (!this.cobroAdicionalConcepto.trim()) {
+        this.toast.warning('Describe el concepto del cobro adicional'); return;
+      }
     }
     const pacienteId = Number(this.citaEditando.paciente_id);
     const citaId = Number(this.citaEditando.id);
@@ -2202,19 +2281,25 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const body: any = {
       paciente: { id: pacienteId },
       cita: { id: citaId },
-      montoRecibido: this.cobroAdicionalMonto,
+      montoRecibido: esVenta ? this.totalVenta : this.cobroAdicionalMonto,
       esAdicional: true,
       concepto: this.cobroAdicionalConcepto.trim(),
       notas: this.cobroAdicionalConcepto.trim(),
     };
+    // Solo productoId y cantidad: el precio lo resuelve el backend contra el catálogo.
+    if (esVenta) {
+      body['items'] = this.ventaLineas.map(l => ({ productoId: l.productoId, cantidad: l.cantidad }));
+    }
     if (this.cobroAdicionalMetodoId) body.metodo = { id: this.cobroAdicionalMetodoId };
     if (this.cobroAdicionalReferencia.trim()) body.referencia = this.cobroAdicionalReferencia.trim();
 
     this.pagoService.create(body).subscribe({
       next: () => {
-        this.toast.success('Cobro adicional registrado');
+        this.toast.success(esVenta ? 'Venta registrada' : 'Cobro adicional registrado');
         this.guardandoCobroAdicional = false;
         this.mostrarCobroAdicional = false;
+        // El stock bajó en el servidor: sin esto el selector seguiría ofreciendo unidades ya vendidas.
+        if (esVenta) this.cargarProductos();
         this.recargarSilencioso();
       },
       error: (err) => {

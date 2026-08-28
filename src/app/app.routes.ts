@@ -32,6 +32,7 @@ export const routes: Routes = [
       { path: 'pagos',           data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/pagos/pagos.module').then(m => m.PagosModule) },
       { path: 'caja',            data: { modulo: 'CAJA' },            canActivate: [moduloGuard], loadChildren: () => import('./components/caja/caja.module').then(m => m.CajaModule) },
       { path: 'adelantos',       data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/adelantos/adelantos.module').then(m => m.AdelantosModule) },
+      { path: 'productos',       data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/productos/productos.module').then(m => m.ProductosModule) },
       { path: 'atenciones',      data: { modulo: 'CITAS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/atenciones/atenciones.module').then(m => m.AtencionesModule) },
       { path: 'tratamientos',    data: { modulo: 'PAQUETES' },        canActivate: [moduloGuard], loadChildren: () => import('./components/tratamientos/tratamientos.module').then(m => m.TratamientosModule) },
       { path: 'configuraciones', data: { modulo: 'CONFIGURACIONES' }, canActivate: [moduloGuard], loadChildren: () => import('./components/configuraciones/configuraciones.module').then(m => m.ConfiguracionesModule) },

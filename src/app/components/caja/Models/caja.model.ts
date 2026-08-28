@@ -4,6 +4,21 @@ export interface IngresoMetodo {
   monto: number;
 }
 
+export interface IngresoConcepto {
+  /** TERAPIAS | PRODUCTOS | OTROS — la clave estable; `nombre` es el texto a mostrar. */
+  clave: string;
+  nombre: string;
+  monto: number;
+}
+
+/** Una fila del detalle de productos vendidos en el turno. */
+export interface VentaProducto {
+  productoId: number;
+  nombreProducto: string;
+  unidades: number;
+  total: number;
+}
+
 export interface CajaResumen {
   fecha: string;
   turno: number;
@@ -11,6 +26,10 @@ export interface CajaResumen {
   horaCorte: string;
   saldoInicial: number;
   ingresosPorMetodo: IngresoMetodo[];
+  /** El mismo dinero cortado por concepto: suma igual que ingresosPorMetodo. */
+  ingresosPorConcepto: IngresoConcepto[];
+  /** Qué productos se vendieron en el turno — detalle detrás de la fila "Productos". */
+  ventasPorProducto: VentaProducto[];
   totalIngresos: number;
   egresos: number;
   comentario: string | null;

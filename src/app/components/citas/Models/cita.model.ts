@@ -112,6 +112,8 @@ export interface PacienteEnCita {
 export interface CrearCitaConPacienteRequest {
   paciente: PacienteEnCita;
   paciente2?: PacienteEnCita | null;
+  /** Acompañantes del 3ro en adelante, para tipos con maxPacientes > 2. */
+  pacientesAdicionales?: PacienteEnCita[];
   terapeutaNombre: string;
   tipoKey: string;
   fechaInicio: string;

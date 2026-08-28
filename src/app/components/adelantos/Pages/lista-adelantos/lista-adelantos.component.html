@@ -46,16 +46,27 @@
             <th>DNI</th>
             <th>Teléfono</th>
             <th>Correo</th>
+            <th>Motivo</th>
+            <th>Terapeuta</th>
             <th>Saldo a favor</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of adelantos">
+          <tr *ngFor="let p of adelantos" class="fila-click" (click)="verEstadoDeCuenta(p)">
             <td>{{ p.nombre }} {{ p.apellido }}</td>
             <td>{{ p.dni || '—' }}</td>
             <td>{{ p.telefono || '—' }}</td>
             <td>{{ p.correo || '—' }}</td>
+            <!-- Motivo y terapeuta del ultimo movimiento: el historial completo esta en
+                 /api/pacientes/{id}/saldo-movimientos. -->
+            <td>
+              {{ p.saldoUltimoMotivo || '—' }}
+              <small class="txt-muted" *ngIf="p.saldoUltimaFecha"><br>{{ p.saldoUltimaFecha | date:'d MMM y' }}</small>
+            </td>
+            <td>{{ p.saldoUltimoTerapeuta || '—' }}</td>
             <td class="monto txt-success">S/ {{ (p.saldoAFavor ?? 0) | number:'1.2-2' }}</td>
+            <td><button class="btn-link" (click)="$event.stopPropagation(); verEstadoDeCuenta(p)">Estado de cuenta</button></td>
           </tr>
         </tbody>
       </table>
@@ -67,5 +78,58 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── ESTADO DE CUENTA DEL SALDO ────────────────────────────────────────────
+     Responde de donde salio el adelanto y en que se gasto: cada fila es un
+     movimiento con su concepto, terapeuta y el saldo que quedo despues. -->
+<div class="ec-overlay" *ngIf="pacienteDetalle" (click)="cerrarEstadoDeCuenta()">
+  <div class="ec-panel" (click)="$event.stopPropagation()">
+    <div class="ec-hdr">
+      <div>
+        <h2>Estado de cuenta</h2>
+        <span class="ec-sub">{{ pacienteDetalle.nombre }} {{ pacienteDetalle.apellido }}</span>
+      </div>
+      <button class="ec-close" (click)="cerrarEstadoDeCuenta()">&#10005;</button>
+    </div>
+
+    <div class="ec-resumen">
+      <div><span class="ec-lbl">Ingresó</span><strong class="txt-success">S/ {{ totalIngresado | number:'1.2-2' }}</strong></div>
+      <div><span class="ec-lbl">Usó</span><strong class="txt-danger">S/ {{ totalUsado | number:'1.2-2' }}</strong></div>
+      <div><span class="ec-lbl">Disponible</span><strong>S/ {{ (pacienteDetalle.saldoAFavor ?? 0) | number:'1.2-2' }}</strong></div>
+    </div>
+
+    <div class="ec-cargando" *ngIf="cargandoMovimientos">Cargando movimientos...</div>
+
+    <div class="ec-vacio" *ngIf="!cargandoMovimientos && movimientos.length === 0">
+      Este paciente tiene saldo pero sin movimientos registrados. Ocurre con los saldos
+      anteriores a que se empezara a guardar el historial.
+    </div>
+
+    <div class="tabla-wrap" *ngIf="!cargandoMovimientos && movimientos.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Concepto</th>
+            <th>Terapeuta</th>
+            <th class="ta-r">Movimiento</th>
+            <th class="ta-r">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of movimientos">
+            <td class="nowrap">{{ m.fecha | date:'d MMM y, HH:mm' }}</td>
+            <td>{{ m.motivo }}</td>
+            <td>{{ m.terapeutaNombre || '—' }}</td>
+            <td class="ta-r monto" [class.txt-success]="m.monto > 0" [class.txt-danger]="m.monto < 0">
+              {{ m.monto > 0 ? '+' : '' }}{{ m.monto | number:'1.2-2' }}
+            </td>
+            <td class="ta-r monto">{{ m.saldoResultante | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>

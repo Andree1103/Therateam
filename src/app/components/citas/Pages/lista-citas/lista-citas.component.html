@@ -591,93 +591,97 @@
           </div>
         </div>
 
-        <!-- ── PACIENTE 2 ─────────────────────────────────────────── -->
+        <!-- ── ACOMPANANTES (2do en adelante) ──────────────────────────
+             Un bloque por cada acompanante. El cupo lo define maxPacientes del tipo. -->
         <ng-container *ngIf="esMultipaciente">
-          <div class="pac2-toggle" *ngIf="!pac2habilitado && cupoLibreParaPac2" (click)="pac2habilitado = true; pac2.colapsado = false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Agregar segundo paciente (opcional)
-            <span class="opc-tag" *ngIf="citaEditando">se creará como una cita nueva en el mismo horario</span>
-          </div>
-          <p class="pac-hint" *ngIf="!pac2habilitado && !cupoLibreParaPac2">
-            Cupo completo ({{ tipoSeleccionado?.max_pacientes }}/{{ tipoSeleccionado?.max_pacientes }}) para este horario — no se puede agregar otro paciente.
-          </p>
-
-          <div class="pac-card pac-card-2" *ngIf="pac2habilitado">
-            <div class="pac-card-hdr" (click)="togglePac(pac2)">
+          <div class="pac-card pac-card-2" *ngFor="let pac of pacsExtra; let i = index">
+            <div class="pac-card-hdr" (click)="togglePac(pac)">
               <div class="pac-hdr-left">
-                <span class="pac-card-title">Paciente 2</span>
-                <span class="pac-summary" *ngIf="pac2.colapsado">{{ pac2Resumen }}</span>
+                <span class="pac-card-title">Paciente {{ i + 2 }}</span>
+                <span class="pac-summary" *ngIf="pac.colapsado">{{ pacResumen(pac) }}</span>
               </div>
               <div class="pac-hdr-right">
-                <button class="btn-link btn-link-danger" (click)="$event.stopPropagation(); pac2habilitado = false">Quitar</button>
-                <svg class="pac-chevron" [class.open]="!pac2.colapsado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                <button class="btn-link btn-link-danger" (click)="$event.stopPropagation(); quitarAcompanante(i)">Quitar</button>
+                <svg class="pac-chevron" [class.open]="!pac.colapsado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
               </div>
             </div>
-            <div class="pac-card-body" *ngIf="!pac2.colapsado">
-              <ng-container *ngIf="pac2.modo === 'buscar'">
+            <div class="pac-card-body" *ngIf="!pac.colapsado">
+              <ng-container *ngIf="pac.modo === 'buscar'">
                 <div class="frow autocomplete-wrap" style="margin:0">
                   <label>Buscar paciente por nombre</label>
-                  <input type="text" [(ngModel)]="pac2.busquedaNombre" name="pac2Busqueda"
-                         (ngModelChange)="onBusquedaNombreChange(pac2)"
-                         (focus)="abrirDropdownPaciente(pac2, $event)" (blur)="cerrarDropdownPacienteDiferido(pac2)"
-                         placeholder="Ej: Juan Pérez" autocomplete="off">
-                  <div class="autocomplete-dropdown" *ngIf="pac2.dropdownAbierto && pac2.busquedaNombre.trim().length >= 2">
-                    <div class="autocomplete-item" *ngFor="let r of pac2.resultadosBusqueda" (mousedown)="seleccionarPacienteBusqueda(pac2, r)">
+                  <input type="text" [(ngModel)]="pac.busquedaNombre" [name]="'pacBusqueda' + i"
+                         (ngModelChange)="onBusquedaNombreChange(pac)"
+                         (focus)="abrirDropdownPaciente(pac, $event)" (blur)="cerrarDropdownPacienteDiferido(pac)"
+                         placeholder="Ej: Juan Perez" autocomplete="off">
+                  <div class="autocomplete-dropdown" *ngIf="pac.dropdownAbierto && pac.busquedaNombre.trim().length >= 2">
+                    <div class="autocomplete-item" *ngFor="let r of pac.resultadosBusqueda" (mousedown)="seleccionarPacienteBusqueda(pac, r)">
                       <span class="ac-nombre">{{ r.nombre }} {{ r.apellido }}</span>
                       <span class="ac-sub">DNI: {{ r.dni }}</span>
                     </div>
-                    <div class="autocomplete-item ac-nuevo" *ngIf="!pac2.buscando" (mousedown)="crearPacienteNuevo(pac2)">
+                    <div class="autocomplete-item ac-nuevo" *ngIf="!pac.buscando" (mousedown)="crearPacienteNuevo(pac)">
                       <span class="ac-nombre">+ Crear paciente nuevo</span>
-                      <span class="ac-sub" *ngIf="pac2.resultadosBusqueda.length === 0">Ningún paciente encontrado con ese nombre.</span>
+                      <span class="ac-sub" *ngIf="pac.resultadosBusqueda.length === 0">Ningun paciente encontrado con ese nombre.</span>
                     </div>
                   </div>
                 </div>
-                <p class="pac-hint">Puedes dejar vacío si solo hay un paciente en este slot.</p>
+                <p class="pac-hint">Puedes dejarlo vacio: los acompanantes sin nombre se ignoran al guardar.</p>
               </ng-container>
-              <ng-container *ngIf="pac2.modo === 'encontrado'">
+
+              <ng-container *ngIf="pac.modo === 'encontrado'">
                 <div class="pac-encontrado-row">
                   <div class="pac-enc-info">
                     <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
                     <div>
-                      <span class="pac-enc-nombre">{{ pac2.nombre }} {{ pac2.apellido }}</span>
-                      <span class="pac-enc-sub">DNI: {{ pac2.dni }}{{ pac2.telefono ? ' · ' + pac2.telefono : '' }}</span>
+                      <span class="pac-enc-nombre">{{ pac.nombre }} {{ pac.apellido }}</span>
+                      <span class="pac-enc-sub">DNI: {{ pac.dni }}{{ pac.telefono ? ' - ' + pac.telefono : '' }}</span>
                     </div>
                   </div>
-                  <button class="btn-link" (click)="cambiarPaciente(pac2)">Cambiar</button>
+                  <button class="btn-link" (click)="cambiarPaciente(pac)">Cambiar</button>
                 </div>
               </ng-container>
-              <ng-container *ngIf="pac2.modo === 'nuevo'">
+
+              <ng-container *ngIf="pac.modo === 'nuevo'">
                 <div class="pac-no-encontrado">
                   <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  Paciente nuevo — completa los datos.
-                  <button class="btn-link" (click)="cambiarPaciente(pac2)" style="margin-left:8px">Buscar otro</button>
+                  Paciente nuevo &mdash; completa los datos.
+                  <button class="btn-link" (click)="cambiarPaciente(pac)" style="margin-left:8px">Buscar otro</button>
                 </div>
-                <div class="frow"><label>DNI</label><input [(ngModel)]="pac2.dni" placeholder="12345678" maxlength="12"></div>
               </ng-container>
-              <ng-container *ngIf="pac2.modo !== 'buscar'">
+
+              <ng-container *ngIf="pac.modo !== 'buscar'">
                 <div class="frow-2">
-                  <div class="frow"><label>Nombre *</label><input [(ngModel)]="pac2.nombre" placeholder="Nombre" [class.readonly-field]="pac2.modo === 'encontrado'"></div>
-                  <div class="frow"><label>Apellido *</label><input [(ngModel)]="pac2.apellido" placeholder="Apellido" [class.readonly-field]="pac2.modo === 'encontrado'"></div>
+                  <div class="frow"><label>DNI</label><input [(ngModel)]="pac.dni" [name]="'pacDni' + i" placeholder="12345678" maxlength="12"></div>
+                  <div class="frow"><label>Telefono</label><input [(ngModel)]="pac.telefono" [name]="'pacTel' + i" placeholder="999 000 111"></div>
                 </div>
                 <div class="frow-2">
-                  <div class="frow"><label>Teléfono</label><input [(ngModel)]="pac2.telefono" placeholder="999 000 111"></div>
-                  <div class="frow"><label>Correo<span *ngIf="pac2.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac2.correo" placeholder="email@ejemplo.com" type="email"></div>
+                  <div class="frow"><label>Nombre *</label><input [(ngModel)]="pac.nombre" [name]="'pacNom' + i" placeholder="Nombre" [class.readonly-field]="pac.modo === 'encontrado'"></div>
+                  <div class="frow"><label>Apellido *</label><input [(ngModel)]="pac.apellido" [name]="'pacApe' + i" placeholder="Apellido" [class.readonly-field]="pac.modo === 'encontrado'"></div>
                 </div>
-                <div class="frow" *ngIf="pac2.modo === 'nuevo'">
+                <div class="frow"><label>Correo<span *ngIf="pac.modo === 'nuevo'"> *</span></label><input [(ngModel)]="pac.correo" [name]="'pacCor' + i" placeholder="email@ejemplo.com" type="email"></div>
+                <div class="frow" *ngIf="pac.modo === 'nuevo'">
                   <label>Fecha de nacimiento *</label>
-                  <input type="date" [(ngModel)]="pac2.fechaNacimiento">
+                  <input type="date" [(ngModel)]="pac.fechaNacimiento" [name]="'pacFn' + i">
                 </div>
-                <div class="apoderado-box" *ngIf="pac2.modo === 'nuevo' && esMenorPac(pac2)">
+                <div class="apoderado-box" *ngIf="pac.modo === 'nuevo' && esMenorPac(pac)">
                   <div class="apoderado-hd">Datos del apoderado &mdash; obligatorios por ser menor de edad</div>
                   <div class="frow-2">
-                    <div class="frow"><label>DNI apoderado *</label><input [(ngModel)]="pac2.dniApoderado" placeholder="12345678" maxlength="12"></div>
-                    <div class="frow"><label>Celular apoderado *</label><input [(ngModel)]="pac2.celularApoderado" placeholder="999 000 111"></div>
+                    <div class="frow"><label>DNI apoderado *</label><input [(ngModel)]="pac.dniApoderado" [name]="'pacApoDni' + i" placeholder="12345678" maxlength="12"></div>
+                    <div class="frow"><label>Celular apoderado *</label><input [(ngModel)]="pac.celularApoderado" [name]="'pacApoCel' + i" placeholder="999 000 111"></div>
                   </div>
-                  <div class="frow"><label>Nombre apoderado *</label><input [(ngModel)]="pac2.nombreApoderado" placeholder="Nombre y apellido"></div>
+                  <div class="frow"><label>Nombre apoderado *</label><input [(ngModel)]="pac.nombreApoderado" [name]="'pacApoNom' + i" placeholder="Nombre y apellido"></div>
                 </div>
               </ng-container>
             </div>
           </div>
+
+          <div class="pac2-toggle" *ngIf="puedeAgregarAcompanante" (click)="agregarAcompanante()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Agregar paciente {{ pacsExtra.length + 2 }} de {{ tipoSeleccionado?.max_pacientes }}
+            <span class="opc-tag" *ngIf="citaEditando">se creara como una cita nueva en el mismo horario</span>
+          </div>
+          <p class="pac-hint" *ngIf="!puedeAgregarAcompanante">
+            Cupo completo ({{ pacsExtra.length + 1 }}/{{ tipoSeleccionado?.max_pacientes }}) para este horario.
+          </p>
         </ng-container>
 
         <!-- ── DATOS DE LA CITA ──────────────────────────────────────── -->
@@ -820,14 +824,23 @@
             </div>
 
             <div class="frow">
-              <label>Hora</label>
+              <label>Hora inicio <span class="opc-tag">puedes escribir cualquier hora</span></label>
+              <input type="time" [(ngModel)]="fHoraInicio" name="fHoraInicioLibre"
+                     (ngModelChange)="onDatosCitaChange()" class="time-inp">
+              <div class="dur-info" *ngIf="fHoraInicio">
+                Termina a las {{ horaFinSlot(fHoraInicio) }} ({{ fDur }} min)
+              </div>
+            </div>
+
+            <div class="frow">
+              <label>Horarios sugeridos <span class="opc-tag">atajo, opcional</span></label>
               <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
               <div class="sp-slots" *ngIf="!fCargandoSlots">
                 <button type="button" class="sp-slot" *ngFor="let s of fSlotsDisponibles"
                         [class.selected]="fHoraInicio === s" (click)="seleccionarSlotSingle(s)">{{ s }}–{{ horaFinSlot(s) }}</button>
               </div>
               <div class="sp-empty" *ngIf="!fCargandoSlots && fSlotsDisponibles.length === 0">
-                El terapeuta no tiene horarios disponibles ese día.
+                Sin bloques libres encadenados ese día — igual puedes escribir la hora arriba.
               </div>
             </div>
             <div class="dur-info">{{ getDurInfo() }}</div>
@@ -1114,17 +1127,52 @@
             </button>
           </div>
           <div class="hc-pago-form" *ngIf="mostrarCobroAdicional">
+
+            <!-- Venta de productos: el precio sale del catalogo, no se teclea. Si no se agrega
+                 ningun producto, el cobro adicional sigue funcionando como antes (monto libre). -->
+            <div class="venta-bloque" *ngIf="productosVendibles.length > 0">
+              <span class="hc-pago-lbl">Vender producto</span>
+              <div class="venta-picker">
+                <select class="hc-pago-sel venta-sel" [(ngModel)]="ventaProductoId">
+                  <option [ngValue]="null">Elegir producto...</option>
+                  <option *ngFor="let pr of productosVendibles" [ngValue]="pr.id" [disabled]="(pr.stock ?? 0) <= 0">
+                    {{ pr.nombre }} — S/ {{ pr.precio | number:'1.2-2' }}{{ (pr.stock ?? 0) <= 0 ? ' (sin stock)' : '' }}
+                  </option>
+                </select>
+                <input type="number" min="1" step="1" class="hc-pago-inp venta-cant" [(ngModel)]="ventaCantidad" placeholder="Cant.">
+                <button type="button" class="venta-add" (click)="agregarLineaVenta()" [disabled]="!ventaProductoId">Agregar</button>
+              </div>
+
+              <ul class="venta-lineas" *ngIf="ventaLineas.length > 0">
+                <li *ngFor="let l of ventaLineas; let i = index">
+                  <span class="venta-l-nom">{{ l.cantidad }}× {{ l.nombre }}</span>
+                  <span class="venta-l-sub">S/ {{ (l.precio * l.cantidad) | number:'1.2-2' }}</span>
+                  <button type="button" class="venta-l-del" (click)="quitarLineaVenta(i)" title="Quitar">✕</button>
+                </li>
+                <li class="venta-total">
+                  <span class="venta-l-nom">Total</span>
+                  <span class="venta-l-sub">S/ {{ totalVenta | number:'1.2-2' }}</span>
+                </li>
+              </ul>
+            </div>
+
             <div class="hc-pago-row">
               <div class="hc-pago-monto-input">
                 <span class="hc-pago-lbl">Monto (S/)</span>
-                <input type="number" min="0" step="0.01" [(ngModel)]="cobroAdicionalMonto" class="hc-pago-inp" placeholder="0.00">
+                <!-- Con productos el monto lo manda el catalogo: se muestra pero no se edita,
+                     para que no quede un cobro que no cuadra con lo vendido. -->
+                <input type="number" min="0" step="0.01" class="hc-pago-inp" placeholder="0.00"
+                       *ngIf="ventaLineas.length === 0" [(ngModel)]="cobroAdicionalMonto">
+                <input type="text" class="hc-pago-inp" *ngIf="ventaLineas.length > 0" readonly
+                       [value]="totalVenta.toFixed(2)">
               </div>
               <select class="hc-pago-sel" [(ngModel)]="cobroAdicionalMetodoId">
                 <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
               </select>
             </div>
             <div class="hc-pago-row">
-              <input type="text" class="hc-pago-inp" [(ngModel)]="cobroAdicionalConcepto" placeholder="Concepto (ej. Material adicional)">
+              <input type="text" class="hc-pago-inp" [(ngModel)]="cobroAdicionalConcepto"
+                     [placeholder]="ventaLineas.length > 0 ? 'Nota (opcional) — el concepto lo arma la venta' : 'Concepto (ej. Material adicional)'">
             </div>
             <div class="hc-pago-row" *ngIf="metodoRequiereReferencia(cobroAdicionalMetodoId)">
               <input type="text" class="hc-pago-inp" [(ngModel)]="cobroAdicionalReferencia" placeholder="N° de operación">
@@ -1133,8 +1181,8 @@
             <div class="hc-pago-actions">
               <button class="hc-btn-cancel-pago" (click)="cancelarCobroAdicional()">Cancelar</button>
               <button class="hc-btn-confirm-pago" (click)="confirmarCobroAdicional()"
-                      [disabled]="guardandoCobroAdicional || !cobroAdicionalMonto">
-                {{ guardandoCobroAdicional ? '...' : 'Registrar cobro' }}
+                      [disabled]="guardandoCobroAdicional || (ventaLineas.length === 0 && !cobroAdicionalMonto)">
+                {{ guardandoCobroAdicional ? '...' : (ventaLineas.length > 0 ? 'Registrar venta' : 'Registrar cobro') }}
               </button>
             </div>
           </div>

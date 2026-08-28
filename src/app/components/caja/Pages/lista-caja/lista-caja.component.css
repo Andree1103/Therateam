@@ -65,3 +65,17 @@
 .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 
 @media(max-width:768px){.page-header{flex-direction:column;align-items:flex-start;padding-left:64px}.page-body{padding:16px}.cards-row{grid-template-columns:1fr 1fr}}
+
+/* Sub-encabezado del detalle de productos, dentro de la tarjeta de conceptos. */
+.card-subhdr{padding:10px 16px;border-top:1px solid #f1f5f9;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.ta-r{text-align:right}
+
+/* Los dos botones de exportar usaban .btn-secondary sin que este componente lo definiera:
+   como los estilos de Angular son por componente, salian como botones crudos del navegador
+   (border outset, Arial, sin radio). Misma definicion que el resto de pantallas. */
+.btn-secondary{display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn-secondary:hover:not(:disabled){background:#e2e8f0;border-color:#cbd5e1}
+.btn-secondary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary svg{flex-shrink:0}
+/* Dentro del encabezado de una tarjeta el boton compite con el titulo: se achica un punto. */
+.card-hdr .btn-secondary{padding:6px 12px;font-size:12px}

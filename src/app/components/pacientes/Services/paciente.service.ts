@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
-import { Paciente } from '../Models/paciente.model';
+import { Paciente, SaldoMovimiento } from '../Models/paciente.model';
 import { PageResponse } from '../../../core/models/page.model';
 
 export interface PacienteFiltros {
@@ -38,6 +38,11 @@ export class PacienteService {
   }
 
   /** Reporte de adelantos: pacientes con saldo a favor disponible. */
+  /** Estado de cuenta del saldo a favor: de donde salio y en que se gasto. */
+  getSaldoMovimientos(pacienteId: number): Observable<SaldoMovimiento[]> {
+    return this.api.get<SaldoMovimiento[]>(`${this.PATH}/${pacienteId}/saldo-movimientos`);
+  }
+
   getAdelantos(page: number, size: number, nombre?: string): Observable<PageResponse<Paciente>> {
     return this.api.get<PageResponse<Paciente>>(`${this.PATH}/adelantos`, {
       page: String(page), size: String(size),

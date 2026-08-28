@@ -8,13 +8,13 @@ import { PagoService } from '../../../pagos/Services/pago.service';
 import { CitaService } from '../../../citas/Services/cita.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Paciente } from '../../Models/paciente.model';
+import { Paciente, SaldoMovimiento } from '../../Models/paciente.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 
-type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos';
+type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
 @Component({
   selector: 'app-perfil-paciente',
@@ -30,6 +30,19 @@ export class PerfilPacienteComponent implements OnInit {
   atenciones: AtencionClinica[] = [];
   pagos: Pago[] = [];
   tabActivo: TabPerfilKey = 'datos';
+
+  // ── Estado de cuenta del saldo a favor ────────────────────────────────────
+  // Vive aqui ademas de en Adelantos porque ese listado solo muestra a quien tiene
+  // saldo > 0: al gastarlo entero, el historial dejaba de ser alcanzable.
+  movimientosSaldo: SaldoMovimiento[] = [];
+  cargandoSaldo = false;
+
+  get saldoIngresado(): number {
+    return this.movimientosSaldo.filter(m => m.monto > 0).reduce((a, m) => a + m.monto, 0);
+  }
+  get saldoUsado(): number {
+    return this.movimientosSaldo.filter(m => m.monto < 0).reduce((a, m) => a - m.monto, 0);
+  }
 
   private pacienteId = 0;
 
@@ -56,8 +69,10 @@ export class PerfilPacienteComponent implements OnInit {
       tratamientos: this.tratamientoService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Tratamiento[]))),
       pagos:        this.pagoService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Pago[]))),
       citas:        this.citaService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Cita[]))),
+      saldo:        this.pacienteService.getSaldoMovimientos(this.pacienteId).pipe(catchError(() => of([] as SaldoMovimiento[]))),
     }).subscribe({
-      next: ({ paciente, tratamientos, pagos, citas }) => {
+      next: ({ paciente, tratamientos, pagos, citas, saldo }) => {
+        this.movimientosSaldo = saldo;
         this.paciente     = paciente;
         this.tratamientos = tratamientos;
         this.pagos        = pagos;

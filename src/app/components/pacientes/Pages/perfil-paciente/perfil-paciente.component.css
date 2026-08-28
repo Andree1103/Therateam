@@ -64,3 +64,13 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:768px){.info-grid{grid-template-columns:1fr 1fr}.perfil-stats{display:none}.tabs-bar{flex-wrap:wrap}}
+
+/* ── Pestaña de saldo a favor ─────────────────────────────────────────────── */
+.ec-resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.ec-resumen>div{background:#f4f7fb;border:1px solid #e2e8f2;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.ec-lbl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7280}
+.ec-resumen strong{font-size:16px}
+.txt-danger{color:#dc2626}
+.ta-r{text-align:right}
+.nowrap{white-space:nowrap}
+@media(max-width:768px){ .ec-resumen{grid-template-columns:1fr} }
