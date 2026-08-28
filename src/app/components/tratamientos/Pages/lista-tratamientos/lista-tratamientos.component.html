@@ -513,6 +513,15 @@
                   <span class="err-msg" *ngIf="pagoMetodoRef.invalid && pagoMetodoRef.touched">Requerido</span>
                 </div>
               </div>
+
+              <!-- N° de operación: aplica igual al adelanto y al pago completo. Solo aparece
+                   para los métodos que dejan comprobante — pedirlo en efectivo no tiene sentido. -->
+              <div class="frow" *ngIf="metodoRequiereReferencia(pagoMetodoId)" style="margin-top:8px">
+                <label>N° de operación</label>
+                <input [(ngModel)]="pagoReferencia" name="pagoReferencia" type="text" maxlength="100"
+                       placeholder="Ej: 00123456">
+              </div>
+
               <span class="hint-msg" *ngIf="pagoModo === 'completo'">Se registra un pago por el total del paquete: S/ {{ montoTotalPaquete | number:'1.2-2' }}.</span>
             </ng-container>
           </div>

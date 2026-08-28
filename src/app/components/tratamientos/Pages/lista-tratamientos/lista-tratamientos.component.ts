@@ -106,6 +106,8 @@ export class ListaTratamientosComponent implements OnInit {
   pagoModo: 'pendiente' | 'completo' | 'parcial' = 'pendiente';
   pagoMonto: number | null = null;
   pagoMetodoId: number | null = null;
+  /** N° de operación del pago inicial — el comprobante de Yape/Plin/transferencia. */
+  pagoReferencia = '';
   metodosPago: CatalogItem[] = [];
 
   // ── Programar horario recurrente (solo al crear, igual que "Programar sesiones
@@ -644,6 +646,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.pagoModo = 'pendiente';
     this.pagoMonto = null;
     this.pagoMetodoId = null;
+    this.pagoReferencia = '';
     this.duracionSesionMin = null;
     this.bulkDias = [true, false, true, false, true, false, false];
     this.bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
@@ -915,6 +918,14 @@ export class ListaTratamientosComponent implements OnInit {
     this.cargar();
   }
 
+  /** Los pagos digitales dejan un n° de operación que hay que poder anotar; el efectivo no.
+   *  Mismo criterio que en Citas. */
+  metodoRequiereReferencia(metodoId: number | null): boolean {
+    const nombre = this.metodosPago.find(m => m.id === metodoId)?.nombre?.toLowerCase() ?? '';
+    return nombre.includes('yape') || nombre.includes('plin')
+        || nombre.includes('transferencia') || nombre.includes('tarjeta');
+  }
+
   /** Último paso común tras crear/actualizar el paquete (y, si correspondía, sus citas): registra
    *  el pago inicial si se eligió uno, y cierra el modal mostrando el resumen final. */
   private continuarDespuesDeGuardar(paquete: Tratamiento, esEdicion: boolean, citasCreadas: number): void {
@@ -941,6 +952,7 @@ export class ListaTratamientosComponent implements OnInit {
       paciente: { id: this.formData.pacienteId! } as any,
       metodo: { id: this.pagoMetodoId! } as any,
       montoRecibido: monto,
+      ...(this.pagoReferencia.trim() ? { referencia: this.pagoReferencia.trim() } : {}),
     }).subscribe({
       next: () => {
         this.toast.success(`Paquete creado, pago registrado${sufijoCitas} correctamente`);

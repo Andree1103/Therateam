@@ -61,6 +61,14 @@ export class AuthService {
 
     let storedUser = null;
     if (this.isBrowser) {
+      // Si el token guardado ya vencio (dura 10h: volver al dia siguiente basta), la sesion se
+      // descarta ACA, antes de que ningun componente pida nada. Si no, la app dejaba entrar con
+      // el token muerto, disparaba todos los catalogos, recibia 401 en cada uno y recien
+      // entonces mandaba al login — dejando los selects vacios hasta recargar.
+      if (this.tokenVencido(localStorage.getItem(this.TOKEN_KEY))) {
+        localStorage.removeItem(this.TOKEN_KEY);
+        localStorage.removeItem(this.USER_KEY);
+      }
       storedUser = localStorage.getItem(this.USER_KEY);
     }
 
@@ -113,17 +121,32 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    if (this.isBrowser) {
-      return !!localStorage.getItem(this.TOKEN_KEY);
-    }
-    return false;
+    return !!this.getToken();
   }
 
+  /** null tambien cuando el token existe pero ya vencio — mandarlo solo genera 401. */
   getToken(): string | null {
-    if (this.isBrowser) {
-      return localStorage.getItem(this.TOKEN_KEY);
+    if (!this.isBrowser) return null;
+    const token = localStorage.getItem(this.TOKEN_KEY);
+    return this.tokenVencido(token) ? null : token;
+  }
+
+  /**
+   * true si el JWT ya paso su `exp`. Es una lectura local del payload, sin validar la firma:
+   * sirve para no gastar peticiones que el backend va a rechazar igual, no como control de
+   * seguridad — de eso se encarga el servidor.
+   *
+   * Un token ilegible se trata como vencido: si no se puede leer, no sirve para nada.
+   */
+  private tokenVencido(token: string | null): boolean {
+    if (!token) return true;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (!payload.exp) return false; // sin exp, que decida el backend
+      return payload.exp * 1000 <= Date.now();
+    } catch {
+      return true;
     }
-    return null;
   }
 
   /** true si el usuario logueado tiene acceso al módulo (ej. 'CITAS', 'PAGOS'). */
