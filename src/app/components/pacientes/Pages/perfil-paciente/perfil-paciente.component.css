@@ -74,3 +74,10 @@
 .ta-r{text-align:right}
 .nowrap{white-space:nowrap}
 @media(max-width:768px){ .ec-resumen{grid-template-columns:1fr} }
+
+/* Exportar historial: mismo boton secundario del resto del sistema, alineado a la derecha
+   del "volver" para no competir con el nombre del paciente. */
+.hdr-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.btn-exportar{display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;font-family:inherit;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn-exportar:hover:not(:disabled){background:#e2e8f0;border-color:#cbd5e1}
+.btn-exportar:disabled{opacity:.5;cursor:not-allowed}

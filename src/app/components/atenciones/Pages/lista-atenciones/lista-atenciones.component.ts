@@ -41,7 +41,9 @@ export class ListaAtencionesComponent implements OnInit {
   totalPaginas = 0;
 
   // ── Ordenamiento personalizado (server-side, vía Pageable de Spring) ───────
-  ordenarPor: 'fechaInicio' | 'paciente.nombre' | 'terapeuta.usuario.nombre' | 'estadoPago.key' | 'precio' = 'fechaInicio';
+  // 'metodoPago' no es un campo de Cita sino del ultimo pago: el backend lo traduce al
+  // alias del JOIN para poder ordenar en servidor (y no solo la pagina visible).
+  ordenarPor: 'fechaInicio' | 'paciente.nombre' | 'terapeuta.usuario.nombre' | 'estadoPago.key' | 'precio' | 'metodoPago' = 'fechaInicio';
   direccionOrden: 'asc' | 'desc' = 'desc';
 
   // ── Modal de detalle de atención (solo lectura) ─────────────────────────────

@@ -2,10 +2,22 @@
 
   <!-- HEADER -->
   <div class="page-header">
-    <button class="btn-back" (click)="volver()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
-      Pacientes
-    </button>
+    <!-- El "volver" y el exportar comparten fila: el header es una columna, si no el boton
+         quedaba en un renglon propio ocupando todo el ancho. -->
+    <div class="hdr-top">
+      <button class="btn-back" (click)="volver()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+        Pacientes
+      </button>
+
+      <!-- Historial completo del paciente en un solo archivo: citas, atenciones y pagos. -->
+      <button type="button" class="btn-exportar" *ngIf="paciente && !loading"
+              (click)="exportarHistorial()" [disabled]="exportando"
+              title="Descarga citas, atenciones, pagos y saldo de este paciente en un Excel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ exportando ? 'Exportando...' : 'Exportar historial' }}
+      </button>
+    </div>
 
     <div class="perfil-hdr" *ngIf="paciente">
       <div class="avatar">{{ iniciales }}</div>
@@ -170,7 +182,7 @@
             <td>{{ c.tipo_terapia_nombre || '—' }}</td>
             <td>{{ c.modalidad || '—' }}</td>
             <td>
-              <span class="chip-estado">{{ c.estado }}</span>
+              <span class="chip-estado">{{ estadoCitaLabel(c.estado) }}</span>
             </td>
             <td>{{ c.duracion_minutos }} min</td>
           </tr>
