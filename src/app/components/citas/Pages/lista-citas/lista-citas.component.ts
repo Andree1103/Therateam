@@ -527,8 +527,21 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Una cita anulada NO ocupa cupo: el terapeuta quedo libre a esa hora. Se usa en todos los
+   * calculos de capacidad — NO en el pintado de la agenda, donde las canceladas si deben verse
+   * (tienen su propio color en la leyenda).
+   *
+   * Sin esto, anular una cita dejaba el horario bloqueado en la UI: el terapeuta desaparecia
+   * del selector y el slot figuraba lleno, aunque el backend si aceptaba la cita nueva.
+   */
+  private ocupaCupo(c: Cita): boolean {
+    return c.estado !== 'CANCELADA_PACIENTE' && c.estado !== 'CANCELADA_CLINICA';
+  }
+
   private citasSolapadas(terapeutaNombreStr: string, inicio: Date, fin: Date, excluirId?: string): Cita[] {
     return this.citas.filter(c => {
+      if (!this.ocupaCupo(c)) return false;
       if (c.terapeuta_nombre !== terapeutaNombreStr) return false;
       if (excluirId && c.id === excluirId) return false;
       const ini   = new Date(c.fecha_inicio);
@@ -1101,7 +1114,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const fechaISO = fecha ? this.fechaToISO(fecha) : null;
 
     return this.slots.map(s => {
-      const citasAqui = this.getCitasSlotTer(diaIdx, s.h, s.m, terapeuta);
+      // Solo las que ocupan cupo: una anulada no debe hacer figurar el slot como lleno.
+      const citasAqui = this.getCitasSlotTer(diaIdx, s.h, s.m, terapeuta).filter(c => this.ocupaCupo(c));
       const maxPac = citasAqui.length > 0
         ? this.getTipo((citasAqui[0].tipo_terapia_key ?? '').toUpperCase()).max_pacientes
         : 1;
@@ -1327,6 +1341,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const fechaFin = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
     const conflictos = this.citas.filter(c => {
+      if (!this.ocupaCupo(c)) return false;
       if (c.terapeuta_nombre !== this.fTer) return false;
       if (this.citaEditando && c.id === this.citaEditando.id) return false;
       return fechaSlot < new Date(c.fecha_fin) && fechaFin > new Date(c.fecha_inicio);
@@ -1834,6 +1849,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // Conflicto de capacidad
     const nuevosCount = 1 + this.acompanantesConNombre.length;
     const conflictos = this.citas.filter(c => {
+      if (!this.ocupaCupo(c)) return false;
       if (c.terapeuta_nombre !== this.fTer) return false;
       if (this.citaEditando && c.id === this.citaEditando.id) return false;
       return fechaSlot < new Date(c.fecha_fin) && fechaFin > new Date(c.fecha_inicio);
