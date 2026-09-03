@@ -7,6 +7,10 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AuthService } from '../../../auth/Services/auth.service';
+import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
+import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
+import { TipoTerapia } from '../../../citas/Models/cita.model';
 
 @Component({
   selector: 'app-lista-atenciones',
@@ -57,12 +61,89 @@ export class ListaAtencionesComponent implements OnInit {
     private atencionService: AtencionClinicaService,
     private catalogService: CatalogService,
     private excelExportService: ExcelExportService,
+    private authService: AuthService,
+    private terapeutaService: TerapeutaService,
     private toast: ToastService
   ) {}
 
   ngOnInit(): void {
     this.catalogService.getAreas().subscribe(d => this.areas = d);
+    // Solo el admin puede corregir, asi que solo para el vale la pena traer los catalogos.
+    if (this.esAdmin) {
+      this.terapeutaService.getAll().subscribe(t => this.terapeutas = t);
+      this.citaService.getTiposTerapiaFromApi().subscribe(t => this.tiposTerapia = t);
+      this.catalogService.getMetodosPago().subscribe(m => this.metodosPago = m);
+    }
     this.cargar();
+  }
+
+  // ── Corrección administrativa de una atención ──────────────────────────────
+  // Arreglar una carga mal hecha (terapeuta o tipo equivocado, precio mal tipeado, pago
+  // registrado con otro método). Va por un endpoint aparte del PUT normal, que sigue
+  // prohibiendo estos cambios en una cita atendida.
+
+  get esAdmin(): boolean { return this.authService.esAdmin; }
+
+  terapeutas: Terapeuta[] = [];
+  tiposTerapia: TipoTerapia[] = [];
+  metodosPago: CatalogItem[] = [];
+
+  modalCorreccion = false;
+  guardandoCorreccion = false;
+  citaCorrigiendo: Cita | null = null;
+  corrTerapeutaId: number | null = null;
+  corrTipoKey = '';
+  corrPrecio: number | null = null;
+  corrMetodoId: number | null = null;
+  corrMotivo = '';
+
+  nombreTerapeuta = terapeutaNombre;
+
+  abrirCorreccion(c: Cita, e: Event): void {
+    e.stopPropagation();
+    if (!this.esAdmin) return;
+    this.citaCorrigiendo = c;
+    this.corrTerapeutaId = c.terapeuta_id != null ? Number(c.terapeuta_id) : null;
+    this.corrTipoKey = (c.tipo_terapia_key ?? '').toUpperCase();
+    this.corrPrecio = c.precio ?? null;
+    this.corrMetodoId = this.metodosPago.find(m => m.nombre === c.metodo_pago_nombre)?.id ?? null;
+    this.corrMotivo = '';
+    this.modalCorreccion = true;
+  }
+
+  cerrarCorreccion(): void { this.modalCorreccion = false; this.citaCorrigiendo = null; }
+
+  /** Solo se manda lo que realmente cambio: asi el backend no registra ruido en el historial. */
+  guardarCorreccion(): void {
+    const c = this.citaCorrigiendo;
+    if (!c?.id) return;
+
+    const metodoActualId = this.metodosPago.find(m => m.nombre === c.metodo_pago_nombre)?.id ?? null;
+    const cambios = {
+      terapeutaId:    this.corrTerapeutaId !== (c.terapeuta_id != null ? Number(c.terapeuta_id) : null) ? this.corrTerapeutaId : null,
+      tipoTerapiaKey: this.corrTipoKey && this.corrTipoKey !== (c.tipo_terapia_key ?? '').toUpperCase() ? this.corrTipoKey : null,
+      precio:         this.corrPrecio != null && this.corrPrecio !== (c.precio ?? null) ? this.corrPrecio : null,
+      metodoPagoId:   this.corrMetodoId != null && this.corrMetodoId !== metodoActualId ? this.corrMetodoId : null,
+      motivo:         this.corrMotivo,
+    };
+
+    const hayCambios = cambios.terapeutaId != null || cambios.tipoTerapiaKey != null
+                    || cambios.precio != null || cambios.metodoPagoId != null;
+    if (!hayCambios) { this.toast.warning('No cambiaste nada'); return; }
+
+    this.guardandoCorreccion = true;
+    this.citaService.corregirAtencion(c.id, cambios).subscribe({
+      next: () => {
+        this.toast.success('Atención corregida');
+        this.guardandoCorreccion = false;
+        this.modalCorreccion = false;
+        this.cargar();
+      },
+      error: err => {
+        this.guardandoCorreccion = false;
+        this.toast.error(err?.error?.error || 'No se pudo corregir la atención');
+      }
+    });
   }
 
   private buildFiltros() {

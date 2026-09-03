@@ -72,6 +72,24 @@ export class CitaService {
 
   /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha).
    *  `sort` es el formato de Spring Data: "propiedad,asc|desc" (ej. "paciente.nombre,asc"). */
+  /**
+   * Corrige una cita YA ATENDIDA (solo ADMIN). Endpoint aparte del PUT normal a proposito:
+   * la edicion corriente prohibe cambiar terapeuta/tipo/horario de una cita atendida, y esa
+   * regla se mantiene. Solo se mandan los campos que se quieren corregir.
+   */
+  corregirAtencion(id: string | number, cambios: {
+    terapeutaId?: number | null; tipoTerapiaKey?: string | null;
+    precio?: number | null; metodoPagoId?: number | null; motivo?: string;
+  }): Observable<Cita> {
+    const body: Record<string, unknown> = {};
+    if (cambios.terapeutaId != null)   body['terapeutaId']   = cambios.terapeutaId;
+    if (cambios.tipoTerapiaKey)        body['tipoTerapiaKey'] = cambios.tipoTerapiaKey;
+    if (cambios.precio != null)        body['precio']        = cambios.precio;
+    if (cambios.metodoPagoId != null)  body['metodoPagoId']  = cambios.metodoPagoId;
+    if (cambios.motivo?.trim())        body['motivo']        = cambios.motivo.trim();
+    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/correccion`, body).pipe(map(d => this.mapDTO(d)));
+  }
+
   getFiltroPaged(page: number, size: number, filtros: {
     fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string; areaId?: number | null;
   }, sort?: string): Observable<PageResponse<Cita>> {

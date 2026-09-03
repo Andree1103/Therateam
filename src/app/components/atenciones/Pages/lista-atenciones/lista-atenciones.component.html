@@ -61,7 +61,12 @@
               </span>
             </td>
             <td>{{ c.metodo_pago_nombre || '—' }}</td>
-            <td><button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button></td>
+            <td class="td-acciones">
+              <button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button>
+              <!-- Corregir una carga mal hecha: solo ADMIN, y por un endpoint aparte del
+                   PUT normal (que sigue prohibiendo tocar una cita atendida). -->
+              <button type="button" class="btn-link" *ngIf="esAdmin" (click)="abrirCorreccion(c, $event)">Corregir</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -114,4 +119,74 @@
     </div>
   </div>
 
+</div>
+
+<!-- ── MODAL: corrección administrativa de la atención ──────────────────────── -->
+<div class="modal-overlay" *ngIf="modalCorreccion" (click)="cerrarCorreccion()">
+  <div class="modal-corr" (click)="$event.stopPropagation()">
+    <div class="corr-hdr">
+      <div>
+        <h2>Corregir atención</h2>
+        <p class="corr-sub" *ngIf="citaCorrigiendo">
+          {{ citaCorrigiendo.paciente_nombre }} {{ citaCorrigiendo.paciente_apellido }}
+          · {{ citaCorrigiendo.fecha_inicio | date:'d MMM yyyy, HH:mm' }}
+        </p>
+      </div>
+      <button type="button" class="corr-close" (click)="cerrarCorreccion()">✕</button>
+    </div>
+
+    <div class="corr-body">
+      <p class="corr-aviso">
+        La atención ya está registrada. Esto sirve para arreglar lo que se cargó mal, no para
+        reprogramar: la fecha y el estado no cambian, y queda constancia en el historial de la cita.
+      </p>
+
+      <label class="corr-campo">
+        <span class="corr-lbl">Terapeuta</span>
+        <select [(ngModel)]="corrTerapeutaId">
+          <option [ngValue]="null">— Sin cambio —</option>
+          <option *ngFor="let t of terapeutas" [ngValue]="t.id">{{ nombreTerapeuta(t) }}</option>
+        </select>
+      </label>
+
+      <label class="corr-campo">
+        <span class="corr-lbl">Tipo de terapia</span>
+        <select [(ngModel)]="corrTipoKey">
+          <option value="">— Sin cambio —</option>
+          <option *ngFor="let t of tiposTerapia" [value]="t.id">{{ t.nombre }}</option>
+        </select>
+      </label>
+
+      <div class="corr-row">
+        <label class="corr-campo">
+          <span class="corr-lbl">Precio (S/)</span>
+          <input type="number" min="0" step="0.01" [(ngModel)]="corrPrecio">
+        </label>
+        <label class="corr-campo">
+          <span class="corr-lbl">Medio de pago</span>
+          <select [(ngModel)]="corrMetodoId">
+            <option [ngValue]="null">— Sin cambio —</option>
+            <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+          </select>
+        </label>
+      </div>
+      <p class="corr-hint">
+        Cambiar el precio recalcula el estado de pago contra lo ya cobrado. El medio de pago se
+        corrige sobre el último pago de esta cita.
+      </p>
+
+      <label class="corr-campo">
+        <span class="corr-lbl">Motivo de la corrección</span>
+        <input type="text" [(ngModel)]="corrMotivo" maxlength="200"
+               placeholder="Ej: se cargó con el terapeuta equivocado">
+      </label>
+    </div>
+
+    <div class="corr-ftr">
+      <button type="button" class="btn-secondary" (click)="cerrarCorreccion()">Cancelar</button>
+      <button type="button" class="btn-primary" (click)="guardarCorreccion()" [disabled]="guardandoCorreccion">
+        {{ guardandoCorreccion ? 'Guardando...' : 'Guardar corrección' }}
+      </button>
+    </div>
+  </div>
 </div>
