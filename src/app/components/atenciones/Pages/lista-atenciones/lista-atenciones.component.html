@@ -19,6 +19,10 @@
         <option [ngValue]="null">Todas las áreas</option>
         <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
       </select>
+      <select class="filter-sel" [(ngModel)]="busquedaMetodoId" title="Medio de pago">
+        <option [ngValue]="null">Todos los medios de pago</option>
+        <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+      </select>
       <input type="date" class="filter-sel" [(ngModel)]="busquedaFechaDesde" title="Desde">
       <input type="date" class="filter-sel" [(ngModel)]="busquedaFechaHasta" title="Hasta">
       <button type="button" class="btn-secondary" (click)="buscar()">Buscar</button>

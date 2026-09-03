@@ -30,12 +30,14 @@ export class ListaAtencionesComponent implements OnInit {
   busquedaPaciente = '';
   busquedaTerapeuta = '';
   busquedaAreaId: number | null = null;
+  busquedaMetodoId: number | null = null;
   busquedaFechaDesde = '';
   busquedaFechaHasta = '';
 
   filtroPaciente = '';
   filtroTerapeuta = '';
   filtroAreaId: number | null = null;
+  filtroMetodoId: number | null = null;
   filtroFechaDesde = '';
   filtroFechaHasta = '';
 
@@ -68,11 +70,12 @@ export class ListaAtencionesComponent implements OnInit {
 
   ngOnInit(): void {
     this.catalogService.getAreas().subscribe(d => this.areas = d);
-    // Solo el admin puede corregir, asi que solo para el vale la pena traer los catalogos.
+    // Los métodos de pago los necesita el filtro, que ve todo el mundo.
+    this.catalogService.getMetodosPago().subscribe(m => this.metodosPago = m);
+    // Terapeutas y tipos solo los usa el modal de corrección, que es solo para admin.
     if (this.esAdmin) {
       this.terapeutaService.getAll().subscribe(t => this.terapeutas = t);
       this.citaService.getTiposTerapiaFromApi().subscribe(t => this.tiposTerapia = t);
-      this.catalogService.getMetodosPago().subscribe(m => this.metodosPago = m);
     }
     this.cargar();
   }
@@ -152,6 +155,7 @@ export class ListaAtencionesComponent implements OnInit {
       paciente: this.filtroPaciente || undefined,
       terapeuta: this.filtroTerapeuta || undefined,
       areaId: this.filtroAreaId,
+      metodoPagoId: this.filtroMetodoId,
       fechaInicio: this.filtroFechaDesde ? new Date(`${this.filtroFechaDesde}T00:00:00`) : undefined,
       fechaFin: this.filtroFechaHasta ? new Date(`${this.filtroFechaHasta}T23:59:59`) : undefined,
     };
@@ -193,6 +197,7 @@ export class ListaAtencionesComponent implements OnInit {
     this.filtroPaciente = this.busquedaPaciente.trim();
     this.filtroTerapeuta = this.busquedaTerapeuta.trim();
     this.filtroAreaId = this.busquedaAreaId;
+    this.filtroMetodoId = this.busquedaMetodoId;
     this.filtroFechaDesde = this.busquedaFechaDesde;
     this.filtroFechaHasta = this.busquedaFechaHasta;
     this.paginaActual = 0;
@@ -200,16 +205,17 @@ export class ListaAtencionesComponent implements OnInit {
   }
 
   limpiarFiltros(): void {
-    this.busquedaPaciente = ''; this.busquedaTerapeuta = ''; this.busquedaAreaId = null;
+    this.busquedaPaciente = ''; this.busquedaTerapeuta = ''; this.busquedaAreaId = null; this.busquedaMetodoId = null;
     this.busquedaFechaDesde = ''; this.busquedaFechaHasta = '';
-    this.filtroPaciente = ''; this.filtroTerapeuta = ''; this.filtroAreaId = null;
+    this.filtroPaciente = ''; this.filtroTerapeuta = ''; this.filtroAreaId = null; this.filtroMetodoId = null;
     this.filtroFechaDesde = ''; this.filtroFechaHasta = '';
     this.paginaActual = 0;
     this.cargar();
   }
 
   get hayFiltrosActivos(): boolean {
-    return !!(this.filtroPaciente || this.filtroTerapeuta || this.filtroAreaId || this.filtroFechaDesde || this.filtroFechaHasta);
+    return !!(this.filtroPaciente || this.filtroTerapeuta || this.filtroAreaId || this.filtroMetodoId
+           || this.filtroFechaDesde || this.filtroFechaHasta);
   }
 
   irAPagina(p: number): void {

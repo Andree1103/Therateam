@@ -91,7 +91,8 @@ export class CitaService {
   }
 
   getFiltroPaged(page: number, size: number, filtros: {
-    fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string; areaId?: number | null;
+    fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string;
+    areaId?: number | null; metodoPagoId?: number | null;
   }, sort?: string): Observable<PageResponse<Cita>> {
     return this.api.get<PageResponse<CitaApiDTO>>(`${this.PATH}/filtro`, {
       page: String(page), size: String(size),
@@ -101,6 +102,7 @@ export class CitaService {
       estadoKey:   filtros.estadoKey || undefined,
       paciente:    filtros.paciente || undefined,
       areaId:      filtros.areaId != null ? String(filtros.areaId) : undefined,
+      metodoPagoId: filtros.metodoPagoId != null ? String(filtros.metodoPagoId) : undefined,
       sort:        sort || undefined,
     }).pipe(map(r => ({ ...r, content: r.content.map(d => this.mapDTO(d)) })));
   }
