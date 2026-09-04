@@ -143,7 +143,7 @@
           </label>
           <input type="text" [(ngModel)]="pacienteBusqueda" name="pacienteBusqueda"
                  (focus)="abrirPacienteDropdown()" (blur)="cerrarPacienteDropdownDiferido()"
-                 (ngModelChange)="formData.pacienteId = null"
+                 (ngModelChange)="onPacienteBusquedaChange($event)"
                  placeholder="Buscar por nombre o DNI..." autocomplete="off">
           <input type="hidden" [(ngModel)]="formData.pacienteId" name="pacienteId" required #pacienteRef="ngModel">
           <div class="autocomplete-dropdown" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length > 0">
@@ -152,7 +152,10 @@
               <span class="ac-sub" *ngIf="p.dni">DNI: {{ p.dni }}</span>
             </div>
           </div>
-          <div class="dur-info" *ngIf="pacienteDropdownAbierto && pacientesFiltrados.length === 0">Sin resultados.</div>
+          <div class="dur-info" *ngIf="pacienteDropdownAbierto && buscandoPacientes">Buscando...</div>
+          <div class="dur-info" *ngIf="pacienteDropdownAbierto && !buscandoPacientes && pacientesFiltrados.length === 0">
+            {{ pacienteBusqueda.trim() ? 'Sin resultados.' : 'Escribe un nombre o DNI para buscar.' }}
+          </div>
           <span class="err-msg" *ngIf="pacienteRef.invalid && pacienteRef.touched">Requerido</span>
         </div>
 

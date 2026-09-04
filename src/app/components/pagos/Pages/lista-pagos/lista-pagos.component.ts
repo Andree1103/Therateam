@@ -1,4 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 import { NgForm } from '@angular/forms';
 import { PagoService, PagoFiltros } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
@@ -18,7 +20,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
   templateUrl: './lista-pagos.component.html',
   styleUrls: ['./lista-pagos.component.css']
 })
-export class ListaPagosComponent implements OnInit {
+export class ListaPagosComponent implements OnInit, OnDestroy {
 
   pagos: Pago[] = [];
   loading = false;
@@ -59,22 +61,29 @@ export class ListaPagosComponent implements OnInit {
   cargandoSesionesTratamiento = false;
 
   // ── Buscador de paciente (por nombre o DNI) ───────────────────────────────
+  // Busca CONTRA EL SERVIDOR, no sobre una lista precargada. Antes se traian los
+  // pacientes con size=1000 y se filtraba en el navegador: con una base de miles,
+  // los que quedaban fuera de esos 1000 eran imposibles de encontrar aca.
   pacienteBusqueda = '';
   pacienteDropdownAbierto = false;
+  buscandoPacientes = false;
+  private readonly busquedaPaciente$ = new Subject<string>();
+  private subBusqueda?: Subscription;
+
+  /** Cuantos sugeridos se muestran de una vez — el resto se acota escribiendo mas. */
+  private readonly LIMITE_SUGERENCIAS = 20;
 
   get total() { return this.totalElementos; }
 
+  /** El elegido se guarda aparte: ya no se puede resolver contra una lista completa en memoria. */
+  pacienteElegido: Paciente | null = null;
+
   get pacienteSeleccionado(): Paciente | null {
-    return this.pacientes.find(p => p.id === this.formData.pacienteId) ?? null;
+    return this.pacienteElegido;
   }
 
-  get pacientesFiltrados(): Paciente[] {
-    const q = this.pacienteBusqueda.toLowerCase().trim();
-    if (!q) return this.pacientes.slice(0, 30);
-    return this.pacientes.filter(p =>
-      `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) || (p.dni || '').includes(q)
-    ).slice(0, 30);
-  }
+  /** Lo que devolvio el servidor para lo que se esta escribiendo. */
+  get pacientesFiltrados(): Paciente[] { return this.pacientes; }
 
   get tratamientoSeleccionado(): TratamientoBasico | null {
     return this.tratamientos.find(t => t.id === this.formData.tratamientoId) ?? null;
@@ -173,9 +182,45 @@ export class ListaPagosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.pacienteService.getAll().subscribe(d => this.pacientes = d);
     this.catalogService.getMetodosPago().subscribe(d => this.metodosPago = d);
+
+    // debounce para no pegarle al servidor en cada tecla; switchMap descarta la
+    // respuesta de una busqueda vieja si el usuario ya siguio escribiendo.
+    this.subBusqueda = this.busquedaPaciente$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(q => {
+        this.buscandoPacientes = true;
+        const texto = q.trim();
+        if (!texto) {
+          return this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, {}).pipe(
+            map(r => r.content ?? []),
+            catchError(() => of([] as Paciente[]))
+          );
+        }
+        // Se busca por nombre Y por DNI en paralelo, y se juntan los resultados: el
+        // backend combina esos filtros con AND, y no se puede asumir que un documento
+        // sea solo digitos — los carnes de extranjeria llevan letras (AN724382).
+        const vacio = () => of({ content: [] as Paciente[] } as any);
+        return forkJoin([
+          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { nombre: texto }).pipe(catchError(vacio)),
+          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { dni: texto }).pipe(catchError(vacio)),
+        ]).pipe(
+          map(([porNombre, porDni]) => {
+            const juntos = [...(porNombre.content ?? []), ...(porDni.content ?? [])];
+            const vistos = new Set<number>();
+            return juntos.filter(p => p.id != null && !vistos.has(p.id) && vistos.add(p.id))
+                         .slice(0, this.LIMITE_SUGERENCIAS);
+          })
+        );
+      })
+    ).subscribe(lista => {
+      this.pacientes = lista;
+      this.buscandoPacientes = false;
+    });
   }
+
+  ngOnDestroy(): void { this.subBusqueda?.unsubscribe(); }
 
   cargar(): void {
     this.loading = true;
@@ -234,6 +279,8 @@ export class ListaPagosComponent implements OnInit {
     if (!this.puedeCrear) return;
     this.formData = this.emptyForm();
     this.pacienteBusqueda = '';
+    this.pacienteElegido = null;
+    this.pacientes = [];
     this.tratamientos = [];
     this.citasPendientes = [];
     this.sesionesCreadasTratamiento = null;
@@ -243,11 +290,24 @@ export class ListaPagosComponent implements OnInit {
   cerrarModal(): void { this.modalAbierto = false; }
 
   // ── Buscador de paciente ──────────────────────────────────────────────────
-  abrirPacienteDropdown(): void { this.pacienteDropdownAbierto = true; }
+  /** Cada tecla invalida la seleccion previa y pide sugerencias nuevas al servidor. */
+  onPacienteBusquedaChange(texto: string): void {
+    this.formData.pacienteId = null;
+    this.pacienteElegido = null;
+    this.busquedaPaciente$.next(texto ?? '');
+  }
+
+  abrirPacienteDropdown(): void {
+    this.pacienteDropdownAbierto = true;
+    // Al enfocar sin haber escrito nada se muestran los primeros, para no dejar el
+    // desplegable vacio; a partir de ahi se acota escribiendo.
+    if (this.pacientes.length === 0) this.busquedaPaciente$.next(this.pacienteBusqueda);
+  }
   cerrarPacienteDropdownDiferido(): void { setTimeout(() => this.pacienteDropdownAbierto = false, 150); }
 
   seleccionarPaciente(p: Paciente): void {
     this.formData.pacienteId = p.id ?? null;
+    this.pacienteElegido = p;
     this.pacienteBusqueda = this.pacienteNombre(p);
     this.pacienteDropdownAbierto = false;
     this.onPacienteChange();
@@ -255,6 +315,7 @@ export class ListaPagosComponent implements OnInit {
 
   limpiarPaciente(): void {
     this.formData.pacienteId = null;
+    this.pacienteElegido = null;
     this.pacienteBusqueda = '';
     this.onPacienteChange();
   }
