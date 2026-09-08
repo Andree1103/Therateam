@@ -5,7 +5,7 @@
       <h1>Adelantos</h1>
       <p>Pacientes con saldo a favor — pagaron por adelantado más de lo que llevan consumido</p>
     </div>
-    <button type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || adelantos.length === 0">
+    <button *ngIf="puedeExportar" type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || adelantos.length === 0">
       {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
     </button>
   </div>

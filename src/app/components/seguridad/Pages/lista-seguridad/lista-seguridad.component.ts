@@ -20,6 +20,7 @@ interface RolItem {
   activo?: boolean;
   permisos: PermisoItem[];
   pacientesVerTelefono?: boolean;
+  puedeExportar?: boolean;
 }
 
 interface AccionesModulo { crear: boolean; editar: boolean; eliminar: boolean; }
@@ -76,6 +77,7 @@ export class ListaSeguridadComponent implements OnInit {
   formRolActivo = true;
   /** Dato sensible: se configura por rol (no por usuario) — false por defecto. */
   formRolPacientesVerTelefono = false;
+  formRolPuedeExportar = false;
   /** Módulos a los que el rol tiene acceso (ver/navegar) — presencia en el set = acceso. */
   formRolAccesoIds: Set<number> = new Set();
   /** Acciones de escritura por módulo, solo tienen efecto si el módulo está en formRolAccesoIds. */
@@ -192,6 +194,7 @@ export class ListaSeguridadComponent implements OnInit {
     this.formRolKey = '';
     this.formRolActivo = true;
     this.formRolPacientesVerTelefono = false;
+    this.formRolPuedeExportar = false;
     this.formRolAccesoIds = new Set();
     this.formRolPermisos = {};
     this.modalRolAbierto = true;
@@ -203,6 +206,7 @@ export class ListaSeguridadComponent implements OnInit {
     this.formRolKey = r.key || '';
     this.formRolActivo = r.activo ?? true;
     this.formRolPacientesVerTelefono = r.pacientesVerTelefono ?? false;
+    this.formRolPuedeExportar = r.puedeExportar ?? false;
     this.formRolAccesoIds = new Set((r.permisos || []).map(p => p.modulo.id));
     this.formRolPermisos = {};
     for (const p of r.permisos || []) {
@@ -249,6 +253,7 @@ export class ListaSeguridadComponent implements OnInit {
       key: this.formRolKey.toUpperCase(),
       activo: this.formRolActivo,
       pacientesVerTelefono: this.formRolPacientesVerTelefono,
+      puedeExportar: this.formRolPuedeExportar,
       permisos,
     };
     const esEdicion = !!this.editandoRol;

@@ -54,6 +54,9 @@ export interface PacienteState {
   styleUrls: ['./lista-citas.component.css']
 })
 export class ListaCitasComponent implements OnInit, OnDestroy {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   citas: Cita[] = [];
   loading = true;
@@ -372,6 +375,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
         'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
         'DNI': c.paciente_dni ?? '',
+        // El backend ya redacta el telefono para quien no tiene el permiso de verlo
+        // (PACIENTES_VER_TELEFONO), asi que aqui llega vacio y el Excel lo respeta.
+        'Celular': c.paciente_telefono ?? '',
         'Terapeuta': c.terapeuta_nombre ?? '',
         'Tipo de terapia': c.tipo_terapia_nombre ?? '',
         'Duración (min)': c.duracion_minutos,
@@ -380,6 +386,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Estado de pago': c.estado_pago_nombre ?? '',
         'Precio (S/)': c.precio ?? '',
         'Paquete': c.tratamiento_nombre ?? '',
+        'Comentarios': c.observacion ?? '',
         'Usuario creación': c.usuario_creacion_nombre ?? '',
       }));
     if (filas.length === 0) {

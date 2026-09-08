@@ -25,6 +25,8 @@ export interface User {
   citasSoloPropias: boolean;
   citasPuedeCrear: boolean;
   pacientesVerTelefono: boolean;
+  /** Viene del ROL: si es false, no se muestran los botones de "Exportar Excel". */
+  puedeExportar: boolean;
 }
 
 interface LoginResponse {
@@ -40,6 +42,8 @@ interface LoginResponse {
   citasSoloPropias: boolean;
   citasPuedeCrear: boolean;
   pacientesVerTelefono: boolean;
+  /** Viene del ROL: si es false, no se muestran los botones de "Exportar Excel". */
+  puedeExportar: boolean;
 }
 
 @Injectable({
@@ -91,6 +95,7 @@ export class AuthService {
           terapeutaId: res.terapeutaId, citasSoloPropias: res.citasSoloPropias,
           citasPuedeCrear: res.citasPuedeCrear,
           pacientesVerTelefono: res.pacientesVerTelefono,
+          puedeExportar: res.puedeExportar,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -163,6 +168,15 @@ export class AuthService {
    *  (a diferencia de puedeCrearCitas, acá el default es NO ver). */
   puedeVerTelefonoPacientes(): boolean {
     return this.currentUserValue?.pacientesVerTelefono ?? false;
+  }
+
+  /**
+   * Exportar a Excel se configura por ROL (Seguridad > Roles). Es un control de interfaz:
+   * oculta los botones para evitar la descarga masiva casual, no impide que alguien con
+   * acceso al modulo lea los mismos datos en pantalla.
+   */
+  puedeExportar(): boolean {
+    return this.currentUserValue?.puedeExportar ?? false;
   }
 
   /** Rol ADMIN exacto — para acciones sensibles que no dependen del permiso granular por módulo (ej. editar terapeuta/monto de una cita ya creada). */

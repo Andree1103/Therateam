@@ -41,6 +41,9 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
   styleUrls: ['./lista-tratamientos.component.css']
 })
 export class ListaTratamientosComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   tratamientos: Tratamiento[] = [];
   loading = false;

@@ -3,6 +3,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { Paciente, SaldoMovimiento } from '../../../pacientes/Models/paciente.model';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 @Component({
   selector: 'app-lista-adelantos',
@@ -10,6 +11,9 @@ import { ToastService } from '../../../../core/services/toast.service';
   styleUrls: ['./lista-adelantos.component.css']
 })
 export class ListaAdelantosComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   adelantos: Paciente[] = [];
 
@@ -32,7 +36,8 @@ export class ListaAdelantosComponent implements OnInit {
     private pacienteService: PacienteService,
     private excelExportService: ExcelExportService,
     private toast: ToastService
-  ) {}
+  ,
+    private authService: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();

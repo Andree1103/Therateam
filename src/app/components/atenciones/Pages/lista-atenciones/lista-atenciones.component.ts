@@ -18,6 +18,9 @@ import { TipoTerapia } from '../../../citas/Models/cita.model';
   styleUrls: ['./lista-atenciones.component.css']
 })
 export class ListaAtencionesComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   atenciones: Cita[] = [];
   loading = false;

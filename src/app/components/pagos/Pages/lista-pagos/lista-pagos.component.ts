@@ -21,6 +21,9 @@ import { AuthService } from '../../../auth/Services/auth.service';
   styleUrls: ['./lista-pagos.component.css']
 })
 export class ListaPagosComponent implements OnInit, OnDestroy {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   pagos: Pago[] = [];
   loading = false;

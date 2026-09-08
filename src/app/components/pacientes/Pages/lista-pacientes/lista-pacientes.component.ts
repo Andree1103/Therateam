@@ -14,6 +14,9 @@ import { AuthService } from '../../../auth/Services/auth.service';
   styleUrls: ['./lista-pacientes.component.css']
 })
 export class ListaPacientesComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   pacientes: Paciente[] = [];
   loading = false;

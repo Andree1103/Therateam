@@ -14,6 +14,7 @@ import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
+import { AuthService } from '../../../auth/Services/auth.service';
 
 type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
@@ -23,6 +24,9 @@ type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' 
   styleUrls: ['./perfil-paciente.component.css']
 })
 export class PerfilPacienteComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   loading = true;
   paciente: Paciente | null = null;
@@ -57,7 +61,8 @@ export class PerfilPacienteComponent implements OnInit {
     private atencionService: AtencionClinicaService,
     private excelExportService: ExcelExportService,
     private toast: ToastService
-  ) {}
+  ,
+    private authService: AuthService) {}
 
   ngOnInit(): void {
     this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));

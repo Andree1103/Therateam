@@ -65,6 +65,7 @@
                   </span>
                   <span class="text-muted" *ngIf="!r.permisos?.length">Sin módulos</span>
                   <span class="modulo-chip" *ngIf="r.pacientesVerTelefono" title="Ve el celular de los pacientes">Ve celulares</span>
+                  <span class="modulo-chip" *ngIf="r.puedeExportar" title="Puede descargar los listados en Excel">Exporta Excel</span>
                 </div>
               </td>
               <td>
@@ -232,6 +233,10 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPacientesVerTelefono" name="pacientesVerTelefono">
             Este rol puede ver el celular de los pacientes
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeExportar" name="puedeExportar">
+            Este rol puede exportar a Excel
           </label>
         </div>
         <div class="modal-footer">

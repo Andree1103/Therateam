@@ -5,7 +5,7 @@
       <h1>Atenciones</h1>
       <p>Citas ya atendidas — con su nota clínica registrada</p>
     </div>
-    <button type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || atenciones.length === 0">
+    <button *ngIf="puedeExportar" type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || atenciones.length === 0">
       {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
     </button>
   </div>

@@ -11,6 +11,9 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
   styleUrls: ['./lista-caja.component.css']
 })
 export class ListaCajaComponent implements OnInit {
+  /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
+  get puedeExportar(): boolean { return this.authService.puedeExportar(); }
+
 
   fecha: string = this.hoyISO();
   turno: 1 | 2 = 1;
