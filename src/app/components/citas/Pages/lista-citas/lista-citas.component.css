@@ -506,3 +506,6 @@ tbody tr{height:var(--slot-h)}
 .venta-l-del:hover{color:#dc2626}
 .venta-total{border-top:1px solid #e2e8f0;padding-top:5px;margin-top:2px;color:#0f172a}
 .venta-total .venta-l-nom{font-weight:700}
+
+/* Aviso al cobrar una cita sin precio: reemplaza al bloqueo que antes impedia cobrar. */
+.hc-pago-sinprecio{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:6px 9px;font-size:11px;color:#92400e;line-height:1.4;margin-bottom:6px}

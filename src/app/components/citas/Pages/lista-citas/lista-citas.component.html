@@ -246,6 +246,9 @@
                     </div>
                     <!-- Mini-formulario de pago inline -->
                     <div class="hc-pago-form" *ngIf="citaPagandoId === c.id" (click)="$event.stopPropagation()">
+                      <div class="hc-pago-sinprecio" *ngIf="!pagoEsPaquete && !pagoPrecioCita">
+                        Esta cita no tiene precio. El monto que cobres quedara como su precio.
+                      </div>
                       <div class="hc-pago-deuda" *ngIf="pagoPrecioCita > 0">
                         Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
                         Pagado S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }} ·
@@ -351,6 +354,8 @@
                   <option [value]="30">30 min</option><option [value]="35">35 min</option>
                   <option [value]="40">40 min</option><option [value]="45">45 min</option>
                   <option [value]="50">50 min</option><option [value]="60">60 min (1h)</option>
+                  <option [value]="80">80 min</option><option [value]="100">100 min</option>
+                  <option [value]="120">120 min (2h)</option>
                 </select>
               </td>
               <td class="max-pac">{{ t.max_pacientes }} pac.</td>
@@ -787,7 +792,8 @@
             <select [(ngModel)]="fDur" (ngModelChange)="fDur = +fDur; onDatosCitaChange()">
               <option [value]="30">30 min</option><option [value]="40">40 min</option>
               <option [value]="45">45 min</option><option [value]="50">50 min</option>
-              <option [value]="60">60 min (1 hora)</option>
+              <option [value]="60">60 min (1 hora)</option><option [value]="80">80 min</option>
+              <option [value]="100">100 min</option><option [value]="120">120 min (2 horas)</option>
             </select>
           </div>
           <div class="dur-info">{{ getDurInfo() }}</div>
@@ -800,7 +806,8 @@
             <select [(ngModel)]="fDur" (ngModelChange)="fDur = +fDur; cargarSlotsSingle(); onDatosCitaChange()">
               <option [value]="30">30 min</option><option [value]="40">40 min</option>
               <option [value]="45">45 min</option><option [value]="50">50 min</option>
-              <option [value]="60">60 min (1 hora)</option>
+              <option [value]="60">60 min (1 hora)</option><option [value]="80">80 min</option>
+              <option [value]="100">100 min</option><option [value]="120">120 min (2 horas)</option>
             </select>
           </div>
 
@@ -1084,6 +1091,9 @@
             </button>
           </div>
           <div class="hc-pago-form" *ngIf="citaPagandoId === citaEditando.id">
+            <div class="hc-pago-sinprecio" *ngIf="!pagoEsPaquete && !pagoPrecioCita">
+              Esta cita no tiene precio. El monto que cobres quedara como su precio.
+            </div>
             <div class="hc-pago-deuda" *ngIf="pagoPrecioCita > 0">
               Precio S/ {{ pagoPrecioCita | number:'1.2-2' }} ·
               Pagado S/ {{ (citaEditando.monto_pagado ?? 0) | number:'1.2-2' }} ·

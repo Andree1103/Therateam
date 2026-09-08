@@ -897,9 +897,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const citaId     = Number(cita.id);
     if (!pacienteId || !citaId) return;
 
-    if (!this.pagoEsPaquete && !this.pagoPrecioCita) {
-      this.toast.error('Esta cita no tiene un precio definido — edítala para fijar un precio antes de cobrar'); return;
-    }
+    // Antes esto bloqueaba el cobro cuando la cita no tenia precio, y dejaba a la
+    // recepcion sin poder cobrar (solo un admin puede fijar el precio al crear, y la
+    // mayoria de tipos de terapia no tiene precio_recomendado cargado). Ahora se cobra:
+    // el backend toma el monto como precio de la cita y la deja cuadrada.
 
     this.guardandoPago = true;
     const body: any = {
