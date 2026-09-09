@@ -66,6 +66,7 @@
                   <span class="text-muted" *ngIf="!r.permisos?.length">Sin módulos</span>
                   <span class="modulo-chip" *ngIf="r.pacientesVerTelefono" title="Ve el celular de los pacientes">Ve celulares</span>
                   <span class="modulo-chip" *ngIf="r.puedeExportar" title="Puede descargar los listados en Excel">Exporta Excel</span>
+                  <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
                 </div>
               </td>
               <td>
@@ -237,6 +238,10 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeExportar" name="puedeExportar">
             Este rol puede exportar a Excel
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeCorregirAtencion" name="puedeCorregirAtencion">
+            Este rol puede corregir atenciones ya registradas
           </label>
         </div>
         <div class="modal-footer">

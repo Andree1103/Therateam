@@ -73,9 +73,9 @@
             </td>
             <td class="td-acciones">
               <button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button>
-              <!-- Corregir una carga mal hecha: solo ADMIN, y por un endpoint aparte del
+              <!-- Corregir una carga mal hecha: permiso por rol, y por un endpoint aparte del
                    PUT normal (que sigue prohibiendo tocar una cita atendida). -->
-              <button type="button" class="btn-link" *ngIf="esAdmin" (click)="abrirCorreccion(c, $event)">Corregir</button>
+              <button type="button" class="btn-link" *ngIf="puedeCorregir" (click)="abrirCorreccion(c, $event)">Corregir</button>
             </td>
           </tr>
         </tbody>

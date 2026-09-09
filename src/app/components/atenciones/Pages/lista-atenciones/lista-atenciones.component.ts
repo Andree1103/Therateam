@@ -75,8 +75,8 @@ export class ListaAtencionesComponent implements OnInit {
     this.catalogService.getAreas().subscribe(d => this.areas = d);
     // Los métodos de pago los necesita el filtro, que ve todo el mundo.
     this.catalogService.getMetodosPago().subscribe(m => this.metodosPago = m);
-    // Terapeutas y tipos solo los usa el modal de corrección, que es solo para admin.
-    if (this.esAdmin) {
+    // Terapeutas y tipos solo los usa el modal de corrección, que no todos los roles ven.
+    if (this.puedeCorregir) {
       this.terapeutaService.getAll().subscribe(t => this.terapeutas = t);
       this.citaService.getTiposTerapiaFromApi().subscribe(t => this.tiposTerapia = t);
     }
@@ -86,9 +86,10 @@ export class ListaAtencionesComponent implements OnInit {
   // ── Corrección administrativa de una atención ──────────────────────────────
   // Arreglar una carga mal hecha (terapeuta o tipo equivocado, precio mal tipeado, pago
   // registrado con otro método). Va por un endpoint aparte del PUT normal, que sigue
-  // prohibiendo estos cambios en una cita atendida.
+  // prohibiendo estos cambios en una cita atendida, y exige el permiso del rol.
 
-  get esAdmin(): boolean { return this.authService.esAdmin; }
+  /** Corregir atenciones se habilita por ROL (Seguridad > Roles) — antes era solo ADMIN. */
+  get puedeCorregir(): boolean { return this.authService.puedeCorregirAtencion(); }
 
   terapeutas: Terapeuta[] = [];
   tiposTerapia: TipoTerapia[] = [];
@@ -107,7 +108,7 @@ export class ListaAtencionesComponent implements OnInit {
 
   abrirCorreccion(c: Cita, e: Event): void {
     e.stopPropagation();
-    if (!this.esAdmin) return;
+    if (!this.puedeCorregir) return;
     this.citaCorrigiendo = c;
     this.corrTerapeutaId = c.terapeuta_id != null ? Number(c.terapeuta_id) : null;
     this.corrTipoKey = (c.tipo_terapia_key ?? '').toUpperCase();

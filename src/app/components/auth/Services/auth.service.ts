@@ -27,6 +27,8 @@ export interface User {
   pacientesVerTelefono: boolean;
   /** Viene del ROL: si es false, no se muestran los botones de "Exportar Excel". */
   puedeExportar: boolean;
+  /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
+  puedeCorregirAtencion: boolean;
 }
 
 interface LoginResponse {
@@ -44,6 +46,8 @@ interface LoginResponse {
   pacientesVerTelefono: boolean;
   /** Viene del ROL: si es false, no se muestran los botones de "Exportar Excel". */
   puedeExportar: boolean;
+  /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
+  puedeCorregirAtencion: boolean;
 }
 
 @Injectable({
@@ -96,6 +100,7 @@ export class AuthService {
           citasPuedeCrear: res.citasPuedeCrear,
           pacientesVerTelefono: res.pacientesVerTelefono,
           puedeExportar: res.puedeExportar,
+          puedeCorregirAtencion: res.puedeCorregirAtencion,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -177,6 +182,15 @@ export class AuthService {
    */
   puedeExportar(): boolean {
     return this.currentUserValue?.puedeExportar ?? false;
+  }
+
+  /**
+   * Corregir una atencion tambien se configura por ROL (Seguridad > Roles). Antes estaba
+   * clavado al rol ADMIN. Acá solo se oculta el boton: el backend igual exige la autoridad
+   * PUEDE_CORREGIR_ATENCION en el endpoint.
+   */
+  puedeCorregirAtencion(): boolean {
+    return this.currentUserValue?.puedeCorregirAtencion ?? false;
   }
 
   /** Rol ADMIN exacto — para acciones sensibles que no dependen del permiso granular por módulo (ej. editar terapeuta/monto de una cita ya creada). */
