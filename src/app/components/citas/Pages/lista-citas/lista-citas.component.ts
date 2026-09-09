@@ -769,6 +769,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       ?? { id, nombre: id, duracion_minutos: 45, max_pacientes: 1 };
   }
 
+  /** Nombre legible del estado de cita ('ASISTIDA' → 'Asistida'); si el catálogo aún no cargó
+   *  devuelve la key, que es lo que se mostraba antes en el hovercard. */
+  nombreEstadoCita(key: string): string {
+    return this.estadosCita.find(e => e.key === key)?.nombre ?? key;
+  }
+
   getEstadoColor(key: string): string {
     return this.estadosCita.find(e => e.key === key)?.colorHex ?? '#94a3b8';
   }

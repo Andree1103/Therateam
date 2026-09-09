@@ -19,6 +19,8 @@ export interface Cita {
   duracion_minutos: number;
   modalidad: 'PRESENCIAL' | 'VIRTUAL' | 'DOMICILIO';
   estado: string;
+  estado_nombre?: string;
+  estado_color?: string;
   motivo_cancelacion?: string;
   notas_previas?: string;
   notas_post?: string;
@@ -170,6 +172,8 @@ export interface CitaApiDTO {
   duracion_minutos?: number;
   modalidad: string;
   estado: string;
+  estado_nombre?: string;
+  estado_color?: string;
   motivo_cancelacion?: string;
   notas_previas?: string;
   notas_post?: string;

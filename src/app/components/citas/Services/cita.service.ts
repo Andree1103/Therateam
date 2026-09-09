@@ -243,6 +243,8 @@ export class CitaService {
       duracion_minutos:    dto.duracion_minutos ?? 45,
       modalidad:           (dto.modalidad as Cita['modalidad']) ?? 'PRESENCIAL',
       estado:              dto.estado ?? 'PROGRAMADA',
+      estado_nombre:       dto.estado_nombre,
+      estado_color:        dto.estado_color,
       motivo_cancelacion:  dto.motivo_cancelacion,
       notas_previas:       dto.notas_previas,
       notas_post:          dto.notas_post,

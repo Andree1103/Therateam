@@ -1245,6 +1245,21 @@
 
     <div class="modal-body-at">
       <p *ngIf="cargandoAtencionExistente" class="at-opt">Cargando atención registrada...</p>
+      <!-- El estado de la cita va amarrado a la atención: mientras exista una atención registrada
+           la cita queda ASISTIDA. Se muestra acá para no tener que salir del modal a verificarlo. -->
+      <div class="at-section" *ngIf="citaParaAtencion">
+        <div class="at-section-lbl">Estado de la cita</div>
+        <div class="at-estado-row">
+          <span class="pago-badge"
+                [style.background]="getEstadoColor(citaParaAtencion.estado) + '1a'"
+                [style.color]="getEstadoColor(citaParaAtencion.estado)">
+            {{ nombreEstadoCita(citaParaAtencion.estado) }}
+          </span>
+          <span class="at-opt" *ngIf="citaParaAtencion.estado !== 'ASISTIDA'">
+            → al guardar la atención la cita pasa a <strong>Asistida</strong>
+          </span>
+        </div>
+      </div>
       <div class="at-section">
         <div class="at-section-lbl">Notas post-sesión</div>
         <textarea class="at-textarea" [(ngModel)]="atencionNotas" rows="4"

@@ -11,6 +11,9 @@ export interface PacienteFiltros {
   correo?: string;
   sedeId?: number | null;
   activo?: boolean | null;
+  /** Fecha de alta del paciente (yyyy-MM-dd, dias completos) — se usa para exportar solo los nuevos. */
+  creadoDesde?: string | null;
+  creadoHasta?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +37,8 @@ export class PacienteService {
       correo: filtros.correo?.trim() || undefined,
       sedeId: filtros.sedeId != null ? String(filtros.sedeId) : undefined,
       activo: filtros.activo == null ? undefined : String(filtros.activo),
+      creadoDesde: filtros.creadoDesde || undefined,
+      creadoHasta: filtros.creadoHasta || undefined,
     });
   }
 

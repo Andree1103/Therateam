@@ -64,7 +64,42 @@ export class ListaPacientesComponent implements OnInit {
   ) {}
 
   /** Exporta TODOS los pacientes que cumplen los filtros activos (no solo la página visible). */
+  // ── Exportar a Excel con rango de fecha de ALTA del paciente ──────────────
+  // El rango es opcional: vacio exporta todo lo que cumpla los filtros de la lista, que es
+  // como funcionaba antes. Sirve para bajar cada dia solo los pacientes nuevos.
+  modalExportar = false;
+  exportDesde = '';
+  exportHasta = '';
+
+  abrirExportar(): void { this.modalExportar = true; }
+  cerrarExportar(): void { this.modalExportar = false; }
+
+  get rangoExportInvalido(): boolean {
+    return !!(this.exportDesde && this.exportHasta && this.exportDesde > this.exportHasta);
+  }
+
+  /** Fecha local (no UTC): toISOString() adelanta el dia en Peru (UTC-5) cerca de medianoche. */
+  private fechaLocalISO(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  /** Atajos del modal: 0 = hoy, N = los ultimos N dias contando hoy. */
+  rangoExportRapido(dias: number): void {
+    const hoy = new Date();
+    const desde = new Date();
+    if (dias > 0) desde.setDate(desde.getDate() - dias);
+    this.exportDesde = this.fechaLocalISO(desde);
+    this.exportHasta = this.fechaLocalISO(hoy);
+  }
+
+  limpiarRangoExport(): void { this.exportDesde = ''; this.exportHasta = ''; }
+
   exportarExcel(): void {
+    if (this.rangoExportInvalido) {
+      this.toast.warning('La fecha inicial no puede ser posterior a la final');
+      return;
+    }
     this.exportando = true;
     const filtros: PacienteFiltros = {
       nombre: this.filtroNombre,
@@ -72,11 +107,14 @@ export class ListaPacientesComponent implements OnInit {
       correo: this.filtroCorreo,
       sedeId: this.filtroSedeId,
       activo: this.filtroActivo === '' ? null : this.filtroActivo === 'true',
+      creadoDesde: this.exportDesde || null,
+      creadoHasta: this.exportHasta || null,
     };
     this.pacienteService.getAllPaged(0, 10000, filtros).subscribe({
       next: res => {
         this.exportando = false;
         if (res.content.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
+        this.modalExportar = false;
         const filas = res.content.map(p => ({
           'Nombre': p.nombre,
           'Apellido': p.apellido,
@@ -91,9 +129,12 @@ export class ListaPacientesComponent implements OnInit {
           'Origen': p.origen?.nombre ?? '',
           'Activo': p.activo ? 'Sí' : 'No',
           'Notas': p.notas ?? '',
+          'Fecha de alta': p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-PE') : '',
           'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
-        this.excelExportService.exportar(filas, 'pacientes');
+        const sufijo = this.exportDesde || this.exportHasta
+          ? `_altas_${this.exportDesde || 'inicio'}_a_${this.exportHasta || 'hoy'}` : '';
+        this.excelExportService.exportar(filas, `pacientes${sufijo}`);
       },
       error: () => { this.exportando = false; this.toast.error('Error al exportar pacientes'); }
     });

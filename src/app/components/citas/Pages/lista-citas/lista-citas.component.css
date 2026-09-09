@@ -324,6 +324,8 @@ tbody tr{height:var(--slot-h)}
 .modal-body-at{padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px}
 .modal-footer-at{padding:14px 22px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
 .at-section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:6px}
+.at-estado-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.at-estado-row .pago-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
 .at-opt{font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8}
 .at-textarea{width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc;resize:vertical;transition:border-color .15s}
 .at-textarea:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}

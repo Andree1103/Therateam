@@ -49,6 +49,7 @@
             <th class="th-sort" (click)="ordenarPorColumna('precio')">Precio {{ iconoOrden('precio') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('estadoPago.key')">Estado de pago {{ iconoOrden('estadoPago.key') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('metodoPago')">Medio de pago {{ iconoOrden('metodoPago') }}</th>
+            <th class="th-sort" (click)="ordenarPorColumna('estado.key')">Estado de cita {{ iconoOrden('estado.key') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -65,6 +66,11 @@
               </span>
             </td>
             <td>{{ c.metodo_pago_nombre || '—' }}</td>
+            <td>
+              <span class="pago-badge" [style.background]="(c.estado_color || '#22C55E') + '1a'" [style.color]="c.estado_color || '#22C55E'">
+                {{ c.estado_nombre || c.estado }}
+              </span>
+            </td>
             <td class="td-acciones">
               <button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button>
               <!-- Corregir una carga mal hecha: solo ADMIN, y por un endpoint aparte del

@@ -8,7 +8,7 @@
       <p *ngIf="vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} con citas contigo</p>
     </div>
     <div style="display:flex;gap:8px">
-      <button *ngIf="puedeExportar" class="btn-secondary" [disabled]="exportando" (click)="exportarExcel()">
+      <button *ngIf="puedeExportar" class="btn-secondary" [disabled]="exportando" (click)="abrirExportar()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
       </button>
@@ -240,6 +240,48 @@
   </div>
 
   <!-- ── MODAL CONFIRMAR ELIMINAR ──────────────────────────────────────── -->
+  <!-- ── MODAL: exportar a Excel con rango de fechas de alta ──────────────── -->
+  <!-- El rango es sobre la FECHA DE ALTA del paciente, no sobre sus citas: sirve para bajar
+       cada día solo los pacientes nuevos. Vacío = todos, como antes. -->
+  <div class="modal-overlay" *ngIf="modalExportar">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-hdr">
+        <h2>Exportar pacientes</h2>
+        <button class="modal-close" (click)="cerrarExportar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="margin:0;font-size:12px">
+          Filtra por fecha de alta del paciente. Si dejas las fechas vacías se exportan todos los
+          que cumplan los filtros de la lista.
+        </p>
+        <div class="frow-2">
+          <div class="frow">
+            <label>Alta desde</label>
+            <input type="date" [(ngModel)]="exportDesde" [max]="exportHasta || null">
+          </div>
+          <div class="frow">
+            <label>Alta hasta</label>
+            <input type="date" [(ngModel)]="exportHasta" [min]="exportDesde || null">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn-link" (click)="rangoExportRapido(0)">Hoy</button>
+          <button type="button" class="btn-link" (click)="rangoExportRapido(7)">Últimos 7 días</button>
+          <button type="button" class="btn-link" (click)="rangoExportRapido(30)">Últimos 30 días</button>
+          <button type="button" class="btn-link" (click)="limpiarRangoExport()">Sin rango</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="cerrarExportar()">Cancelar</button>
+        <button class="btn-primary" [disabled]="exportando || rangoExportInvalido" (click)="exportarExcel()">
+          {{ exportando ? 'Exportando...' : 'Exportar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">
       <div class="modal-hdr">
