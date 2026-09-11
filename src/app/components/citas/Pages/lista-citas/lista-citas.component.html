@@ -681,11 +681,11 @@
 
           <div class="pac2-toggle" *ngIf="puedeAgregarAcompanante" (click)="agregarAcompanante()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Agregar paciente {{ pacsExtra.length + 2 }} de {{ tipoSeleccionado?.max_pacientes }}
+            Agregar paciente {{ ocupacionDelSlot + 1 }} de {{ tipoSeleccionado?.max_pacientes }}
             <span class="opc-tag" *ngIf="citaEditando">se creara como una cita nueva en el mismo horario</span>
           </div>
           <p class="pac-hint" *ngIf="!puedeAgregarAcompanante">
-            Cupo completo ({{ pacsExtra.length + 1 }}/{{ tipoSeleccionado?.max_pacientes }}) para este horario.
+            Cupo completo ({{ ocupacionDelSlot }}/{{ tipoSeleccionado?.max_pacientes }}) para este horario.
           </p>
         </ng-container>
 
@@ -779,7 +779,7 @@
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
-              <input type="date" [(ngModel)]="fFecha" [min]="hoyISO" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="date-inp">
+              <input type="date" [(ngModel)]="fFecha" [min]="minFechaISO" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora inicio <span class="opc-tag">libre</span></label>
@@ -864,7 +864,7 @@
 
           <div class="frow">
             <label>Fecha inicio</label>
-            <input type="date" [(ngModel)]="bulkFechaInicio" [min]="hoyISO" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="date-inp">
+            <input type="date" [(ngModel)]="bulkFechaInicio" [min]="minFechaISO" (ngModelChange)="calcularBulkDates(); onDatosCitaChange()" class="date-inp">
           </div>
 
           <div class="frow">

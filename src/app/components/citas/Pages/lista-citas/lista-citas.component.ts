@@ -426,8 +426,20 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** Tipos de terapia del área seleccionada en el modal — reemplaza las pestañas fijas Regular/Kids/Consultas. */
   get tiposDeArea(): TipoTerapia[] { return this.tiposTerapia.filter(t => t.area_id === this.fAreaId); }
-  /** Fecha de hoy en formato ISO (yyyy-MM-dd) — usada como mínimo en los date-pickers para no permitir fechas pasadas. */
+  /** Fecha de hoy en formato ISO (yyyy-MM-dd). */
   get hoyISO(): string { return this.fechaToISO(new Date()); }
+
+  /**
+   * Mínimo de los date-pickers: se permite agendar con hasta DIAS_ATRASO_PERMITIDOS día(s) de
+   * atraso, para cargar la cita de ayer que quedó sin registrar. El backend valida lo mismo
+   * (ver CitaService.validarFechaNoPasada) — si cambia allá, cambia acá.
+   */
+  private readonly DIAS_ATRASO_PERMITIDOS = 1;
+  get minFechaISO(): string {
+    const d = new Date();
+    d.setDate(d.getDate() - this.DIAS_ATRASO_PERMITIDOS);
+    return this.fechaToISO(d);
+  }
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
 
@@ -1347,20 +1359,31 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   quitarAcompanante(i: number): void { this.pacsExtra.splice(i, 1); }
 
-  get cupoLibreParaPac2(): boolean {
+  /** Pacientes que YA ocupan ese horario por otras citas del mismo terapeuta (no las del formulario). */
+  get pacientesYaEnElSlot(): number {
     const tipo = this.tipoSeleccionado;
-    if (!tipo || !this.esMultipaciente || !this.fTer || !this.fFecha || !this.fHoraInicio) return true;
+    if (!tipo || !this.fTer || !this.fFecha || !this.fHoraInicio) return 0;
     const fechaSlot = this.parseFechaHora(this.fFecha, this.fHoraInicio);
     const dur = Number(this.fDur) || tipo.duracion_minutos;
     const fechaFin = new Date(fechaSlot);
     fechaFin.setMinutes(fechaFin.getMinutes() + dur);
-    const conflictos = this.citas.filter(c => {
-      if (!this.ocupaCupo(c)) return false;
-      if (c.terapeuta_nombre !== this.fTer) return false;
-      if (this.citaEditando && c.id === this.citaEditando.id) return false;
-      return fechaSlot < new Date(c.fecha_fin) && fechaFin > new Date(c.fecha_inicio);
-    });
-    return conflictos.length + 1 + this.pacsExtra.length <= tipo.max_pacientes;
+    return this.citasSolapadas(this.fTer, fechaSlot, fechaFin, this.citaEditando?.id).length;
+  }
+
+  /** Total de pacientes que quedaria en el horario si se guardara el formulario tal como esta. */
+  get ocupacionDelSlot(): number {
+    return this.pacientesYaEnElSlot + 1 + this.pacsExtra.length;
+  }
+
+  /**
+   * Si entra UNO MAS. La cuenta estaba corrida en uno: medía si cabía lo ya cargado, no si
+   * cabía el que se iba a agregar — con una cita previa en el slot ofrecia "Agregar paciente
+   * 2 de 2" y al guardar rebotaba con "Solo hay 1 cupo(s) disponible(s)".
+   */
+  get cupoLibreParaPac2(): boolean {
+    const tipo = this.tipoSeleccionado;
+    if (!tipo || !this.esMultipaciente || !this.fTer || !this.fFecha || !this.fHoraInicio) return true;
+    return this.ocupacionDelSlot + 1 <= tipo.max_pacientes;
   }
 
   get cuposDisponiblesTratamiento(): number | null {
@@ -1423,10 +1446,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   /** Ajusta fFechasOffset para que la página de fechas visibles (bloques de 6 días) incluya
    *  la fecha dada, y regenera la fila de fechas. */
   private alinearFechasVisiblesCon(fechaISO: string): void {
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    // El origen de la fila es el dia mas antiguo admitido, no hoy (ver generarFechasVisiblesSingle).
+    const origen = new Date(); origen.setHours(0, 0, 0, 0);
+    origen.setDate(origen.getDate() - this.DIAS_ATRASO_PERMITIDOS);
     const [y, m, d] = fechaISO.split('-').map(Number);
     const objetivo = new Date(y, m - 1, d);
-    const diffDias = Math.round((objetivo.getTime() - hoy.getTime()) / 86400000);
+    const diffDias = Math.round((objetivo.getTime() - origen.getTime()) / 86400000);
     this.fFechasOffset = diffDias > 0 ? Math.floor(diffDias / 6) * 6 : 0;
     this.generarFechasVisiblesSingle();
   }
@@ -1654,7 +1679,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   private generarFechasVisiblesSingle(): void {
     const base = new Date();
-    base.setDate(base.getDate() + this.fFechasOffset);
+    // La fila arranca en el dia mas antiguo admitido (ayer), no en hoy: si no, la cita que
+    // quedo sin registrar ayer no se podia seleccionar — fFechasAnterior se frena en offset 0.
+    base.setDate(base.getDate() - this.DIAS_ATRASO_PERMITIDOS + this.fFechasOffset);
     const dias: { iso: string; dow: string; dia: number; mes: string }[] = [];
     for (let i = 0; i < 6; i++) {
       const d = new Date(base);
@@ -1825,9 +1852,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
 
     if (!this.citaEditando) {
+      // Se admite hasta DIAS_ATRASO_PERMITIDOS día(s) de atraso (día completo), para cargar la
+      // cita de ayer que quedó sin registrar. Mismo límite que el backend.
+      const limite = new Date();
+      limite.setDate(limite.getDate() - this.DIAS_ATRASO_PERMITIDOS);
+      limite.setHours(0, 0, 0, 0);
       const chequear = this.modoProgramacion === 'multiple' ? this.bulkPreview : [this.parseFechaHora(this.fFecha, this.fHoraInicio)];
-      if (chequear.some(f => f < new Date())) {
-        this.toast.warning('No se pueden crear citas en una fecha u hora que ya pasó'); return;
+      if (chequear.some(f => f < limite)) {
+        this.toast.warning(`No se pueden crear citas con más de ${this.DIAS_ATRASO_PERMITIDOS} día de atraso`); return;
       }
     }
 
