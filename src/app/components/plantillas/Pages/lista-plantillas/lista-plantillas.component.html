@@ -1,0 +1,175 @@
+<div class="page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Plantillas de fichas</h1>
+      <p>Qué campos se llenan en la historia clínica y en cada atención</p>
+    </div>
+    <button class="btn-primary" *ngIf="puedeCrear && !edicion" (click)="nueva()">+ Nueva plantilla</button>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Las dos fichas se arman igual, solo cambian de pestaña -->
+    <div class="tab-bar">
+      <button class="tab-btn" [class.active]="tipoActivo === 'HISTORIA'" (click)="cambiarTipo('HISTORIA')">
+        Historia clínica
+      </button>
+      <button class="tab-btn" [class.active]="tipoActivo === 'ATENCION'" (click)="cambiarTipo('ATENCION')">
+        Atención
+      </button>
+    </div>
+
+    <p class="text-muted small ayuda-tipo">
+      <ng-container *ngIf="tipoActivo === 'HISTORIA'">
+        La ficha del paciente. Se llena una vez y se va actualizando.
+      </ng-container>
+      <ng-container *ngIf="tipoActivo === 'ATENCION'">
+        La nota de cada sesión. Se elige sola según el tipo de terapia de la cita.
+      </ng-container>
+      Si un tipo de terapia no tiene plantilla propia, se usa la genérica.
+    </p>
+
+    <!-- ── Listado ──────────────────────────────────────────────────────── -->
+    <div class="card" *ngIf="!edicion">
+      <div class="state-box" *ngIf="cargando">
+        <div class="spinner"></div>
+        <p>Cargando plantillas...</p>
+      </div>
+
+      <div class="state-box small" *ngIf="!cargando && plantillas.length === 0">
+        <p>Todavía no hay plantillas de este tipo. Crea la primera.</p>
+      </div>
+
+      <table class="data-table" *ngIf="!cargando && plantillas.length > 0">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Aplica a</th><th>Secciones</th><th>Campos</th><th>Estado</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of plantillas">
+            <td>
+              <strong>{{ p.nombre }}</strong>
+              <div class="text-muted small" *ngIf="p.descripcion">{{ p.descripcion }}</div>
+            </td>
+            <td>
+              <span class="chip-tipo" [class.chip-tipo--generica]="!p.tipoTerapia">
+                {{ nombreTipoTerapia(p) }}
+              </span>
+            </td>
+            <td>{{ p.secciones.length }}</td>
+            <td>{{ contarCampos(p) }}</td>
+            <td>
+              <span class="badge" [class.badge-active]="p.activo !== false" [class.badge-inactive]="p.activo === false">
+                {{ p.activo === false ? 'Inactiva' : 'Activa' }}
+              </span>
+            </td>
+            <td class="ta-r">
+              <button class="btn-link" *ngIf="puedeEditar" (click)="editar(p)">Editar</button>
+              <button class="btn-link" *ngIf="puedeCrear" (click)="duplicar(p)">Duplicar</button>
+              <button class="btn-link btn-link-danger" *ngIf="puedeEliminar" (click)="eliminar(p)">Eliminar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Editor ───────────────────────────────────────────────────────── -->
+    <div class="card" *ngIf="edicion as pl">
+      <div class="card-hdr">
+        {{ pl.id ? 'Editar plantilla' : 'Nueva plantilla' }}
+        <span class="text-muted small">· {{ pl.tipo === 'ATENCION' ? 'Atención' : 'Historia clínica' }}</span>
+      </div>
+
+      <div class="editor-body">
+        <div class="frow-2">
+          <div class="frow">
+            <label>Nombre *</label>
+            <input [(ngModel)]="pl.nombre" name="plNombre" placeholder="Ej: Atención de Lenguaje">
+          </div>
+          <div class="frow">
+            <label>Aplica al tipo de terapia</label>
+            <select [(ngModel)]="pl.tipoTerapia" name="plTipoTerapia">
+              <option [ngValue]="null">Todos (genérica)</option>
+              <option *ngFor="let t of tiposTerapia" [ngValue]="{ id: t.id, nombre: t.nombre }">{{ t.nombre }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <label>Descripción</label>
+          <input [(ngModel)]="pl.descripcion" name="plDesc" placeholder="Para qué sirve esta ficha">
+        </div>
+        <label class="check-linea">
+          <input type="checkbox" [(ngModel)]="pl.activo" name="plActivo">
+          Activa (las inactivas no se usan al llenar la ficha)
+        </label>
+
+        <!-- Secciones -->
+        <div class="ed-seccion" *ngFor="let sec of pl.secciones; let si = index">
+          <div class="ed-seccion-hdr">
+            <input class="ed-nombre" [(ngModel)]="sec.nombre" [name]="'sec' + si" placeholder="Nombre de la sección">
+            <button class="btn-link btn-link-danger" (click)="quitarSeccion(si)">Quitar sección</button>
+          </div>
+
+          <table class="data-table ed-tabla" *ngIf="sec.campos.length > 0">
+            <thead>
+              <tr>
+                <th style="width:24%">Etiqueta</th>
+                <th style="width:18%">Clave</th>
+                <th style="width:16%">Tipo</th>
+                <th style="width:28%">Opciones</th>
+                <th style="width:8%">Obligatorio</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of sec.campos; let ci = index">
+                <td>
+                  <input [(ngModel)]="c.etiqueta" [name]="'et' + si + '_' + ci"
+                         (blur)="sugerirClave(c)" placeholder="Lo que ve el terapeuta">
+                </td>
+                <td>
+                  <input [(ngModel)]="c.clave" [name]="'cl' + si + '_' + ci"
+                         [readonly]="!!c.id"
+                         [title]="c.id ? 'La clave no se cambia: identifica el dato ya guardado' : ''"
+                         placeholder="minusculas_y_guion">
+                </td>
+                <td>
+                  <select [(ngModel)]="c.tipo" [name]="'ti' + si + '_' + ci">
+                    <option *ngFor="let t of tiposCampo" [ngValue]="t.valor">{{ t.etiqueta }}</option>
+                  </select>
+                </td>
+                <td>
+                  <input *ngIf="esCampoDeLista(c)" [ngModel]="opcionesTexto(c)"
+                         (ngModelChange)="setOpcionesTexto(c, $event)" [name]="'op' + si + '_' + ci"
+                         placeholder="Separadas por coma">
+                  <span class="text-muted small" *ngIf="!esCampoDeLista(c)">—</span>
+                </td>
+                <td class="ta-c">
+                  <input type="checkbox" [(ngModel)]="c.requerido" [name]="'rq' + si + '_' + ci">
+                </td>
+                <td class="ta-r">
+                  <button class="btn-link btn-link-danger" (click)="quitarCampo(sec, ci)">&#10005;</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="text-muted small" *ngIf="sec.campos.length === 0">Esta sección todavía no tiene campos.</p>
+          <button class="btn-link" (click)="agregarCampo(sec)">+ Agregar campo</button>
+        </div>
+
+        <button class="btn-secondary" (click)="agregarSeccion()">+ Agregar sección</button>
+      </div>
+
+      <div class="editor-footer">
+        <button class="btn-secondary" (click)="cancelar()">Cancelar</button>
+        <button class="btn-primary" [disabled]="guardando" (click)="guardar()">
+          {{ guardando ? 'Guardando...' : 'Guardar plantilla' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

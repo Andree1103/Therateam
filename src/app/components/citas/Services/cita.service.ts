@@ -40,6 +40,7 @@ export class CitaService {
     return this.api.get<any[]>('/api/tipos-terapia').pipe(
       map(list => list.map(t => ({
         id:               (t.key || String(t.id)).toUpperCase(),
+        idNumerico:       t.id ?? null,
         nombre:           t.nombre,
         duracion_minutos: t.duracionMinutos ?? t.duracion_minutos ?? 45,
         max_pacientes:    t.maxPacientes    ?? t.max_pacientes    ?? 1,

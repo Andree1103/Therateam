@@ -93,7 +93,8 @@ export class PerfilPacienteComponent implements OnInit {
     if (!this.puedeVerHistoria || !this.paciente?.id) return;
     this.cargandoHc = true;
     forkJoin({
-      plantillas: this.historiaService.getPlantillas().pipe(catchError(() => of([] as HcPlantilla[]))),
+      // Solo las de HISTORIA: las de ATENCION se usan en el modal de la sesión, no acá.
+      plantillas: this.historiaService.getPlantillas('HISTORIA').pipe(catchError(() => of([] as HcPlantilla[]))),
       historias: this.historiaService.getHistorias(this.paciente.id).pipe(catchError(() => of([] as HistoriaClinica[]))),
     }).subscribe(({ plantillas, historias }) => {
       this.plantillasHc = plantillas;

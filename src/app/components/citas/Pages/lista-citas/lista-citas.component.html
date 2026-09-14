@@ -1260,33 +1260,86 @@
           </span>
         </div>
       </div>
-      <!-- SOAP: el formato estandar para documentar una atencion. Cada campo responde una
-           pregunta distinta, por eso van separados y no en una sola nota libre. -->
-      <div class="at-section">
-        <div class="at-section-lbl">S &middot; Subjetivo <span class="at-opt">lo que refiere el paciente</span></div>
-        <textarea class="at-textarea" [(ngModel)]="atencionSubjetivo" rows="3"
-                  placeholder="Cómo llegó, qué molestias refiere, qué cambió desde la última sesión..."></textarea>
-      </div>
-      <div class="at-section">
-        <div class="at-section-lbl">O &middot; Objetivo <span class="at-opt">lo que observas y mides</span></div>
-        <textarea class="at-textarea" [(ngModel)]="atencionObjetivo" rows="3"
-                  placeholder="Hallazgos de la evaluación, pruebas aplicadas, qué se trabajó en la sesión..."></textarea>
-      </div>
-      <div class="at-section">
-        <div class="at-section-lbl">A &middot; Análisis <span class="at-opt">tu interpretación clínica</span></div>
-        <textarea class="at-textarea" [(ngModel)]="atencionAnalisis" rows="3"
-                  placeholder="Cómo va la evolución, a qué atribuyes los cambios..."></textarea>
-      </div>
-      <div class="at-section">
-        <div class="at-section-lbl">P &middot; Plan <span class="at-opt">qué sigue</span></div>
-        <textarea class="at-textarea" [(ngModel)]="atencionPlan" rows="3"
-                  placeholder="Objetivos y conducta para la próxima sesión, indicaciones para casa..."></textarea>
-      </div>
+      <!-- La ficha de la atencion es CONFIGURABLE: los campos salen de la plantilla que
+           corresponde al tipo de terapia de la cita (Plantillas > Atención). Si no hay
+           ninguna activa se cae a los cuatro campos SOAP de siempre, mas abajo. -->
+      <ng-container *ngIf="atencionPlantilla as pl">
+        <div class="at-section" *ngFor="let sec of pl.secciones">
+          <div class="at-section-lbl">{{ sec.nombre }}</div>
+          <div class="at-ficha">
+            <div class="at-campo" *ngFor="let c of sec.campos"
+                 [class.at-campo--ancho]="c.tipo === 'TEXTO_LARGO' || c.tipo === 'MULTISELECT'">
+              <label class="at-campo-lbl">
+                {{ c.etiqueta }}<span class="at-req" *ngIf="c.requerido">*</span>
+              </label>
+
+              <input *ngIf="c.tipo === 'TEXTO'" type="text" class="at-inp"
+                     [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave">
+
+              <textarea *ngIf="c.tipo === 'TEXTO_LARGO'" class="at-textarea" rows="3"
+                        [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave"
+                        [placeholder]="c.ayuda || ''"></textarea>
+
+              <input *ngIf="c.tipo === 'NUMERO'" type="number" class="at-inp"
+                     [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave">
+
+              <input *ngIf="c.tipo === 'FECHA'" type="date" class="at-inp"
+                     [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave">
+
+              <label class="at-check" *ngIf="c.tipo === 'BOOLEANO'">
+                <input type="checkbox" [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave"> Sí
+              </label>
+
+              <select *ngIf="c.tipo === 'SELECT'" class="at-inp"
+                      [(ngModel)]="atencionDatos[c.clave]" [name]="'at_' + c.clave">
+                <option [ngValue]="undefined">— Sin especificar —</option>
+                <option *ngFor="let o of c.opciones" [ngValue]="o">{{ o }}</option>
+              </select>
+
+              <div class="at-multi" *ngIf="c.tipo === 'MULTISELECT'">
+                <label class="at-check" *ngFor="let o of c.opciones">
+                  <input type="checkbox" [checked]="opcionMarcadaAtencion(c, o)"
+                         (change)="toggleOpcionAtencion(c, o, $any($event.target).checked)">
+                  {{ o }}
+                </label>
+              </div>
+
+              <span class="at-ayuda" *ngIf="c.ayuda && c.tipo !== 'TEXTO_LARGO'">{{ c.ayuda }}</span>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Respaldo: si no hay plantilla de atención activa, se usan los campos SOAP fijos. -->
+      <ng-container *ngIf="!atencionPlantilla">
+        <div class="at-section">
+          <div class="at-section-lbl">S &middot; Subjetivo <span class="at-opt">lo que refiere el paciente</span></div>
+          <textarea class="at-textarea" [(ngModel)]="atencionSubjetivo" rows="3"
+                    placeholder="Cómo llegó, qué molestias refiere, qué cambió desde la última sesión..."></textarea>
+        </div>
+        <div class="at-section">
+          <div class="at-section-lbl">O &middot; Objetivo <span class="at-opt">lo que observas y mides</span></div>
+          <textarea class="at-textarea" [(ngModel)]="atencionObjetivo" rows="3"
+                    placeholder="Hallazgos de la evaluación, pruebas aplicadas, qué se trabajó..."></textarea>
+        </div>
+        <div class="at-section">
+          <div class="at-section-lbl">A &middot; Análisis <span class="at-opt">tu interpretación clínica</span></div>
+          <textarea class="at-textarea" [(ngModel)]="atencionAnalisis" rows="3"
+                    placeholder="Cómo va la evolución, a qué atribuyes los cambios..."></textarea>
+        </div>
+        <div class="at-section">
+          <div class="at-section-lbl">P &middot; Plan <span class="at-opt">qué sigue</span></div>
+          <textarea class="at-textarea" [(ngModel)]="atencionPlan" rows="3"
+                    placeholder="Objetivos y conducta para la próxima sesión..."></textarea>
+        </div>
+      </ng-container>
+
       <div class="at-section">
         <div class="at-section-lbl">Observaciones adicionales <span class="at-opt">(opcional)</span></div>
         <textarea class="at-textarea" [(ngModel)]="atencionNotas" rows="2"
                   placeholder="Lo que no encaje en los campos de arriba..."></textarea>
       </div>
+
       <!-- Adjuntos: fotos de la evolucion, informes, resultados de examenes. -->
       <div class="at-section">
         <div class="at-section-lbl">

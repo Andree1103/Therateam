@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
-import { HcPlantilla, HistoriaClinica } from '../Models/historia.model';
+import { HcPlantilla, HistoriaClinica, TipoFicha } from '../Models/historia.model';
 
 @Injectable({ providedIn: 'root' })
 export class HistoriaClinicaService {
@@ -10,9 +10,26 @@ export class HistoriaClinicaService {
 
   constructor(private api: ApiService) {}
 
-  /** Sin `todas` devuelve solo las plantillas activas — es lo que necesita la ficha. */
-  getPlantillas(todas = false): Observable<HcPlantilla[]> {
-    return this.api.get<HcPlantilla[]>(this.PLANTILLAS, todas ? { todas: 'true' } : {});
+  /**
+   * Plantillas de un tipo de ficha. Sin `todas` devuelve solo las activas, que es lo que
+   * necesitan las pantallas donde se llena la ficha; `todas` lo usa la que las administra.
+   */
+  getPlantillas(tipo?: TipoFicha, todas = false): Observable<HcPlantilla[]> {
+    return this.api.get<HcPlantilla[]>(this.PLANTILLAS, {
+      tipo: tipo ?? undefined,
+      todas: todas ? 'true' : undefined,
+    });
+  }
+
+  /**
+   * La plantilla que corresponde a un tipo de terapia: la suya si la tiene, si no la genérica.
+   * Devuelve null (204) si no hay ninguna activa de ese tipo de ficha.
+   */
+  resolver(tipo: TipoFicha, tipoTerapiaId?: number | null): Observable<HcPlantilla | null> {
+    return this.api.get<HcPlantilla | null>(`${this.PLANTILLAS}/resolver`, {
+      tipo,
+      tipoTerapiaId: tipoTerapiaId != null ? String(tipoTerapiaId) : undefined,
+    });
   }
 
   getPlantilla(id: number): Observable<HcPlantilla> {

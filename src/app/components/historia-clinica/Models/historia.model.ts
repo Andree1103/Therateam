@@ -28,10 +28,20 @@ export interface HcSeccion {
   campos: HcCampo[];
 }
 
+/** Para qué ficha sirve la plantilla. */
+export type TipoFicha = 'HISTORIA' | 'ATENCION';
+
 export interface HcPlantilla {
   id?: number;
   nombre: string;
-  area?: { id: number; nombre?: string } | null;
+  tipo: TipoFicha;
+  /**
+   * Tipo de terapia al que aplica. Null = genérica, sirve para cualquiera.
+   * Se ata al tipo de terapia (no al área) porque es lo que lleva la cita: así la plantilla
+   * de una atención se resuelve sola, y porque el área es demasiado gruesa — una Evaluación
+   * Psicológica y una Terapia de Lenguaje son las dos de Kids y no preguntan lo mismo.
+   */
+  tipoTerapia?: { id: number; nombre?: string } | null;
   descripcion?: string | null;
   activo?: boolean;
   orden?: number;

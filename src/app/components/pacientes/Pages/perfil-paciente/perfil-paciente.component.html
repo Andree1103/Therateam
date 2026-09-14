@@ -95,7 +95,7 @@
               <label>Ficha</label>
               <select [(ngModel)]="plantillaHcId" (ngModelChange)="onPlantillaHcChange()">
                 <option *ngFor="let p of plantillasHc" [ngValue]="p.id">
-                  {{ p.nombre }}{{ p.area?.nombre ? ' · ' + p.area?.nombre : '' }}
+                  {{ p.nombre }}{{ p.tipoTerapia?.nombre ? ' · ' + p.tipoTerapia?.nombre : '' }}
                 </option>
               </select>
             </div>

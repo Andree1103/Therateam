@@ -525,3 +525,15 @@ tbody tr{height:var(--slot-h)}
 
 /* Aviso al cobrar una cita sin precio: reemplaza al bloqueo que antes impedia cobrar. */
 .hc-pago-sinprecio{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:6px 9px;font-size:11px;color:#92400e;line-height:1.4;margin-bottom:6px}
+
+/* Ficha configurable de la atención: los campos salen de la plantilla, así que la grilla
+   se adapta sola y los campos largos ocupan la fila entera. */
+.at-ficha{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.at-campo--ancho{grid-column:1/-1}
+.at-campo-lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:5px}
+.at-inp{width:100%;padding:8px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc}
+.at-inp:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}
+.at-req{color:#dc2626;margin-left:2px}
+.at-ayuda{display:block;font-size:11px;color:#94a3b8;margin-top:4px}
+.at-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#0f172a;margin:0 14px 4px 0}
+.at-multi{display:flex;flex-wrap:wrap;gap:2px}

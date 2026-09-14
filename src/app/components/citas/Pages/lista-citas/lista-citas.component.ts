@@ -10,6 +10,8 @@ import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ArchivoService, Archivo } from '../../../../core/services/archivo.service';
+import { HistoriaClinicaService } from '../../../historia-clinica/Services/historia.service';
+import { HcCampo, HcPlantilla } from '../../../historia-clinica/Models/historia.model';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
 import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, LoteResumen, PacienteEnCita, PacienteResumen, TipoTerapia } from '../../Models/cita.model';
@@ -360,6 +362,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private router: Router,
     private atencionService: AtencionClinicaService,
     private archivoService: ArchivoService,
+    private historiaService: HistoriaClinicaService,
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
     private authService: AuthService,
@@ -2424,6 +2427,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.atencionNotas    = cita.notas_previas ?? '';
     this.atencionMetricas = METRICAS_DEFAULT.map(m => ({ ...m }));
     this.modalAtencion    = true;
+    this.cargarPlantillaAtencion(cita, null);
 
     // Si la cita ya está ASISTIDA es porque ya tiene una atención guardada — se precarga en vez
     // de partir en blanco, para no pisar las notas/métricas anteriores al volver a guardar.
@@ -2440,6 +2444,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           this.atencionAnalisis  = existente.analisis  ?? '';
           this.atencionPlan      = existente.plan      ?? '';
           this.atencionId        = existente.id ?? null;
+          this.cargarPlantillaAtencion(cita, (existente as any).datos ?? null);
           if (this.atencionId) this.cargarArchivosAtencion();
           if (existente.metricas && existente.metricas.length > 0) {
             this.atencionMetricas = METRICAS_DEFAULT.map(def => {
@@ -2470,12 +2475,50 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.atencionAnalisis  = ''; this.atencionPlan     = '';
     this.atencionMetricas = [];
     this.atencionId = null;
+    this.atencionPlantilla = null;
+    this.atencionDatos = {};
     this.atencionArchivos = [];
     this.atencionArchivosEnCola = [];
     // Los object URL de las miniaturas se revocan a mano: si no, el navegador los mantiene
     // vivos hasta recargar la pagina.
     this.atencionMiniaturas.forEach(url => URL.revokeObjectURL(url));
     this.atencionMiniaturas.clear();
+  }
+
+  // ── Ficha configurable de la atencion ─────────────────────────────────────
+  // Los campos NO estan fijos: salen de la plantilla de ATENCION que corresponda al tipo de
+  // terapia de la cita (la suya, o la generica). Si no hay ninguna activa se cae a los cuatro
+  // campos SOAP de siempre, para que registrar una atencion nunca quede bloqueado.
+  atencionPlantilla: HcPlantilla | null = null;
+  atencionDatos: Record<string, any> = {};
+
+  private cargarPlantillaAtencion(cita: Cita, datosGuardados: Record<string, any> | null): void {
+    const tipo = this.tiposTerapia.find(t => t.id === (cita.tipo_terapia_key ?? '').toUpperCase());
+    this.historiaService.resolver('ATENCION', tipo?.idNumerico ?? null).subscribe({
+      next: p => {
+        this.atencionPlantilla = p;
+        this.atencionDatos = { ...(datosGuardados ?? {}) };
+        // MULTISELECT necesita un arreglo aunque este vacio, o el checkbox no sabe que marcar.
+        p?.secciones.forEach(sec => sec.campos.forEach(c => {
+          if (c.tipo === 'MULTISELECT' && !Array.isArray(this.atencionDatos[c.clave])) {
+            this.atencionDatos[c.clave] = this.atencionDatos[c.clave] ? [this.atencionDatos[c.clave]] : [];
+          }
+        }));
+      },
+      error: () => { this.atencionPlantilla = null; }
+    });
+  }
+
+  toggleOpcionAtencion(campo: HcCampo, opcion: string, marcada: boolean): void {
+    const actuales: string[] = Array.isArray(this.atencionDatos[campo.clave]) ? this.atencionDatos[campo.clave] : [];
+    this.atencionDatos[campo.clave] = marcada
+      ? [...actuales.filter(o => o !== opcion), opcion]
+      : actuales.filter(o => o !== opcion);
+  }
+
+  opcionMarcadaAtencion(campo: HcCampo, opcion: string): boolean {
+    const v = this.atencionDatos[campo.clave];
+    return Array.isArray(v) && v.includes(opcion);
   }
 
   // ── Adjuntos de la atencion ───────────────────────────────────────────────
@@ -2599,6 +2642,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       objetivo:        this.atencionObjetivo  || undefined,
       analisis:        this.atencionAnalisis  || undefined,
       plan:            this.atencionPlan      || undefined,
+      datos:           this.atencionPlantilla ? this.atencionDatos : undefined,
       metricas:        this.atencionMetricas.filter(m => m.valor !== null),
     };
     this.atencionService.crear(payload).subscribe({

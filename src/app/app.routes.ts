@@ -36,6 +36,7 @@ export const routes: Routes = [
       { path: 'atenciones',      data: { modulo: 'CITAS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/atenciones/atenciones.module').then(m => m.AtencionesModule) },
       { path: 'tratamientos',    data: { modulo: 'PAQUETES' },        canActivate: [moduloGuard], loadChildren: () => import('./components/tratamientos/tratamientos.module').then(m => m.TratamientosModule) },
       { path: 'configuraciones', data: { modulo: 'CONFIGURACIONES' }, canActivate: [moduloGuard], loadChildren: () => import('./components/configuraciones/configuraciones.module').then(m => m.ConfiguracionesModule) },
+      { path: 'plantillas', data: { modulo: 'CONFIGURACIONES' }, canActivate: [moduloGuard], loadChildren: () => import('./components/plantillas/plantillas.module').then(m => m.PlantillasModule) },
       { path: 'seguridad',       data: { modulo: 'SEGURIDAD' },       canActivate: [moduloGuard], loadChildren: () => import('./components/seguridad/seguridad.module').then(m => m.SeguridadModule) },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

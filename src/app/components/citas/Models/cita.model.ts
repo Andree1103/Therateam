@@ -1,5 +1,7 @@
 export interface TipoTerapia {
   id: string;           // usa key del DB (ej: 'CONVENCIONAL', 'KIDS')
+  /** Id numérico de la tabla. Las plantillas de ficha se atan a este, no a la key. */
+  idNumerico?: number | null;
   nombre: string;
   duracion_minutos: number;
   max_pacientes: number;
