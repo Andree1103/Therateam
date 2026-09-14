@@ -81,3 +81,40 @@
 .btn-exportar{display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;font-family:inherit;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
 .btn-exportar:hover:not(:disabled){background:#e2e8f0;border-color:#cbd5e1}
 .btn-exportar:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Historia clínica ─────────────────────────────────────────────────────
+   El formulario se arma en tiempo de ejecución desde la plantilla, así que la
+   grilla se adapta sola: los campos largos ocupan la fila entera. */
+.hc-barra{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.hc-barra-meta{display:flex;align-items:center;gap:8px;padding-bottom:6px}
+.hc-empty{padding:28px;text-align:center;color:#64748b;font-size:13px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:12px}
+.hc-seccion{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.hc-seccion-tit{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#185FA5;margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.hc-campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.hc-campo--ancho{grid-column:1/-1}
+.hc-campo label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:5px;display:block}
+.hc-campo input[type=text],.hc-campo input[type=number],.hc-campo input[type=date],.hc-campo select,.hc-campo textarea{
+  width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc}
+.hc-campo input:focus,.hc-campo select:focus,.hc-campo textarea:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}
+.hc-campo input:disabled,.hc-campo select:disabled,.hc-campo textarea:disabled{background:#f1f5f9;color:#64748b;cursor:not-allowed}
+.hc-campo textarea{resize:vertical;min-height:70px}
+.hc-req{color:#dc2626}
+.hc-ayuda{display:block;font-size:11px;color:#94a3b8;margin-top:4px}
+.hc-check{display:inline-flex!important;align-items:center;gap:6px;font-size:13px!important;font-weight:500!important;text-transform:none!important;letter-spacing:0!important;color:#0f172a!important;margin:0 14px 4px 0!important}
+.hc-check input{width:auto;margin:0}
+.hc-multi{display:flex;flex-wrap:wrap;gap:2px}
+.hc-acciones{display:flex;justify-content:flex-end;margin-top:6px}
+
+/* Adjuntos (mismo lenguaje visual que el modal de atención) */
+.adj-lista{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.adj-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}
+.adj-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0}
+.adj-icono{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#e2e8f0;color:#475569;flex-shrink:0;cursor:pointer}
+.adj-info{display:flex;flex-direction:column;min-width:0;flex:1;cursor:pointer}
+.adj-nombre{font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adj-peso{font-size:11px;color:#94a3b8}
+.adj-quitar{background:none;border:none;color:#94a3b8;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:12px;flex-shrink:0}
+.adj-quitar:hover{background:#fee2e2;color:#dc2626}
+.adj-boton{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#185FA5;cursor:pointer;background:#fff}
+.adj-boton:hover{background:rgba(24,95,165,.06);border-color:#185FA5}
+.adj-boton--ocupado{opacity:.6;pointer-events:none}

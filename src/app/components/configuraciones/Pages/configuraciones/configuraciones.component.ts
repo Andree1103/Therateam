@@ -5,6 +5,8 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { HistoriaClinicaService } from '../../../historia-clinica/Services/historia.service';
+import { HcCampo, HcPlantilla, HcSeccion, ETIQUETA_TIPO } from '../../../historia-clinica/Models/historia.model';
 
 type TabTipo = 'estandar' | 'estado' | 'moneda' | 'terapia' | 'paquete';
 
@@ -98,11 +100,140 @@ export class ConfiguracionesComponent implements OnInit {
     private toast: ToastService,
     private authService: AuthService,
     private catalogService: CatalogService,
+    private historiaService: HistoriaClinicaService,
   ) {}
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('CONFIGURACIONES'); }
   get puedeEditar(): boolean { return this.authService.puedeEditar('CONFIGURACIONES'); }
   get puedeEliminar(): boolean { return this.authService.puedeEliminar('CONFIGURACIONES'); }
+
+  // ── Plantillas de historia clínica ─────────────────────────────────────────
+  // No es un catálogo plano como los demás tabs: es un árbol (plantilla → secciones →
+  // campos), así que tiene su propio estado y su propia vista en vez de reusar la tabla.
+
+  mostrandoPlantillasHc = false;
+  plantillasHc: HcPlantilla[] = [];
+  cargandoPlantillasHc = false;
+  /** Plantilla abierta en el editor; null = ninguna. */
+  edicionHc: HcPlantilla | null = null;
+  guardandoHc = false;
+  readonly tiposCampoHc = Object.entries(ETIQUETA_TIPO).map(([valor, etiqueta]) => ({ valor, etiqueta }));
+
+  mostrarPlantillasHc(): void {
+    this.mostrandoNegocio = false;
+    this.mostrandoPlantillasHc = true;
+    this.edicionHc = null;
+    this.cargarPlantillasHc();
+  }
+
+  private cargarPlantillasHc(): void {
+    this.cargandoPlantillasHc = true;
+    // `todas` incluye las desactivadas: desde acá se administran, hay que poder verlas.
+    this.historiaService.getPlantillas(true).subscribe({
+      next: d => { this.plantillasHc = d; this.cargandoPlantillasHc = false; },
+      error: () => { this.cargandoPlantillasHc = false; this.toast.error('Error al cargar las plantillas'); }
+    });
+  }
+
+  nuevaPlantillaHc(): void {
+    this.edicionHc = {
+      nombre: '', descripcion: '', activo: true, orden: this.plantillasHc.length, area: null,
+      secciones: [{ nombre: 'Datos generales', orden: 0, campos: [] }],
+    };
+  }
+
+  /** Se edita una copia: cancelar no debe dejar a medias la plantilla de la lista. */
+  editarPlantillaHc(p: HcPlantilla): void {
+    this.edicionHc = JSON.parse(JSON.stringify(p));
+  }
+
+  duplicarPlantillaHc(p: HcPlantilla): void {
+    const copia: HcPlantilla = JSON.parse(JSON.stringify(p));
+    delete copia.id;
+    copia.nombre = `${p.nombre} (copia)`;
+    copia.secciones.forEach(s => { delete s.id; s.campos.forEach(c => delete c.id); });
+    this.edicionHc = copia;
+  }
+
+  cancelarPlantillaHc(): void { this.edicionHc = null; }
+
+  agregarSeccionHc(): void {
+    this.edicionHc?.secciones.push({ nombre: '', orden: this.edicionHc.secciones.length, campos: [] });
+  }
+
+  quitarSeccionHc(i: number): void { this.edicionHc?.secciones.splice(i, 1); }
+
+  agregarCampoHc(sec: HcSeccion): void {
+    sec.campos.push({ clave: '', etiqueta: '', tipo: 'TEXTO', requerido: false, orden: sec.campos.length });
+  }
+
+  quitarCampoHc(sec: HcSeccion, i: number): void { sec.campos.splice(i, 1); }
+
+  /** Sugiere la clave a partir de la etiqueta, para no tener que inventarla a mano. */
+  sugerirClaveHc(campo: HcCampo): void {
+    if (campo.id || campo.clave?.trim()) return; // una clave ya guardada no se toca: perdería el dato
+    campo.clave = (campo.etiqueta || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 60);
+  }
+
+  /** Las opciones se editan como texto separado por comas; el backend espera un arreglo. */
+  opcionesTexto(campo: HcCampo): string { return (campo.opciones ?? []).join(', '); }
+
+  setOpcionesTexto(campo: HcCampo, texto: string): void {
+    campo.opciones = texto.split(',').map(o => o.trim()).filter(o => o.length > 0);
+  }
+
+  /** Total de campos de la plantilla — para la columna del listado. */
+  contarCamposHc(p: HcPlantilla): number {
+    return p.secciones.reduce((n, s) => n + s.campos.length, 0);
+  }
+
+  esCampoDeLista(campo: HcCampo): boolean {
+    return campo.tipo === 'SELECT' || campo.tipo === 'MULTISELECT';
+  }
+
+  guardarPlantillaHc(): void {
+    const p = this.edicionHc;
+    if (!p) return;
+    // El orden se toma de la posición en pantalla: lo que el admin ve arriba va primero.
+    p.secciones.forEach((s, i) => { s.orden = i; s.campos.forEach((c, j) => c.orden = j); });
+    this.guardandoHc = true;
+    const peticion = p.id
+      ? this.historiaService.actualizarPlantilla(p.id, p)
+      : this.historiaService.crearPlantilla(p);
+    peticion.subscribe({
+      next: () => {
+        this.toast.success(p.id ? 'Plantilla actualizada' : 'Plantilla creada');
+        this.guardandoHc = false;
+        this.edicionHc = null;
+        this.cargarPlantillasHc();
+      },
+      error: err => {
+        this.guardandoHc = false;
+        this.toast.error(err?.error?.error || 'No se pudo guardar la plantilla');
+      }
+    });
+  }
+
+  eliminarPlantillaHc(p: HcPlantilla): void {
+    if (!p.id) return;
+    if (!confirm(`¿Eliminar la plantilla "${p.nombre}"?
+
+Si ya tiene fichas cargadas se desactivará en vez de borrarse, para no perderlas.`)) return;
+    this.historiaService.eliminarPlantilla(p.id).subscribe({
+      next: r => {
+        this.toast.success(r.resultado === 'DESACTIVADA'
+          ? 'La plantilla tenía fichas cargadas: se desactivó en vez de borrarse'
+          : 'Plantilla eliminada');
+        this.cargarPlantillasHc();
+      },
+      error: () => this.toast.error('No se pudo eliminar la plantilla')
+    });
+  }
 
   ngOnInit(): void {
     this.mostrarNegocio();
@@ -122,6 +253,7 @@ export class ConfiguracionesComponent implements OnInit {
 
   seleccionarTab(tab: CatalogoTab): void {
     this.mostrandoNegocio = false;
+    this.mostrandoPlantillasHc = false;
     this.filtroAreaTerapia = null;
     this.tabActivo = tab;
     if (!tab.cargado) this.cargarTab(tab);
@@ -129,6 +261,7 @@ export class ConfiguracionesComponent implements OnInit {
 
   mostrarNegocio(): void {
     this.mostrandoNegocio = true;
+    this.mostrandoPlantillasHc = false;
     this.cargarNegocio();
   }
 

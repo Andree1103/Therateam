@@ -57,6 +57,9 @@
     <!-- TABS -->
     <div class="tabs-bar">
       <button class="tab-btn" [class.active]="tabActivo==='datos'"        (click)="tabActivo='datos'">Datos personales</button>
+      <button class="tab-btn" *ngIf="puedeVerHistoria" [class.active]="tabActivo==='historia'" (click)="tabActivo='historia'">
+        Historia clínica
+      </button>
       <button class="tab-btn" [class.active]="tabActivo==='tratamientos'" (click)="tabActivo='tratamientos'">
         Paquetes <span class="tab-count">{{ tratamientos.length }}</span>
       </button>
@@ -72,6 +75,133 @@
       <button class="tab-btn" [class.active]="tabActivo==='saldo'"        (click)="tabActivo='saldo'">
         Saldo a favor <span class="tab-count">{{ movimientosSaldo.length }}</span>
       </button>
+    </div>
+
+    <!-- TAB: HISTORIA CLÍNICA ─────────────────────────────────────────────
+         Los campos NO están fijos acá: los define la plantilla que se elige arriba
+         (Configuraciones › Historia clínica), y el formulario se arma con ellos. -->
+    <div class="tab-panel" *ngIf="tabActivo === 'historia'">
+      <p class="state-hint" *ngIf="cargandoHc">Cargando historia clínica...</p>
+
+      <ng-container *ngIf="!cargandoHc">
+        <div class="hc-empty" *ngIf="plantillasHc.length === 0">
+          Todavía no hay ninguna plantilla de historia clínica activa.
+          <span *ngIf="puedeEditarHistoria">Créala en Configuraciones &rsaquo; Historia clínica.</span>
+        </div>
+
+        <ng-container *ngIf="plantillasHc.length > 0">
+          <div class="hc-barra">
+            <div class="frow" style="margin:0;min-width:240px">
+              <label>Ficha</label>
+              <select [(ngModel)]="plantillaHcId" (ngModelChange)="onPlantillaHcChange()">
+                <option *ngFor="let p of plantillasHc" [ngValue]="p.id">
+                  {{ p.nombre }}{{ p.area?.nombre ? ' · ' + p.area?.nombre : '' }}
+                </option>
+              </select>
+            </div>
+            <div class="hc-barra-meta">
+              <span class="text-muted small" *ngIf="historiaHc?.updatedAt">
+                Actualizada el {{ historiaHc?.updatedAt | date:'d MMM yyyy, HH:mm' }}
+              </span>
+              <span class="text-muted small" *ngIf="!historiaHc">Aún sin completar</span>
+            </div>
+          </div>
+
+          <p class="text-muted small" *ngIf="plantillaHc?.descripcion">{{ plantillaHc?.descripcion }}</p>
+
+          <div class="hc-seccion" *ngFor="let sec of plantillaHc?.secciones">
+            <div class="hc-seccion-tit">{{ sec.nombre }}</div>
+            <div class="hc-campos">
+              <div class="frow hc-campo" *ngFor="let c of sec.campos"
+                   [class.hc-campo--ancho]="c.tipo === 'TEXTO_LARGO' || c.tipo === 'MULTISELECT'">
+                <label>
+                  {{ c.etiqueta }}
+                  <span class="hc-req" *ngIf="c.requerido">*</span>
+                </label>
+
+                <input *ngIf="c.tipo === 'TEXTO'" type="text" [(ngModel)]="valoresHc[c.clave]"
+                       [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave">
+
+                <textarea *ngIf="c.tipo === 'TEXTO_LARGO'" rows="3" [(ngModel)]="valoresHc[c.clave]"
+                          [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave"></textarea>
+
+                <input *ngIf="c.tipo === 'NUMERO'" type="number" [(ngModel)]="valoresHc[c.clave]"
+                       [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave">
+
+                <input *ngIf="c.tipo === 'FECHA'" type="date" [(ngModel)]="valoresHc[c.clave]"
+                       [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave">
+
+                <label class="hc-check" *ngIf="c.tipo === 'BOOLEANO'">
+                  <input type="checkbox" [(ngModel)]="valoresHc[c.clave]"
+                         [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave">
+                  Sí
+                </label>
+
+                <select *ngIf="c.tipo === 'SELECT'" [(ngModel)]="valoresHc[c.clave]"
+                        [disabled]="!puedeEditarHistoria" [name]="'hc_' + c.clave">
+                  <option [ngValue]="undefined">— Sin especificar —</option>
+                  <option *ngFor="let o of c.opciones" [ngValue]="o">{{ o }}</option>
+                </select>
+
+                <div class="hc-multi" *ngIf="c.tipo === 'MULTISELECT'">
+                  <label class="hc-check" *ngFor="let o of c.opciones">
+                    <input type="checkbox" [checked]="opcionMarcadaHc(c, o)" [disabled]="!puedeEditarHistoria"
+                           (change)="toggleOpcionHc(c, o, $any($event.target).checked)">
+                    {{ o }}
+                  </label>
+                </div>
+
+                <span class="hc-ayuda" *ngIf="c.ayuda">{{ c.ayuda }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Adjuntos de la ficha: informes, resultados de exámenes, fotos. -->
+          <div class="hc-seccion">
+            <div class="hc-seccion-tit">
+              Archivos de la historia
+              <span class="text-muted small">hasta {{ maxMbHc }} MB c/u</span>
+            </div>
+
+            <div class="adj-lista" *ngIf="archivosHc.length > 0">
+              <div class="adj-item" *ngFor="let a of archivosHc">
+                <img class="adj-thumb" *ngIf="miniaturaHc(a) as url" [src]="url" [alt]="a.nombreOriginal"
+                     (click)="abrirArchivoHc(a)">
+                <div class="adj-icono" *ngIf="!a.esImagen" (click)="abrirArchivoHc(a)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div class="adj-info" (click)="abrirArchivoHc(a)">
+                  <span class="adj-nombre">{{ a.nombreOriginal }}</span>
+                  <span class="adj-peso">{{ tamanoArchivo(a.tamanoBytes) }}</span>
+                </div>
+                <button type="button" class="adj-quitar" *ngIf="puedeEditarHistoria"
+                        title="Eliminar" (click)="eliminarArchivoHc(a)">&#10005;</button>
+              </div>
+            </div>
+
+            <label class="adj-boton" *ngIf="puedeEditarHistoria && historiaHc?.id"
+                   [class.adj-boton--ocupado]="subiendoHc">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {{ subiendoHc ? 'Subiendo...' : 'Agregar archivos' }}
+              <input type="file" multiple hidden (change)="onArchivosHcElegidos($event)"
+                     accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt">
+            </label>
+            <p class="text-muted small" *ngIf="puedeEditarHistoria && !historiaHc?.id">
+              Guarda la ficha para poder adjuntar archivos.
+            </p>
+            <p class="text-muted small" *ngIf="archivosHc.length === 0 && !puedeEditarHistoria">Sin archivos.</p>
+          </div>
+
+          <div class="hc-acciones" *ngIf="puedeEditarHistoria">
+            <button class="btn-primary" [disabled]="guardandoHc" (click)="guardarHistoria()">
+              {{ guardandoHc ? 'Guardando...' : 'Guardar historia clínica' }}
+            </button>
+          </div>
+          <p class="text-muted small" *ngIf="!puedeEditarHistoria">
+            Tu rol puede consultar la historia clínica pero no modificarla.
+          </p>
+        </ng-container>
+      </ng-container>
     </div>
 
     <!-- TAB: DATOS PERSONALES -->

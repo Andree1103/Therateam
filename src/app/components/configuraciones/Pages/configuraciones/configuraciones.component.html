@@ -5,7 +5,7 @@
       <h1>Configuraciones</h1>
       <p>Gestión de catálogos del sistema</p>
     </div>
-    <button class="btn-primary" *ngIf="puedeCrear && !mostrandoNegocio" (click)="abrirNuevo()">
+    <button class="btn-primary" *ngIf="puedeCrear && !mostrandoNegocio && !mostrandoPlantillasHc" (click)="abrirNuevo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo elemento
     </button>
@@ -18,13 +18,159 @@
       <button class="tab-btn" [class.active]="mostrandoNegocio" (click)="mostrarNegocio()">
         Datos del negocio
       </button>
+      <button class="tab-btn" [class.active]="mostrandoPlantillasHc" (click)="mostrarPlantillasHc()">
+        Historia clínica
+      </button>
       <button class="tab-btn" *ngFor="let tab of tabs"
-              [class.active]="!mostrandoNegocio && tab.key === tabActivo.key"
+              [class.active]="!mostrandoNegocio && !mostrandoPlantillasHc && tab.key === tabActivo.key"
               (click)="seleccionarTab(tab)">
         {{ tab.label }}
         <span class="tab-count" *ngIf="tab.cargado">{{ tab.items.length }}</span>
       </button>
     </div>
+
+    <!-- ── Plantillas de historia clínica ───────────────────────────────────
+         No es un catálogo plano: es un árbol plantilla → secciones → campos, por eso
+         tiene su propia vista en vez de reusar la tabla de los otros tabs. -->
+    <ng-container *ngIf="mostrandoPlantillasHc">
+
+      <!-- Listado -->
+      <div class="card" *ngIf="!edicionHc">
+        <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Plantillas de historia clínica</span>
+          <button class="btn-primary" *ngIf="puedeCrear" (click)="nuevaPlantillaHc()">+ Nueva plantilla</button>
+        </div>
+
+        <div class="state-box" *ngIf="cargandoPlantillasHc">
+          <div class="spinner"></div>
+          <p>Cargando plantillas...</p>
+        </div>
+
+        <div class="state-box small" *ngIf="!cargandoPlantillasHc && plantillasHc.length === 0">
+          <p>Todavía no hay plantillas. Crea la primera para que los terapeutas puedan llenar la ficha.</p>
+        </div>
+
+        <table class="data-table" *ngIf="!cargandoPlantillasHc && plantillasHc.length > 0">
+          <thead>
+            <tr><th>Nombre</th><th>Área</th><th>Secciones</th><th>Campos</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of plantillasHc">
+              <td>
+                <strong>{{ p.nombre }}</strong>
+                <div class="text-muted small" *ngIf="p.descripcion">{{ p.descripcion }}</div>
+              </td>
+              <td>{{ p.area?.nombre || 'Todas' }}</td>
+              <td>{{ p.secciones.length }}</td>
+              <td>{{ contarCamposHc(p) }}</td>
+              <td>
+                <span class="badge" [class.badge-active]="p.activo !== false" [class.badge-inactive]="p.activo === false">
+                  {{ p.activo === false ? 'Inactiva' : 'Activa' }}
+                </span>
+              </td>
+              <td class="ta-r">
+                <button class="btn-link" *ngIf="puedeEditar" (click)="editarPlantillaHc(p)">Editar</button>
+                <button class="btn-link" *ngIf="puedeCrear" (click)="duplicarPlantillaHc(p)">Duplicar</button>
+                <button class="btn-link btn-link-danger" *ngIf="puedeEliminar" (click)="eliminarPlantillaHc(p)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Editor -->
+      <div class="card" *ngIf="edicionHc as pl">
+        <div class="card-hdr">{{ pl.id ? 'Editar plantilla' : 'Nueva plantilla' }}</div>
+
+        <div class="modal-body" style="padding:20px">
+          <div class="frow-2">
+            <div class="frow">
+              <label>Nombre *</label>
+              <input [(ngModel)]="pl.nombre" name="hcNombre" placeholder="Ej: Historia clínica de Kids">
+            </div>
+            <div class="frow">
+              <label>Área</label>
+              <select [(ngModel)]="pl.area" name="hcArea">
+                <option [ngValue]="null">Todas las áreas</option>
+                <option *ngFor="let a of areas" [ngValue]="{ id: a.id, nombre: a.nombre }">{{ a.nombre }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="frow">
+            <label>Descripción</label>
+            <input [(ngModel)]="pl.descripcion" name="hcDesc" placeholder="Para qué sirve esta ficha">
+          </div>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="pl.activo" name="hcActivo">
+            Activa (las inactivas no aparecen al llenar la ficha del paciente)
+          </label>
+
+          <!-- Secciones -->
+          <div class="hc-ed-seccion" *ngFor="let sec of pl.secciones; let si = index">
+            <div class="hc-ed-seccion-hdr">
+              <input class="hc-ed-nombre" [(ngModel)]="sec.nombre" [name]="'sec' + si" placeholder="Nombre de la sección">
+              <button class="btn-link btn-link-danger" (click)="quitarSeccionHc(si)">Quitar sección</button>
+            </div>
+
+            <table class="data-table hc-ed-tabla" *ngIf="sec.campos.length > 0">
+              <thead>
+                <tr>
+                  <th style="width:24%">Etiqueta</th>
+                  <th style="width:18%">Clave</th>
+                  <th style="width:16%">Tipo</th>
+                  <th style="width:28%">Opciones</th>
+                  <th style="width:8%">Obligatorio</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of sec.campos; let ci = index">
+                  <td>
+                    <input [(ngModel)]="c.etiqueta" [name]="'et' + si + '_' + ci"
+                           (blur)="sugerirClaveHc(c)" placeholder="Lo que ve el terapeuta">
+                  </td>
+                  <td>
+                    <input [(ngModel)]="c.clave" [name]="'cl' + si + '_' + ci"
+                           [readonly]="!!c.id" [title]="c.id ? 'La clave no se cambia: es la que identifica el dato ya guardado' : ''"
+                           placeholder="minusculas_y_guion">
+                  </td>
+                  <td>
+                    <select [(ngModel)]="c.tipo" [name]="'ti' + si + '_' + ci">
+                      <option *ngFor="let t of tiposCampoHc" [ngValue]="t.valor">{{ t.etiqueta }}</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input *ngIf="esCampoDeLista(c)" [ngModel]="opcionesTexto(c)"
+                           (ngModelChange)="setOpcionesTexto(c, $event)" [name]="'op' + si + '_' + ci"
+                           placeholder="Separadas por coma">
+                    <span class="text-muted small" *ngIf="!esCampoDeLista(c)">—</span>
+                  </td>
+                  <td class="ta-c">
+                    <input type="checkbox" [(ngModel)]="c.requerido" [name]="'rq' + si + '_' + ci">
+                  </td>
+                  <td class="ta-r">
+                    <button class="btn-link btn-link-danger" (click)="quitarCampoHc(sec, ci)">&#10005;</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p class="text-muted small" *ngIf="sec.campos.length === 0">Esta sección todavía no tiene campos.</p>
+            <button class="btn-link" (click)="agregarCampoHc(sec)">+ Agregar campo</button>
+          </div>
+
+          <button class="btn-secondary" (click)="agregarSeccionHc()">+ Agregar sección</button>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="cancelarPlantillaHc()">Cancelar</button>
+          <button class="btn-primary" [disabled]="guardandoHc" (click)="guardarPlantillaHc()">
+            {{ guardandoHc ? 'Guardando...' : 'Guardar plantilla' }}
+          </button>
+        </div>
+      </div>
+
+    </ng-container>
 
     <!-- ── Datos del negocio: solo edición, nunca alta ── -->
     <div class="card" *ngIf="mostrandoNegocio">
@@ -62,7 +208,7 @@
     </div>
 
     <!-- Filtro por área (solo Tipos de terapia) -->
-    <div class="filters-bar" *ngIf="!mostrandoNegocio && esTerapia && tabActivo.cargado && tabActivo.items.length > 0">
+    <div class="filters-bar" *ngIf="!mostrandoNegocio && !mostrandoPlantillasHc && esTerapia && tabActivo.cargado && tabActivo.items.length > 0">
       <label class="ctrl-lbl">Área:</label>
       <select class="filter-sel" [(ngModel)]="filtroAreaTerapia">
         <option [ngValue]="null">Todas las áreas</option>
@@ -71,7 +217,7 @@
     </div>
 
     <!-- Tabla del tab activo -->
-    <div class="card" *ngIf="!mostrandoNegocio">
+    <div class="card" *ngIf="!mostrandoNegocio && !mostrandoPlantillasHc">
 
       <div class="state-box" *ngIf="tabActivo.loading">
         <div class="spinner"></div>

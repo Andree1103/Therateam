@@ -73,3 +73,15 @@
 .color-text-input{flex:1;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#f8fafc}
 .color-text-input:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1);background:#fff}
 @media(max-width:768px){.page-header{flex-direction:column;align-items:flex-start;padding-left:64px}.page-body{padding:16px}.tab-bar{gap:2px}.tab-btn{font-size:11px;padding:6px 10px}.modal{border-radius:12px}}
+
+/* ── Editor de plantillas de historia clínica ─────────────────────────────── */
+.hc-ed-seccion{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:14px 0;background:#f8fafc}
+.hc-ed-seccion-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hc-ed-nombre{flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;color:#0f172a;background:#fff}
+.hc-ed-nombre:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+.hc-ed-tabla{background:#fff;border-radius:8px;overflow:hidden}
+.hc-ed-tabla input[type=text],.hc-ed-tabla input:not([type]),.hc-ed-tabla select{width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff}
+.hc-ed-tabla input:read-only{background:#f1f5f9;color:#64748b}
+.hc-ed-tabla td{vertical-align:middle}
+.ta-c{text-align:center}
+.ta-r{text-align:right}

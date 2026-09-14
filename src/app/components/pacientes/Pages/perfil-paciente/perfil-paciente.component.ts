@@ -15,8 +15,11 @@ import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { HistoriaClinicaService } from '../../../historia-clinica/Services/historia.service';
+import { HcCampo, HcPlantilla, HistoriaClinica } from '../../../historia-clinica/Models/historia.model';
+import { ArchivoService, Archivo } from '../../../../core/services/archivo.service';
 
-type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
+type TabPerfilKey = 'datos' | 'historia' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
 @Component({
   selector: 'app-perfil-paciente',
@@ -62,7 +65,180 @@ export class PerfilPacienteComponent implements OnInit {
     private excelExportService: ExcelExportService,
     private toast: ToastService
   ,
-    private authService: AuthService) {}
+    private authService: AuthService,
+    private historiaService: HistoriaClinicaService,
+    private archivoService: ArchivoService) {}
+
+  // ── Historia clínica ───────────────────────────────────────────────────────
+  // Los campos los define una plantilla configurable (Configuraciones > Historia clínica),
+  // no están fijos en el código: por eso el formulario se arma en tiempo de ejecución y los
+  // valores viven en un diccionario {clave: valor} en vez de propiedades del componente.
+
+  get puedeVerHistoria(): boolean { return this.authService.puedeVerHistoria(); }
+  get puedeEditarHistoria(): boolean { return this.authService.puedeEditarHistoria(); }
+
+  plantillasHc: HcPlantilla[] = [];
+  historiasHc: HistoriaClinica[] = [];
+  plantillaHcId: number | null = null;
+  valoresHc: Record<string, any> = {};
+  cargandoHc = false;
+  guardandoHc = false;
+  /** Adjuntos de la ficha que se está viendo. */
+  archivosHc: Archivo[] = [];
+  miniaturasHc = new Map<number, string>();
+  subiendoHc = false;
+  maxMbHc = 10;
+
+  private cargarHistoria(): void {
+    if (!this.puedeVerHistoria || !this.paciente?.id) return;
+    this.cargandoHc = true;
+    forkJoin({
+      plantillas: this.historiaService.getPlantillas().pipe(catchError(() => of([] as HcPlantilla[]))),
+      historias: this.historiaService.getHistorias(this.paciente.id).pipe(catchError(() => of([] as HistoriaClinica[]))),
+    }).subscribe(({ plantillas, historias }) => {
+      this.plantillasHc = plantillas;
+      this.historiasHc = historias;
+      // Arranca en la ficha que el paciente ya tenga; si no tiene ninguna, en la primera plantilla.
+      this.plantillaHcId = historias[0]?.plantilla?.id ?? plantillas[0]?.id ?? null;
+      this.cargarValoresHc();
+      this.cargandoHc = false;
+    });
+    this.archivoService.maxMb().subscribe({ next: mb => this.maxMbHc = mb, error: () => {} });
+  }
+
+  /** La plantilla elegida en el selector (la que se está pintando). */
+  get plantillaHc(): HcPlantilla | null {
+    return this.plantillasHc.find(p => p.id === this.plantillaHcId) ?? null;
+  }
+
+  /** La ficha guardada para esa plantilla, si el paciente ya la tiene. */
+  get historiaHc(): HistoriaClinica | null {
+    return this.historiasHc.find(h => h.plantilla?.id === this.plantillaHcId) ?? null;
+  }
+
+  onPlantillaHcChange(): void { this.cargarValoresHc(); }
+
+  private cargarValoresHc(): void {
+    const guardada = this.historiaHc;
+    // Copia: se edita el borrador, no el objeto que vino del backend.
+    this.valoresHc = guardada ? { ...(guardada.datos ?? {}) } : {};
+    // MULTISELECT necesita un array aunque esté vacío, o el checkbox no sabe qué marcar.
+    this.plantillaHc?.secciones.forEach(sec => sec.campos.forEach(c => {
+      if (c.tipo === 'MULTISELECT' && !Array.isArray(this.valoresHc[c.clave])) {
+        this.valoresHc[c.clave] = this.valoresHc[c.clave] ? [this.valoresHc[c.clave]] : [];
+      }
+    }));
+    this.cargarArchivosHc();
+  }
+
+  /** Marca o desmarca una opción de un campo de selección múltiple. */
+  toggleOpcionHc(campo: HcCampo, opcion: string, marcada: boolean): void {
+    const actuales: string[] = Array.isArray(this.valoresHc[campo.clave]) ? this.valoresHc[campo.clave] : [];
+    this.valoresHc[campo.clave] = marcada
+      ? [...actuales.filter(o => o !== opcion), opcion]
+      : actuales.filter(o => o !== opcion);
+  }
+
+  opcionMarcadaHc(campo: HcCampo, opcion: string): boolean {
+    const v = this.valoresHc[campo.clave];
+    return Array.isArray(v) && v.includes(opcion);
+  }
+
+  guardarHistoria(): void {
+    if (!this.paciente?.id || !this.plantillaHcId) return;
+    this.guardandoHc = true;
+    this.historiaService.guardar(this.paciente.id, this.plantillaHcId, this.valoresHc).subscribe({
+      next: guardada => {
+        // Reemplaza la ficha en la lista (o la agrega si era la primera vez).
+        const i = this.historiasHc.findIndex(h => h.plantilla?.id === this.plantillaHcId);
+        if (i >= 0) this.historiasHc[i] = guardada; else this.historiasHc.push(guardada);
+        this.valoresHc = { ...(guardada.datos ?? {}) };
+        this.cargarValoresHc();
+        this.toast.success('Historia clínica guardada');
+        this.guardandoHc = false;
+      },
+      error: err => {
+        this.toast.error(err?.error?.error || 'No se pudo guardar la historia clínica');
+        this.guardandoHc = false;
+      }
+    });
+  }
+
+  // ── Adjuntos de la ficha ──────────────────────────────────────────────────
+
+  private cargarArchivosHc(): void {
+    const h = this.historiaHc;
+    this.archivosHc = [];
+    if (!h?.id) return;
+    this.archivoService.listar('HISTORIA', h.id).subscribe({
+      next: lista => {
+        this.archivosHc = lista;
+        lista.filter(a => a.esImagen).forEach(a => this.cargarMiniaturaHc(a));
+      },
+      error: () => {}
+    });
+  }
+
+  private cargarMiniaturaHc(a: Archivo): void {
+    if (this.miniaturasHc.has(a.id)) return;
+    this.archivoService.contenidoUrl(a.id).subscribe({
+      next: url => this.miniaturasHc.set(a.id, url),
+      error: () => {}
+    });
+  }
+
+  miniaturaHc(a: Archivo): string | null { return this.miniaturasHc.get(a.id) ?? null; }
+  tamanoArchivo(bytes: number): string { return this.archivoService.formatoTamano(bytes); }
+
+  onArchivosHcElegidos(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const elegidos = Array.from(input.files ?? []);
+    input.value = '';
+    const h = this.historiaHc;
+    if (!h?.id) { this.toast.warning('Guarda la ficha antes de adjuntar archivos'); return; }
+
+    const validos = elegidos.filter(f => f.size <= this.maxMbHc * 1024 * 1024);
+    if (validos.length < elegidos.length) this.toast.warning(`Algún archivo supera los ${this.maxMbHc} MB`);
+    if (validos.length === 0) return;
+
+    this.subiendoHc = true;
+    let pendientes = validos.length;
+    validos.forEach(f => {
+      this.archivoService.subir('HISTORIA', h.id!, f).subscribe({
+        next: a => {
+          this.archivosHc.push(a);
+          if (a.esImagen) this.cargarMiniaturaHc(a);
+          if (--pendientes === 0) this.subiendoHc = false;
+        },
+        error: err => {
+          this.toast.error(err?.error?.error || `No se pudo subir "${f.name}"`);
+          if (--pendientes === 0) this.subiendoHc = false;
+        }
+      });
+    });
+  }
+
+  eliminarArchivoHc(a: Archivo): void {
+    if (!confirm(`¿Eliminar "${a.nombreOriginal}"?`)) return;
+    this.archivoService.eliminar(a.id).subscribe({
+      next: () => {
+        this.archivosHc = this.archivosHc.filter(x => x.id !== a.id);
+        const url = this.miniaturasHc.get(a.id);
+        if (url) { URL.revokeObjectURL(url); this.miniaturasHc.delete(a.id); }
+        this.toast.success('Archivo eliminado');
+      },
+      error: () => this.toast.error('No se pudo eliminar el archivo')
+    });
+  }
+
+  abrirArchivoHc(a: Archivo): void {
+    const ya = this.miniaturasHc.get(a.id);
+    if (ya) { window.open(ya, '_blank'); return; }
+    this.archivoService.contenidoUrl(a.id).subscribe({
+      next: url => window.open(url, '_blank'),
+      error: () => this.toast.error('No se pudo abrir el archivo')
+    });
+  }
 
   ngOnInit(): void {
     this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
@@ -86,6 +262,7 @@ export class PerfilPacienteComponent implements OnInit {
         this.citas        = citas;
         this.loading = false;
         this.cargarAtenciones();
+        this.cargarHistoria();
       },
       error: () => { this.loading = false; this.toast.error('Error al cargar el perfil'); }
     });

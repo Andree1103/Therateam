@@ -29,6 +29,10 @@ export interface User {
   puedeExportar: boolean;
   /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
   puedeCorregirAtencion: boolean;
+  /** Viene del ROL: si es false, no se muestra la historia clinica del paciente. */
+  puedeVerHistoria: boolean;
+  /** Viene del ROL: si es false, la historia clinica se ve en solo lectura. */
+  puedeEditarHistoria: boolean;
 }
 
 interface LoginResponse {
@@ -48,6 +52,10 @@ interface LoginResponse {
   puedeExportar: boolean;
   /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
   puedeCorregirAtencion: boolean;
+  /** Viene del ROL: si es false, no se muestra la historia clinica del paciente. */
+  puedeVerHistoria: boolean;
+  /** Viene del ROL: si es false, la historia clinica se ve en solo lectura. */
+  puedeEditarHistoria: boolean;
 }
 
 @Injectable({
@@ -101,6 +109,8 @@ export class AuthService {
           pacientesVerTelefono: res.pacientesVerTelefono,
           puedeExportar: res.puedeExportar,
           puedeCorregirAtencion: res.puedeCorregirAtencion,
+          puedeVerHistoria: res.puedeVerHistoria,
+          puedeEditarHistoria: res.puedeEditarHistoria,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -191,6 +201,19 @@ export class AuthService {
    */
   puedeCorregirAtencion(): boolean {
     return this.currentUserValue?.puedeCorregirAtencion ?? false;
+  }
+
+  /**
+   * La historia clinica son datos de salud: se habilita por ROL (Seguridad > Roles), aparte
+   * del permiso del modulo Pacientes. Ver y editar son permisos distintos — hay roles que
+   * solo deben consultar. El backend exige lo mismo en cada endpoint.
+   */
+  puedeVerHistoria(): boolean {
+    return this.currentUserValue?.puedeVerHistoria ?? false;
+  }
+
+  puedeEditarHistoria(): boolean {
+    return this.currentUserValue?.puedeEditarHistoria ?? false;
   }
 
   /** Rol ADMIN exacto — para acciones sensibles que no dependen del permiso granular por módulo (ej. editar terapeuta/monto de una cita ya creada). */
