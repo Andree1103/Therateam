@@ -9,6 +9,7 @@ import { Tratamiento, TratamientoCobertura } from '../../../tratamientos/Models/
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ArchivoService, Archivo } from '../../../../core/services/archivo.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
 import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, LoteResumen, PacienteEnCita, PacienteResumen, TipoTerapia } from '../../Models/cita.model';
@@ -316,6 +317,18 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   atencionObjetivo  = '';
   atencionAnalisis  = '';
   atencionPlan      = '';
+
+  // ── Adjuntos de la atencion ───────────────────────────────────────────────
+  // Una atencion nueva todavia no tiene id, y sin id no hay a que adjuntar. Por eso los
+  // archivos que se eligen antes de guardar quedan en cola y se suben solos apenas el
+  // backend devuelve la atencion creada (ver guardarAtencion).
+  atencionId: number | null = null;
+  atencionArchivos: Archivo[] = [];
+  atencionArchivosEnCola: File[] = [];
+  atencionSubiendo = false;
+  atencionMaxMb = 10;
+  /** id del archivo -> object URL, para las miniaturas de las imagenes. */
+  atencionMiniaturas = new Map<number, string>();
   atencionMetricas: AtencionMetrica[] = [];
   /** true si ya existe una atención guardada para esta cita (la estamos editando, no creando). */
   atencionEsEdicion = false;
@@ -346,6 +359,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private router: Router,
     private atencionService: AtencionClinicaService,
+    private archivoService: ArchivoService,
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
     private authService: AuthService,
@@ -410,6 +424,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.onMqCambio(this.mqMovil);
     this.mqMovil.addEventListener('change', this.onMqCambio);
     this.cargarProductos();
+    // El tope lo define el backend: se pregunta en vez de repetir el numero aca.
+    this.archivoService.maxMb().subscribe({ next: mb => this.atencionMaxMb = mb, error: () => {} });
   }
 
   ngOnDestroy(): void {
@@ -2423,6 +2439,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           this.atencionObjetivo  = existente.objetivo  ?? '';
           this.atencionAnalisis  = existente.analisis  ?? '';
           this.atencionPlan      = existente.plan      ?? '';
+          this.atencionId        = existente.id ?? null;
+          if (this.atencionId) this.cargarArchivosAtencion();
           if (existente.metricas && existente.metricas.length > 0) {
             this.atencionMetricas = METRICAS_DEFAULT.map(def => {
               const guardada = existente.metricas!.find(m => m.metrica === def.metrica);
@@ -2451,6 +2469,122 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.atencionSubjetivo = ''; this.atencionObjetivo = '';
     this.atencionAnalisis  = ''; this.atencionPlan     = '';
     this.atencionMetricas = [];
+    this.atencionId = null;
+    this.atencionArchivos = [];
+    this.atencionArchivosEnCola = [];
+    // Los object URL de las miniaturas se revocan a mano: si no, el navegador los mantiene
+    // vivos hasta recargar la pagina.
+    this.atencionMiniaturas.forEach(url => URL.revokeObjectURL(url));
+    this.atencionMiniaturas.clear();
+  }
+
+  // ── Adjuntos de la atencion ───────────────────────────────────────────────
+
+  private cargarArchivosAtencion(): void {
+    if (!this.atencionId) return;
+    this.archivoService.listar('ATENCION', this.atencionId).subscribe({
+      next: lista => {
+        this.atencionArchivos = lista;
+        lista.filter(a => a.esImagen).forEach(a => this.cargarMiniatura(a));
+      },
+      error: () => {}
+    });
+  }
+
+  /** El endpoint del binario exige Authorization, asi que la miniatura se baja como blob. */
+  private cargarMiniatura(a: Archivo): void {
+    if (this.atencionMiniaturas.has(a.id)) return;
+    this.archivoService.contenidoUrl(a.id).subscribe({
+      next: url => this.atencionMiniaturas.set(a.id, url),
+      error: () => {}
+    });
+  }
+
+  miniatura(a: Archivo): string | null { return this.atencionMiniaturas.get(a.id) ?? null; }
+
+  tamanoArchivo(bytes: number): string { return this.archivoService.formatoTamano(bytes); }
+
+  onArchivosElegidos(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const elegidos = Array.from(input.files ?? []);
+    input.value = ''; // permite volver a elegir el mismo archivo si lo quitaron de la cola
+    if (elegidos.length === 0) return;
+
+    const pesados = elegidos.filter(f => f.size > this.atencionMaxMb * 1024 * 1024);
+    if (pesados.length > 0) {
+      this.toast.warning(`"${pesados[0].name}" supera los ${this.atencionMaxMb} MB`);
+    }
+    const validos = elegidos.filter(f => f.size <= this.atencionMaxMb * 1024 * 1024);
+    if (validos.length === 0) return;
+
+    // Si la atencion ya existe se suben de una; si no, esperan a que se guarde.
+    if (this.atencionId) {
+      this.subirArchivos(this.atencionId, validos);
+    } else {
+      this.atencionArchivosEnCola.push(...validos);
+    }
+  }
+
+  private subirArchivos(atencionId: number, archivos: File[]): void {
+    this.atencionSubiendo = true;
+    let pendientes = archivos.length;
+    archivos.forEach(f => {
+      this.archivoService.subir('ATENCION', atencionId, f).subscribe({
+        next: a => {
+          this.atencionArchivos.push(a);
+          if (a.esImagen) this.cargarMiniatura(a);
+          if (--pendientes === 0) this.atencionSubiendo = false;
+        },
+        error: err => {
+          this.toast.error(err?.error?.error || `No se pudo subir "${f.name}"`);
+          if (--pendientes === 0) this.atencionSubiendo = false;
+        }
+      });
+    });
+  }
+
+  quitarDeLaCola(i: number): void { this.atencionArchivosEnCola.splice(i, 1); }
+
+  /**
+   * Sube la cola despues de crear la atencion. El modal ya se cerro, asi que el resultado se
+   * comunica por toast: no se pierde en silencio si alguno falla.
+   */
+  private subirArchivosEnCola(atencionId: number, archivos: File[]): void {
+    let ok = 0, fallidos = 0, pendientes = archivos.length;
+    const avisar = () => {
+      if (--pendientes > 0) return;
+      if (fallidos === 0) this.toast.success(`Atención registrada con ${ok} archivo(s) adjunto(s)`);
+      else this.toast.warning(`Atención registrada, pero ${fallidos} archivo(s) no se pudieron subir`);
+    };
+    archivos.forEach(f => {
+      this.archivoService.subir('ATENCION', atencionId, f).subscribe({
+        next: () => { ok++; avisar(); },
+        error: () => { fallidos++; avisar(); }
+      });
+    });
+  }
+
+  eliminarArchivoAtencion(a: Archivo): void {
+    if (!confirm(`¿Eliminar "${a.nombreOriginal}"?`)) return;
+    this.archivoService.eliminar(a.id).subscribe({
+      next: () => {
+        this.atencionArchivos = this.atencionArchivos.filter(x => x.id !== a.id);
+        const url = this.atencionMiniaturas.get(a.id);
+        if (url) { URL.revokeObjectURL(url); this.atencionMiniaturas.delete(a.id); }
+        this.toast.success('Archivo eliminado');
+      },
+      error: () => this.toast.error('No se pudo eliminar el archivo')
+    });
+  }
+
+  /** Abre el adjunto en una pestaña nueva (el binario se baja con el token y se sirve como blob). */
+  abrirArchivo(a: Archivo): void {
+    const yaCargado = this.atencionMiniaturas.get(a.id);
+    if (yaCargado) { window.open(yaCargado, '_blank'); return; }
+    this.archivoService.contenidoUrl(a.id).subscribe({
+      next: url => window.open(url, '_blank'),
+      error: () => this.toast.error('No se pudo abrir el archivo')
+    });
   }
 
   guardarAtencion(): void {
@@ -2468,8 +2602,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       metricas:        this.atencionMetricas.filter(m => m.valor !== null),
     };
     this.atencionService.crear(payload).subscribe({
-      next: () => {
-        this.toast.success('Atención registrada correctamente');
+      next: creada => {
+        const enCola = this.atencionArchivosEnCola;
+        // Los archivos elegidos antes de guardar se suben ahora, que ya hay a que adjuntarlos.
+        if (enCola.length > 0 && creada?.id) {
+          this.subirArchivosEnCola(creada.id, enCola);
+        } else {
+          this.toast.success('Atención registrada correctamente');
+        }
         this.cerrarAtencion(); this.recargarSilencioso(); this.guardandoAtencion = false;
       },
       error: () => { this.toast.error('Error al registrar la atención'); this.guardandoAtencion = false; }
