@@ -116,6 +116,13 @@ export class DetalleTratamientoComponent implements OnInit {
     return this.atencionMap.get(citaId) ?? null;
   }
 
+  /** true si la atencion tiene algo que mostrar (SOAP, nota libre o metricas). */
+  tieneDetalleAtencion(citaId?: number): boolean {
+    const a = this.getAtencion(citaId);
+    if (!a) return false;
+    return !!(a.subjetivo || a.objetivo || a.analisis || a.plan || a.notasPost || a.metricas?.length);
+  }
+
   // ── Sesiones para pagar ────────────────────────────────────────────────────
 
   get sesionesParaPagar(): Sesion[] {

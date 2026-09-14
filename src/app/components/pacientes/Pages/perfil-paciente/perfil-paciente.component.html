@@ -215,7 +215,7 @@
             <td>{{ citaDeAtencion(a)?.terapeuta_nombre || '—' }}</td>
             <td>{{ citaDeAtencion(a)?.tipo_terapia_nombre || '—' }}</td>
             <td>{{ (a.duracionRealMin ?? citaDeAtencion(a)?.duracion_minutos) ? (a.duracionRealMin ?? citaDeAtencion(a)?.duracion_minutos) + ' min' : '—' }}</td>
-            <td class="text-muted">{{ a.notasPost || '—' }}</td>
+            <td class="text-muted" [title]="resumenSoap(a)">{{ resumenSoap(a) || '—' }}</td>
             <td>
               <span *ngFor="let m of a.metricas" class="chip-estado" style="margin-right:4px">
                 {{ m.metrica }}: {{ m.valor }}{{ m.unidad }}

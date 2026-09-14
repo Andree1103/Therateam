@@ -12,7 +12,18 @@ export interface AtencionClinica {
   fechaInicioReal: string;
   fechaFinReal?: string;
   duracionRealMin?: number;
+  /** Observacion libre. Convive con el SOAP: es lo que cargaron las atenciones anteriores. */
   notasPost?: string;
+
+  // ── SOAP: el formato con el que se documenta una atencion clinica ──
+  /** Lo que refiere el paciente. */
+  subjetivo?: string;
+  /** Lo que el terapeuta observa y mide. */
+  objetivo?: string;
+  /** La interpretacion clinica. */
+  analisis?: string;
+  /** Que sigue para la proxima sesion. */
+  plan?: string;
   archivosUrl?: string[];
   metricas?: AtencionMetrica[];
   createdAt?: string;

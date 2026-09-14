@@ -311,6 +311,11 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   cargandoAtencionExistente = false;
   citaParaAtencion: Cita | null = null;
   atencionNotas = '';
+  // ── SOAP: los cuatro campos con los que se documenta la atencion ──
+  atencionSubjetivo = '';
+  atencionObjetivo  = '';
+  atencionAnalisis  = '';
+  atencionPlan      = '';
   atencionMetricas: AtencionMetrica[] = [];
   /** true si ya existe una atención guardada para esta cita (la estamos editando, no creando). */
   atencionEsEdicion = false;
@@ -2413,7 +2418,11 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           this.cargandoAtencionExistente = false;
           if (this.citaParaAtencion?.id !== cita.id) return;
           this.atencionEsEdicion = true;
-          this.atencionNotas = existente.notasPost ?? this.atencionNotas;
+          this.atencionNotas     = existente.notasPost ?? this.atencionNotas;
+          this.atencionSubjetivo = existente.subjetivo ?? '';
+          this.atencionObjetivo  = existente.objetivo  ?? '';
+          this.atencionAnalisis  = existente.analisis  ?? '';
+          this.atencionPlan      = existente.plan      ?? '';
           if (existente.metricas && existente.metricas.length > 0) {
             this.atencionMetricas = METRICAS_DEFAULT.map(def => {
               const guardada = existente.metricas!.find(m => m.metrica === def.metrica);
@@ -2439,6 +2448,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.citaParaAtencion = null;
     this.atencionEsEdicion = false;
     this.atencionNotas    = '';
+    this.atencionSubjetivo = ''; this.atencionObjetivo = '';
+    this.atencionAnalisis  = ''; this.atencionPlan     = '';
     this.atencionMetricas = [];
   }
 
@@ -2450,6 +2461,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       citaId:          Number(this.citaParaAtencion.id),
       fechaInicioReal: now,
       notasPost:       this.atencionNotas || undefined,
+      subjetivo:       this.atencionSubjetivo || undefined,
+      objetivo:        this.atencionObjetivo  || undefined,
+      analisis:        this.atencionAnalisis  || undefined,
+      plan:            this.atencionPlan      || undefined,
       metricas:        this.atencionMetricas.filter(m => m.valor !== null),
     };
     this.atencionService.crear(payload).subscribe({

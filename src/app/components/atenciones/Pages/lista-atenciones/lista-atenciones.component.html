@@ -110,8 +110,26 @@
         <p class="state-hint" *ngIf="!cargandoDetalle && !atencionDetalle">No se encontró la nota de esta atención.</p>
 
         <ng-container *ngIf="!cargandoDetalle && atencionDetalle as a">
+          <!-- SOAP. Cada bloque se muestra solo si tiene contenido: las atenciones anteriores
+               al formato traen unicamente la nota libre de abajo. -->
+          <div class="det-section" *ngIf="a.subjetivo">
+            <span class="det-lbl">S &middot; Subjetivo</span>
+            <p class="det-text">{{ a.subjetivo }}</p>
+          </div>
+          <div class="det-section" *ngIf="a.objetivo">
+            <span class="det-lbl">O &middot; Objetivo</span>
+            <p class="det-text">{{ a.objetivo }}</p>
+          </div>
+          <div class="det-section" *ngIf="a.analisis">
+            <span class="det-lbl">A &middot; Análisis</span>
+            <p class="det-text">{{ a.analisis }}</p>
+          </div>
+          <div class="det-section" *ngIf="a.plan">
+            <span class="det-lbl">P &middot; Plan</span>
+            <p class="det-text">{{ a.plan }}</p>
+          </div>
           <div class="det-section" *ngIf="a.notasPost">
-            <span class="det-lbl">Notas post-sesión</span>
+            <span class="det-lbl">Observaciones</span>
             <p class="det-text">{{ a.notasPost }}</p>
           </div>
           <div class="det-section" *ngIf="(a.metricas?.length ?? 0) > 0">
@@ -123,7 +141,9 @@
               </div>
             </div>
           </div>
-          <p class="state-hint" *ngIf="!a.notasPost && !(a.metricas?.length)">Sin notas ni métricas registradas.</p>
+          <p class="state-hint" *ngIf="!a.subjetivo && !a.objetivo && !a.analisis && !a.plan && !a.notasPost && !(a.metricas?.length)">
+            Sin notas ni métricas registradas.
+          </p>
         </ng-container>
       </div>
     </div>

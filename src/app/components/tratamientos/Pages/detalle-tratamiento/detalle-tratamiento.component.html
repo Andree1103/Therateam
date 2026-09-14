@@ -230,10 +230,30 @@
                       Detalle de atención clínica
                     </div>
                     <div class="ap-body">
-                      <div class="ap-block" *ngIf="getAtencion(s.citaActiva!.id)?.notasPost">
-                        <span class="ap-lbl">Notas post-sesión</span>
-                        <p class="ap-text">{{ getAtencion(s.citaActiva!.id)?.notasPost }}</p>
-                      </div>
+                      <!-- SOAP. Cada bloque aparece solo si tiene contenido: las atenciones
+                           anteriores al formato traen unicamente la nota libre. -->
+                      <ng-container *ngIf="getAtencion(s.citaActiva!.id) as at">
+                        <div class="ap-block" *ngIf="at.subjetivo">
+                          <span class="ap-lbl">S &middot; Subjetivo</span>
+                          <p class="ap-text">{{ at.subjetivo }}</p>
+                        </div>
+                        <div class="ap-block" *ngIf="at.objetivo">
+                          <span class="ap-lbl">O &middot; Objetivo</span>
+                          <p class="ap-text">{{ at.objetivo }}</p>
+                        </div>
+                        <div class="ap-block" *ngIf="at.analisis">
+                          <span class="ap-lbl">A &middot; Análisis</span>
+                          <p class="ap-text">{{ at.analisis }}</p>
+                        </div>
+                        <div class="ap-block" *ngIf="at.plan">
+                          <span class="ap-lbl">P &middot; Plan</span>
+                          <p class="ap-text">{{ at.plan }}</p>
+                        </div>
+                        <div class="ap-block" *ngIf="at.notasPost">
+                          <span class="ap-lbl">Observaciones</span>
+                          <p class="ap-text">{{ at.notasPost }}</p>
+                        </div>
+                      </ng-container>
                       <div class="ap-block" *ngIf="(getAtencion(s.citaActiva!.id)?.metricas?.length ?? 0) > 0">
                         <span class="ap-lbl">Métricas registradas</span>
                         <div class="ap-metricas">
@@ -244,7 +264,7 @@
                         </div>
                       </div>
                       <p class="ap-empty"
-                         *ngIf="!getAtencion(s.citaActiva!.id)?.notasPost && !(getAtencion(s.citaActiva!.id)?.metricas?.length)">
+                         *ngIf="!tieneDetalleAtencion(s.citaActiva!.id)">
                         Atención registrada sin detalles adicionales
                       </p>
                     </div>

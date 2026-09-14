@@ -1260,10 +1260,32 @@
           </span>
         </div>
       </div>
+      <!-- SOAP: el formato estandar para documentar una atencion. Cada campo responde una
+           pregunta distinta, por eso van separados y no en una sola nota libre. -->
       <div class="at-section">
-        <div class="at-section-lbl">Notas post-sesión</div>
-        <textarea class="at-textarea" [(ngModel)]="atencionNotas" rows="4"
-                  placeholder="Evolución del paciente, observaciones clínicas..."></textarea>
+        <div class="at-section-lbl">S &middot; Subjetivo <span class="at-opt">lo que refiere el paciente</span></div>
+        <textarea class="at-textarea" [(ngModel)]="atencionSubjetivo" rows="3"
+                  placeholder="Cómo llegó, qué molestias refiere, qué cambió desde la última sesión..."></textarea>
+      </div>
+      <div class="at-section">
+        <div class="at-section-lbl">O &middot; Objetivo <span class="at-opt">lo que observas y mides</span></div>
+        <textarea class="at-textarea" [(ngModel)]="atencionObjetivo" rows="3"
+                  placeholder="Hallazgos de la evaluación, pruebas aplicadas, qué se trabajó en la sesión..."></textarea>
+      </div>
+      <div class="at-section">
+        <div class="at-section-lbl">A &middot; Análisis <span class="at-opt">tu interpretación clínica</span></div>
+        <textarea class="at-textarea" [(ngModel)]="atencionAnalisis" rows="3"
+                  placeholder="Cómo va la evolución, a qué atribuyes los cambios..."></textarea>
+      </div>
+      <div class="at-section">
+        <div class="at-section-lbl">P &middot; Plan <span class="at-opt">qué sigue</span></div>
+        <textarea class="at-textarea" [(ngModel)]="atencionPlan" rows="3"
+                  placeholder="Objetivos y conducta para la próxima sesión, indicaciones para casa..."></textarea>
+      </div>
+      <div class="at-section">
+        <div class="at-section-lbl">Observaciones adicionales <span class="at-opt">(opcional)</span></div>
+        <textarea class="at-textarea" [(ngModel)]="atencionNotas" rows="2"
+                  placeholder="Lo que no encaje en los campos de arriba..."></textarea>
       </div>
       <div class="at-section">
         <div class="at-section-lbl">Métricas clínicas <span class="at-opt">(opcional)</span></div>

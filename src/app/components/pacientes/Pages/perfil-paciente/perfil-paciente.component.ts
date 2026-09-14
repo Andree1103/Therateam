@@ -180,7 +180,11 @@ export class PerfilPacienteComponent implements OnInit {
         'Métricas': (a.metricas ?? [])
           .filter(m => m.valor != null)
           .map(m => `${m.metrica}: ${m.valor}${m.unidad ?? ''}`).join(' · '),
-        'Notas': a.notasPost ?? '',
+        'S · Subjetivo': a.subjetivo ?? '',
+        'O · Objetivo': a.objetivo ?? '',
+        'A · Análisis': a.analisis ?? '',
+        'P · Plan': a.plan ?? '',
+        'Observaciones': a.notasPost ?? '',
       };
     });
 
@@ -287,6 +291,21 @@ export class PerfilPacienteComponent implements OnInit {
 
   citaDeAtencion(a: AtencionClinica): Cita | undefined {
     return this.citas.find(c => Number(c.id) === a.citaId);
+  }
+
+  /**
+   * Una linea con lo que tenga la atencion, para la celda de la tabla (el detalle completo se
+   * ve en Atenciones). Las atenciones anteriores al SOAP solo traen notasPost, y asi se siguen
+   * viendo igual que antes.
+   */
+  resumenSoap(a: AtencionClinica): string {
+    return [
+      a.subjetivo ? `S: ${a.subjetivo}` : '',
+      a.objetivo  ? `O: ${a.objetivo}`  : '',
+      a.analisis  ? `A: ${a.analisis}`  : '',
+      a.plan      ? `P: ${a.plan}`      : '',
+      a.notasPost ?? '',
+    ].filter(x => x.trim()).join(' · ');
   }
 
   volver(): void { this.router.navigate(['/pacientes']); }
