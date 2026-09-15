@@ -1,33 +1,25 @@
-# Reglas de reescritura para Cloudflare Pages.
+# Este archivo esta a proposito SIN reglas. La explicacion importa, porque la reaccion natural
+# al ver un SPA con enlaces directos rotos es agregar aqui "/* /index.html 200".
 #
-# OJO: hoy NO parece que Cloudflare las este aplicando en este proyecto. Se probo con el comodin
-# global (/*) y con una regla por modulo, y en los dos casos /pacientes/3451 devolvia 404. Quien
-# resuelve hoy los enlaces directos es 404.html, que el build genera como copia de la aplicacion
-# (ver scripts/generar-404.mjs). Este archivo se conserva porque, si en algun momento las reglas
-# si se aplican, el enlace directo responde 200 en vez de 404, que es mas correcto.
+# QUE SE MIDIO (15-09-2026, sobre therateam.pages.dev):
 #
-# La linea de prueba de abajo sirve para salir de dudas sin adivinar: si despues de desplegar
-#   curl -o /dev/null -w "%{http_code}" https://therateam.pages.dev/zzz-prueba-redirects
-# responde 200, Cloudflare SI lee este archivo; si responde 404, no lo lee.
-/zzz-prueba-redirects   /index.html  200
-
-# Rutas de la app con parametro (/pacientes/3451, /citas/99...): no existen como archivo, las
-# resuelve el router de Angular sobre index.html.
-# Cloudflare Pages solo admite el splat al FINAL de la ruta, por eso va una linea por modulo.
-# Al agregar un modulo nuevo en app.routes.ts, agregar aqui su linea.
-/dashboard/*            /index.html  200
-/citas/*                /index.html  200
-/pacientes/*            /index.html  200
-/terapeutas/*           /index.html  200
-/pagos/*                /index.html  200
-/caja/*                 /index.html  200
-/adelantos/*            /index.html  200
-/productos/*            /index.html  200
-/atenciones/*           /index.html  200
-/tratamientos/*         /index.html  200
-/configuraciones/*      /index.html  200
-/seguridad/*            /index.html  200
-/login/*                /index.html  200
-/olvide-password/*      /index.html  200
-/restablecer-password/* /index.html  200
-/sin-acceso/*           /index.html  200
+#   1. Con "/* /index.html 200"            -> /pacientes/3451 devolvia 404.
+#   2. Con una regla por modulo,
+#      "/pacientes/* /index.html 200"      -> /pacientes/3451 devolvia 404 igual.
+#   3. Con una regla exacta de prueba,
+#      "/zzz-prueba-redirects /index.html 200"
+#                                          -> 308 Permanent Redirect hacia "/".
+#
+# El punto 3 es el que decide. Cloudflare SI lee este archivo, pero convierte el destino
+# /index.html en una redireccion 308 a la raiz en vez de servirlo en su sitio. Aplicado a
+# /pacientes/3451 eso NO abre el paciente: manda al dashboard y pierde el id por el camino.
+# Una regla que hoy no hace nada, el dia que empiece a aplicarse rompe el enlace en silencio.
+#
+# COMO SE RESUELVE ENTONCES: Cloudflare sirve 404.html para toda ruta que no sea un archivo,
+# y el build genera 404.html como copia de la aplicacion (scripts/generar-404.mjs). El enlace
+# directo recibe la app y el router de Angular resuelve la ruta. Verificado en produccion:
+# pegar /pacientes/3451 abre el perfil. Lo unico atipico es que la respuesta viaja con
+# estado 404 en lugar de 200, invisible para quien usa el sistema.
+#
+# Si algun dia hace falta que responda 200, el camino no es este archivo: es una Pages
+# Function (functions/[[path]].js) que devuelva index.html, o mover el hosting.
