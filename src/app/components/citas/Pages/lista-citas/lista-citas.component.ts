@@ -533,9 +533,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** Se llama al cambiar fecha/hora/duración/tipo en el modal: si el terapeuta elegido dejó de estar disponible, se limpia la selección. */
   onDatosCitaChange(): void {
-    // La disponibilidad no se guarda de una apertura de modal a otra — se descarta y se vuelve
-    // a pedir fresca cada vez que algo relevante cambia, para no arrastrar horarios viejos si
-    // un terapeuta fue editado después de la última carga.
+    // Solo se vuelve a pedir si cambió la semana visible: dentro del mismo modal se reutiliza
+    // lo ya cargado. La frescura la garantiza el refresco forzado al abrir el modal, que es
+    // cuando puede haber cambiado el horario de un terapeuta.
     this.cargarDisponibilidadSemana();
     if (!this.fTer) return;
     const sigueDisponible = this.terapeutasDisponiblesModal.some(t => terapeutaNombre(t) === this.fTer);
@@ -637,22 +637,43 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   /** Trae la disponibilidad real (horario + excepciones + citas) de cada terapeuta para la semana visible. */
-  private cargarDisponibilidadSemana(): void {
-    const idsValidos = this.terapeutas.filter(t => t.id != null);
-    if (idsValidos.length === 0 || this.diasSemana.length === 0) return;
+  /** Rango ya cargado en `disponibilidadPorTerapeuta`, como "desde|hasta". */
+  private disponibilidadCargadaPara: string | null = null;
+
+  /**
+   * Trae la disponibilidad de la semana visible para todos los terapeutas.
+   *
+   * Dos cosas que importan para que el modal no se arrastre:
+   *   - UNA sola peticion para todos, no una por terapeuta.
+   *   - No se repite si ya se tiene ese mismo rango. Antes se volvia a pedir en cada cambio de
+   *     fecha, hora, duracion o tipo (8 puntos del formulario), asi que llenar una cita
+   *     disparaba decenas de peticiones identicas.
+   *
+   * `forzar` se usa al abrir el modal y al cambiar de semana en la agenda: ahi si hay que
+   * traerla fresca, por si editaron el horario de un terapeuta desde la ultima vez.
+   */
+  private cargarDisponibilidadSemana(forzar = false): void {
+    if (this.terapeutas.length === 0 || this.diasSemana.length === 0) return;
 
     const desde = this.fechaToISO(this.diasSemana[0].fecha);
     const hasta = this.fechaToISO(this.diasSemana[6].fecha);
-    const calls = idsValidos.reduce((acc, t) => {
-      acc[t.id!] = this.disponibilidadService.getSemana(t.id!, desde, hasta)
-        .pipe(catchError(() => of([] as DisponibilidadDia[])));
-      return acc;
-    }, {} as Record<number, Observable<DisponibilidadDia[]>>);
+    const clave = `${desde}|${hasta}`;
+    if (!forzar && this.disponibilidadCargadaPara === clave) return;
 
-    forkJoin(calls).subscribe(resultado => {
-      this.disponibilidadPorTerapeuta.clear();
-      Object.entries(resultado).forEach(([id, dias]) => this.disponibilidadPorTerapeuta.set(Number(id), dias));
-    });
+    // La clave se marca ANTES de lanzar la peticion, no en el subscribe: al abrir la pantalla
+    // varias rutas piden la disponibilidad casi a la vez, y si se marcara al responder todas
+    // pasarian el filtro y saldrian igual cuatro peticiones identicas.
+    this.disponibilidadCargadaPara = clave;
+    this.disponibilidadService.getSemanaDeTodos(desde, hasta)
+      .pipe(catchError(() => {
+        this.disponibilidadCargadaPara = null; // fallo: que el proximo intento vuelva a pedirla
+        return of({} as Record<number, DisponibilidadDia[]>);
+      }))
+      .subscribe(resultado => {
+        this.disponibilidadPorTerapeuta.clear();
+        Object.entries(resultado).forEach(([id, dias]) =>
+          this.disponibilidadPorTerapeuta.set(Number(id), dias));
+      });
   }
 
   /** true si [inicioMin, finMin) del día `fechaISO` está cubierto por una franja libre cacheada. */
@@ -1427,7 +1448,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // Refresca la disponibilidad cacheada al abrir el modal — si el horario de algún terapeuta
     // cambió después de la carga inicial de la página, no se debe seguir usando un caché viejo
     // para decidir quién aparece como disponible.
-    this.cargarDisponibilidadSemana();
+    this.cargarDisponibilidadSemana(true);
   }
 
   abrirSlot(diaIdx: number, s: Slot): void {
@@ -1440,7 +1461,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.alinearFechasVisiblesCon(this.fFecha);
     this.cargarSlotsSingle();
     this.modalAbierto = true;
-    this.cargarDisponibilidadSemana();
+    this.cargarDisponibilidadSemana(true);
   }
 
   /** Ajusta fFechasOffset para que la página de fechas visibles (bloques de 6 días) incluya
@@ -1492,7 +1513,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // Refresca la disponibilidad cacheada — si el horario de algún terapeuta cambió después
     // de la carga inicial de la página, el filtro de "quién puede atender" no debe seguir
     // usando datos viejos.
-    this.cargarDisponibilidadSemana();
+    this.cargarDisponibilidadSemana(true);
 
     this.loteResumen = null;
     if (cita.lote_masivo_id && !cita.sesion_id) {
