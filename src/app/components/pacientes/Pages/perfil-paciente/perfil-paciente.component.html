@@ -172,6 +172,7 @@
             <th>Tipo</th>
             <th>Modalidad</th>
             <th>Estado</th>
+            <th>Pago</th>
             <th>Duración</th>
           </tr>
         </thead>
@@ -183,6 +184,13 @@
             <td>{{ c.modalidad || '—' }}</td>
             <td>
               <span class="chip-estado">{{ estadoCitaLabel(c.estado) }}</span>
+            </td>
+            <!-- El color lo manda el catálogo (cat_estados_pago_cita), igual que en la agenda:
+                 así "Pagada" y "Sin pago" se distinguen de un vistazo sin leer la columna. -->
+            <td>
+              <span class="chip-estado" [style.background]="colorPagoFondo(c.estado_pago_color)"
+                    [style.color]="c.estado_pago_color || '#475569'"
+                    [title]="detallePago(c)">{{ c.estado_pago_nombre || '—' }}</span>
             </td>
             <td>{{ c.duracion_minutos }} min</td>
           </tr>

@@ -422,7 +422,7 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
           this.paginaActual--; this.cargar();
         }
       },
-      error: () => { this.toast.error('Error al eliminar el pago'); this.eliminando = false; }
+      error: (err) => { this.toast.error(err?.error?.error || 'Error al eliminar el pago'); this.eliminando = false; }
     });
   }
 

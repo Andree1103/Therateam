@@ -1,11 +1,31 @@
-# Un asset con hash que no existe es un deploy desincronizado, no una ruta de la app.
-# Sin estas lineas el comodin de abajo le devuelve index.html y el navegador falla con
-# "Expected a JavaScript-or-Wasm module script but the server responded with MIME type text/html",
-# que no dice nada util. Con 404 el error es claro y Angular puede reaccionar.
-/*.js     /404.html   404
-/*.mjs    /404.html   404
-/*.css    /404.html   404
-/*.map    /404.html   404
-
-# Rutas de la app: las resuelve el router de Angular.
-/*        /index.html 200
+# Rutas de la app con parametro (/pacientes/3404, /citas/99...): no existen como archivo, las
+# resuelve el router de Angular sobre index.html.
+#
+# Van una por una y NO con un comodin global a proposito. Un /* generico tambien capturaria el
+# pedido de un chunk .js que ya no existe (pestana abierta con la version anterior) y le
+# devolveria index.html: el navegador lo rechaza con "Expected a JavaScript-or-Wasm module
+# script but the server responded with MIME type text/html", que no dice nada util. Dejando
+# fuera esos pedidos, Cloudflare responde su 404.html y el error se entiende.
+#
+# OJO: Cloudflare Pages solo admite el splat al FINAL de la ruta. La version anterior de este
+# archivo empezaba con reglas tipo "/*.js /404.html 404" y Cloudflare las leia como "/*", asi
+# que TODA ruta con parametro terminaba en el 404.html. De ahi el "No se encontro el archivo"
+# al abrir el perfil de un paciente.
+#
+# Al agregar un modulo nuevo en app.routes.ts, agregar aqui su linea.
+/dashboard/*            /index.html  200
+/citas/*                /index.html  200
+/pacientes/*            /index.html  200
+/terapeutas/*           /index.html  200
+/pagos/*                /index.html  200
+/caja/*                 /index.html  200
+/adelantos/*            /index.html  200
+/productos/*            /index.html  200
+/atenciones/*           /index.html  200
+/tratamientos/*         /index.html  200
+/configuraciones/*      /index.html  200
+/seguridad/*            /index.html  200
+/login/*                /index.html  200
+/olvide-password/*      /index.html  200
+/restablecer-password/* /index.html  200
+/sin-acceso/*           /index.html  200

@@ -120,6 +120,22 @@ export class PerfilPacienteComponent implements OnInit {
     return key ? (etiquetas[key] ?? key) : '';
   }
 
+  /**
+   * El catálogo manda un color pleno, pensado para texto. Como fondo del chip resulta ilegible,
+   * así que se usa el mismo color al 15% y el texto va en el color pleno.
+   */
+  colorPagoFondo(color?: string | null): string {
+    return color ? `${color}26` : '#f1f5f9';
+  }
+
+  /** Tooltip de la columna Pago: cuánto se cubrió del precio, que es la pregunta que sigue
+   *  cuando una cita aparece como parcial. */
+  detallePago(c: Cita): string {
+    if (c.precio == null) return c.estado_pago_nombre ?? '';
+    const pagado = c.monto_pagado ?? 0;
+    return `Pagado S/ ${pagado.toFixed(2)} de S/ ${c.precio.toFixed(2)}`;
+  }
+
   // ── Exportar el historial del paciente ────────────────────────────────────
 
   exportando = false;
