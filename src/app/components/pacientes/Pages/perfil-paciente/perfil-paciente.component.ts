@@ -13,7 +13,7 @@ import { Paciente, SaldoMovimiento } from '../../Models/paciente.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
-import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
+import { AtencionClinica, camposDeLaFicha, resumenAtencion } from '../../../atencion-clinica/Models/atencion.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { HistoriaClinicaService } from '../../../historia-clinica/Services/historia.service';
 import { HcCampo, HcPlantilla, HistoriaClinica } from '../../../historia-clinica/Models/historia.model';
@@ -358,6 +358,9 @@ export class PerfilPacienteComponent implements OnInit {
         'Métricas': (a.metricas ?? [])
           .filter(m => m.valor != null)
           .map(m => `${m.metrica}: ${m.valor}${m.unidad ?? ''}`).join(' · '),
+        // La ficha configurable va en una sola columna: sus campos cambian por tipo de
+        // terapia, asi que no se pueden fijar como columnas del Excel.
+        'Ficha de la atención': camposDeLaFicha(a).map(p => `${p.etiqueta}: ${p.valor}`).join(' · '),
         'S · Subjetivo': a.subjetivo ?? '',
         'O · Objetivo': a.objetivo ?? '',
         'A · Análisis': a.analisis ?? '',
@@ -473,17 +476,11 @@ export class PerfilPacienteComponent implements OnInit {
 
   /**
    * Una linea con lo que tenga la atencion, para la celda de la tabla (el detalle completo se
-   * ve en Atenciones). Las atenciones anteriores al SOAP solo traen notasPost, y asi se siguen
-   * viendo igual que antes.
+   * ve en Atenciones). Cubre los tres formatos que conviven: la ficha configurable, el SOAP y
+   * la nota libre de las atenciones mas viejas.
    */
   resumenSoap(a: AtencionClinica): string {
-    return [
-      a.subjetivo ? `S: ${a.subjetivo}` : '',
-      a.objetivo  ? `O: ${a.objetivo}`  : '',
-      a.analisis  ? `A: ${a.analisis}`  : '',
-      a.plan      ? `P: ${a.plan}`      : '',
-      a.notasPost ?? '',
-    ].filter(x => x.trim()).join(' · ');
+    return resumenAtencion(a);
   }
 
   volver(): void { this.router.navigate(['/pacientes']); }

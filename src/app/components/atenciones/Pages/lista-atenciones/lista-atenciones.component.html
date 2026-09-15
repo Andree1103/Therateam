@@ -110,6 +110,13 @@
         <p class="state-hint" *ngIf="!cargandoDetalle && !atencionDetalle">No se encontró la nota de esta atención.</p>
 
         <ng-container *ngIf="!cargandoDetalle && atencionDetalle as a">
+          <!-- Ficha configurable: los campos y sus etiquetas salen de la plantilla con la
+               que se registro la atencion, que varia segun el tipo de terapia. -->
+          <div class="det-section" *ngFor="let campo of fichaDe(a)">
+            <span class="det-lbl">{{ campo.etiqueta }}</span>
+            <p class="det-text">{{ campo.valor }}</p>
+          </div>
+
           <!-- SOAP. Cada bloque se muestra solo si tiene contenido: las atenciones anteriores
                al formato traen unicamente la nota libre de abajo. -->
           <div class="det-section" *ngIf="a.subjetivo">
@@ -141,7 +148,7 @@
               </div>
             </div>
           </div>
-          <p class="state-hint" *ngIf="!a.subjetivo && !a.objetivo && !a.analisis && !a.plan && !a.notasPost && !(a.metricas?.length)">
+          <p class="state-hint" *ngIf="fichaDe(a).length === 0 && !a.subjetivo && !a.objetivo && !a.analisis && !a.plan && !a.notasPost && !(a.metricas?.length)">
             Sin notas ni métricas registradas.
           </p>
         </ng-container>

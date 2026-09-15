@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CitaService } from '../../../citas/Services/cita.service';
 import { Cita } from '../../../citas/Models/cita.model';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
-import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
+import { AtencionClinica, camposDeLaFicha } from '../../../atencion-clinica/Models/atencion.model';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
@@ -237,6 +237,11 @@ export class ListaAtencionesComponent implements OnInit {
       next: a => { this.atencionDetalle = a; this.cargandoDetalle = false; },
       error: () => { this.cargandoDetalle = false; }
     });
+  }
+
+  /** Campos de la ficha configurable, ya con su etiqueta — ver camposDeLaFicha(). */
+  fichaDe(a: AtencionClinica): { etiqueta: string; valor: string }[] {
+    return camposDeLaFicha(a);
   }
 
   cerrarDetalle(): void {

@@ -233,6 +233,11 @@
                       <!-- SOAP. Cada bloque aparece solo si tiene contenido: las atenciones
                            anteriores al formato traen unicamente la nota libre. -->
                       <ng-container *ngIf="getAtencion(s.citaActiva!.id) as at">
+                        <!-- Ficha configurable: etiquetas segun la plantilla del tipo de terapia. -->
+                        <div class="ap-block" *ngFor="let campo of fichaDe(at)">
+                          <span class="ap-lbl">{{ campo.etiqueta }}</span>
+                          <p class="ap-text">{{ campo.valor }}</p>
+                        </div>
                         <div class="ap-block" *ngIf="at.subjetivo">
                           <span class="ap-lbl">S &middot; Subjetivo</span>
                           <p class="ap-text">{{ at.subjetivo }}</p>

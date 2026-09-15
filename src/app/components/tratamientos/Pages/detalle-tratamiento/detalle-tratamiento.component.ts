@@ -8,7 +8,7 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { TratamientoDetalle, Sesion, tratamientoPaciente, tratamientoTerapeuta } from '../../Models/tratamiento.model';
-import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
+import { AtencionClinica, camposDeLaFicha } from '../../../atencion-clinica/Models/atencion.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
@@ -116,11 +116,17 @@ export class DetalleTratamientoComponent implements OnInit {
     return this.atencionMap.get(citaId) ?? null;
   }
 
-  /** true si la atencion tiene algo que mostrar (SOAP, nota libre o metricas). */
+  /** Campos de la ficha configurable, ya con su etiqueta — ver camposDeLaFicha(). */
+  fichaDe(a: AtencionClinica): { etiqueta: string; valor: string }[] {
+    return camposDeLaFicha(a);
+  }
+
+  /** true si la atencion tiene algo que mostrar (ficha, SOAP, nota libre o metricas). */
   tieneDetalleAtencion(citaId?: number): boolean {
     const a = this.getAtencion(citaId);
     if (!a) return false;
-    return !!(a.subjetivo || a.objetivo || a.analisis || a.plan || a.notasPost || a.metricas?.length);
+    return !!(camposDeLaFicha(a).length || a.subjetivo || a.objetivo || a.analisis || a.plan
+              || a.notasPost || a.metricas?.length);
   }
 
   // ── Sesiones para pagar ────────────────────────────────────────────────────
