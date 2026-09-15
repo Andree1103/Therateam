@@ -20,4 +20,18 @@ export class DisponibilidadService {
       { desde, hasta }
     );
   }
+
+  /**
+   * La semana de TODOS los terapeutas en una sola peticion.
+   *
+   * El modal de citas necesita saber quien esta disponible, y pedirlo terapeuta por terapeuta
+   * significaba una peticion HTTP por cada uno — multiplicada por cada campo que se tocara en
+   * el formulario. Devuelve {terapeutaId: dias}.
+   */
+  getSemanaDeTodos(desde: string, hasta: string): Observable<Record<number, DisponibilidadDia[]>> {
+    return this.api.get<Record<number, DisponibilidadDia[]>>(
+      '/api/disponibilidad/semana',
+      { desde, hasta }
+    );
+  }
 }
