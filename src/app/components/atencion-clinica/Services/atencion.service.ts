@@ -17,6 +17,12 @@ export class AtencionClinicaService {
     return this.api.get<AtencionClinica>(`${this.PATH}/cita/${citaId}`);
   }
 
+  /** Todas las atenciones del paciente en una sola petición — la alternativa era preguntar por
+   *  cada cita suya por separado, con un 404 por cada una que todavía no se atendió. */
+  getByPaciente(pacienteId: number): Observable<AtencionClinica[]> {
+    return this.api.get<AtencionClinica[]>(`${this.PATH}/paciente/${pacienteId}`);
+  }
+
   update(id: number, data: Partial<AtencionClinica>): Observable<AtencionClinica> {
     return this.api.put<AtencionClinica>(`${this.PATH}/${id}`, data);
   }

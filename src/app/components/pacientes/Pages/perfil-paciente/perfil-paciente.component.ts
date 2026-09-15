@@ -91,13 +91,22 @@ export class PerfilPacienteComponent implements OnInit {
     });
   }
 
-  /** Atenciones registradas para las citas de este paciente (una cita atendida se convierte en atención). */
+  /**
+   * Atenciones registradas para las citas de este paciente (una cita atendida se convierte en
+   * atención). Una sola petición: antes se preguntaba cita por cita, así que abrir el perfil de
+   * alguien con 60 citas disparaba 60 llamadas y las 404 de las que no tenían atención se veían
+   * como errores en la consola.
+   */
   private cargarAtenciones(): void {
-    const citasConId = this.citas.filter(c => c.id);
-    if (citasConId.length === 0) { this.atenciones = []; return; }
-    forkJoin(citasConId.map(c => this.atencionService.getByCita(Number(c.id)).pipe(catchError(() => of(null)))))
+    if (this.citas.length === 0) { this.atenciones = []; return; }
+    const idsVisibles = new Set(this.citas.map(c => Number(c.id)));
+    this.atencionService.getByPaciente(this.pacienteId)
+      .pipe(catchError(() => of([] as AtencionClinica[])))
       .subscribe(resultados => {
-        this.atenciones = resultados.filter((a): a is AtencionClinica => a != null);
+        // El endpoint devuelve las atenciones de todas sus citas; la pantalla solo sabe mostrar
+        // las de las citas que tiene cargadas (una anulada, por ejemplo, ya no aparece en la
+        // tabla y su fila quedaría sin fecha ni terapeuta).
+        this.atenciones = resultados.filter(a => idsVisibles.has(Number(a.citaId)));
       });
   }
 
