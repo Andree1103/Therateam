@@ -94,12 +94,20 @@
             <div class="frow" style="margin:0;min-width:240px">
               <label>Ficha</label>
               <select [(ngModel)]="plantillaHcId" (ngModelChange)="onPlantillaHcChange()">
-                <option *ngFor="let p of plantillasHc" [ngValue]="p.id">
+                <option *ngFor="let p of plantillasHcVisibles" [ngValue]="p.id">
                   {{ p.nombre }}{{ p.tipoTerapia?.nombre ? ' · ' + p.tipoTerapia?.nombre : '' }}
                 </option>
               </select>
             </div>
             <div class="hc-barra-meta">
+              <!-- Por defecto solo se ofrecen las fichas de las disciplinas en las que el
+                   paciente tiene citas; el resto quedan a un clic. -->
+              <button type="button" class="btn-link" *ngIf="fichasOcultas > 0 || mostrarTodasLasFichas"
+                      (click)="alternarTodasLasFichas()">
+                {{ mostrarTodasLasFichas
+                   ? 'Ver solo sus disciplinas'
+                   : 'Ver todas las fichas (' + fichasOcultas + ' más)' }}
+              </button>
               <span class="text-muted small" *ngIf="historiaHc?.updatedAt">
                 Actualizada el {{ historiaHc?.updatedAt | date:'d MMM yyyy, HH:mm' }}
               </span>

@@ -18,6 +18,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
 import { HistoriaClinicaService } from '../../../historia-clinica/Services/historia.service';
 import { HcCampo, HcPlantilla, HistoriaClinica } from '../../../historia-clinica/Models/historia.model';
 import { ArchivoService, Archivo } from '../../../../core/services/archivo.service';
+import { CatalogService } from '../../../../core/services/catalog.service';
 
 type TabPerfilKey = 'datos' | 'historia' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
@@ -67,7 +68,8 @@ export class PerfilPacienteComponent implements OnInit {
   ,
     private authService: AuthService,
     private historiaService: HistoriaClinicaService,
-    private archivoService: ArchivoService) {}
+    private archivoService: ArchivoService,
+    private catalogService: CatalogService) {}
 
   // ── Historia clínica ───────────────────────────────────────────────────────
   // Los campos los define una plantilla configurable (Configuraciones > Historia clínica),
@@ -89,9 +91,53 @@ export class PerfilPacienteComponent implements OnInit {
   subiendoHc = false;
   maxMbHc = 10;
 
+  /**
+   * Ids de los tipos de terapia en los que este paciente tiene citas.
+   *
+   * Se resuelven cruzando la KEY que trae la cita con el catálogo: el DTO de cita no manda el
+   * id del tipo de terapia (el front le pone 1 por defecto), así que filtrar por ese id daría
+   * siempre el mismo resultado sin que se note.
+   */
+  private tiposTerapiaDelPaciente = new Set<number>();
+  /** El usuario puede pedir ver todas las fichas, no solo las de sus disciplinas. */
+  mostrarTodasLasFichas = false;
+
+  /**
+   * Fichas que tiene sentido ofrecer para este paciente: las genéricas, las de las disciplinas
+   * en las que se atiende, y las que ya tienen datos cargados (una ficha con contenido no se
+   * esconde aunque el paciente ya no tenga citas de ese tipo).
+   */
+  get plantillasHcVisibles(): HcPlantilla[] {
+    if (this.mostrarTodasLasFichas) return this.plantillasHc;
+    return this.plantillasHc.filter(p =>
+      !p.tipoTerapia
+      || this.tiposTerapiaDelPaciente.has(p.tipoTerapia.id)
+      || this.historiasHc.some(h => h.plantilla?.id === p.id));
+  }
+
+  /** Cuántas quedan fuera del filtro — para ofrecer verlas sin sorprender al usuario. */
+  get fichasOcultas(): number {
+    return this.plantillasHc.length - this.plantillasHcVisibles.length;
+  }
+
+  alternarTodasLasFichas(): void {
+    this.mostrarTodasLasFichas = !this.mostrarTodasLasFichas;
+  }
+
   private cargarHistoria(): void {
     if (!this.puedeVerHistoria || !this.paciente?.id) return;
     this.cargandoHc = true;
+    // Las disciplinas del paciente salen de sus citas, cruzando la key con el catálogo.
+    this.catalogService.getTiposTerapia().subscribe({
+      next: tipos => {
+        const keysDelPaciente = new Set(
+          this.citas.map(c => (c.tipo_terapia_key ?? '').toUpperCase()).filter(k => k));
+        this.tiposTerapiaDelPaciente = new Set(
+          tipos.filter(t => keysDelPaciente.has((t.key ?? '').toUpperCase())).map(t => t.id));
+        this.ajustarFichaSeleccionada();
+      },
+      error: () => {}
+    });
     forkJoin({
       // Solo las de HISTORIA: las de ATENCION se usan en el modal de la sesión, no acá.
       plantillas: this.historiaService.getPlantillas('HISTORIA').pipe(catchError(() => of([] as HcPlantilla[]))),
@@ -101,6 +147,7 @@ export class PerfilPacienteComponent implements OnInit {
       this.historiasHc = historias;
       // Arranca en la ficha que el paciente ya tenga; si no tiene ninguna, en la primera plantilla.
       this.plantillaHcId = historias[0]?.plantilla?.id ?? plantillas[0]?.id ?? null;
+      this.ajustarFichaSeleccionada();
       this.cargarValoresHc();
       this.cargandoHc = false;
     });
@@ -118,6 +165,16 @@ export class PerfilPacienteComponent implements OnInit {
   }
 
   onPlantillaHcChange(): void { this.cargarValoresHc(); }
+
+  /** Si la ficha elegida quedó fuera del filtro, se pasa a la primera visible. */
+  private ajustarFichaSeleccionada(): void {
+    const visibles = this.plantillasHcVisibles;
+    if (visibles.length === 0) return;
+    if (!visibles.some(p => p.id === this.plantillaHcId)) {
+      this.plantillaHcId = visibles[0].id ?? null;
+      this.cargarValoresHc();
+    }
+  }
 
   private cargarValoresHc(): void {
     const guardada = this.historiaHc;
