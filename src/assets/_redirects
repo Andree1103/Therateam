@@ -1,17 +1,19 @@
-# Rutas de la app con parametro (/pacientes/3404, /citas/99...): no existen como archivo, las
+# Reglas de reescritura para Cloudflare Pages.
+#
+# OJO: hoy NO parece que Cloudflare las este aplicando en este proyecto. Se probo con el comodin
+# global (/*) y con una regla por modulo, y en los dos casos /pacientes/3451 devolvia 404. Quien
+# resuelve hoy los enlaces directos es 404.html, que el build genera como copia de la aplicacion
+# (ver scripts/generar-404.mjs). Este archivo se conserva porque, si en algun momento las reglas
+# si se aplican, el enlace directo responde 200 en vez de 404, que es mas correcto.
+#
+# La linea de prueba de abajo sirve para salir de dudas sin adivinar: si despues de desplegar
+#   curl -o /dev/null -w "%{http_code}" https://therateam.pages.dev/zzz-prueba-redirects
+# responde 200, Cloudflare SI lee este archivo; si responde 404, no lo lee.
+/zzz-prueba-redirects   /index.html  200
+
+# Rutas de la app con parametro (/pacientes/3451, /citas/99...): no existen como archivo, las
 # resuelve el router de Angular sobre index.html.
-#
-# Van una por una y NO con un comodin global a proposito. Un /* generico tambien capturaria el
-# pedido de un chunk .js que ya no existe (pestana abierta con la version anterior) y le
-# devolveria index.html: el navegador lo rechaza con "Expected a JavaScript-or-Wasm module
-# script but the server responded with MIME type text/html", que no dice nada util. Dejando
-# fuera esos pedidos, Cloudflare responde su 404.html y el error se entiende.
-#
-# OJO: Cloudflare Pages solo admite el splat al FINAL de la ruta. La version anterior de este
-# archivo empezaba con reglas tipo "/*.js /404.html 404" y Cloudflare las leia como "/*", asi
-# que TODA ruta con parametro terminaba en el 404.html. De ahi el "No se encontro el archivo"
-# al abrir el perfil de un paciente.
-#
+# Cloudflare Pages solo admite el splat al FINAL de la ruta, por eso va una linea por modulo.
 # Al agregar un modulo nuevo en app.routes.ts, agregar aqui su linea.
 /dashboard/*            /index.html  200
 /citas/*                /index.html  200

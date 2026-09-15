@@ -5,10 +5,11 @@
     "ng": "ng",
     "start": "ng serve",
     "start:dev": "ng serve --configuration dev-remote",
-    "build": "ng build",
+    "build": "ng build && node scripts/generar-404.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:therateam": "node dist/therateam/server/server.mjs"
+    "serve:ssr:therateam": "node dist/therateam/server/server.mjs",
+    "build:prod": "ng build --configuration production && node scripts/generar-404.mjs"
   },
   "private": true,
   "dependencies": {
