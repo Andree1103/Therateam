@@ -278,7 +278,10 @@ export class ListaPacientesComponent implements OnInit {
         }
         this.guardando = false;
       },
-      error: () => { this.toast.error('Error al guardar el paciente'); this.guardando = false; }
+      // El back explica el motivo cuando lo sabe (DNI ya usado por otro paciente, apoderado
+      // obligatorio en un menor...). Tragarse ese texto y mostrar siempre "Error al guardar"
+      // dejaba a recepción adivinando qué campo corregir.
+      error: (err) => { this.toast.error(err?.error?.error || 'Error al guardar el paciente'); this.guardando = false; }
     });
   }
 
