@@ -228,6 +228,74 @@
           <textarea [(ngModel)]="formData.notas" name="notas" rows="2" placeholder="Observaciones adicionales..."></textarea>
         </div>
 
+        <!-- ── Horario fijo (opcional) ──────────────────────────────────────────────
+             Es una anotacion de referencia: no reserva el espacio ni crea las citas.
+             Se dice explicitamente en pantalla para que nadie de por hecho que ya quedo
+             agendado. -->
+        <div class="hf-bloque">
+          <div class="hf-cabecera">
+            <div>
+              <strong>Horario fijo</strong>
+              <span class="hf-opcional">opcional</span>
+            </div>
+            <p class="hf-nota">Deja anotado a qué hora suele venir. No agenda las citas — solo queda como referencia.</p>
+          </div>
+
+          <table class="hf-tabla" *ngIf="horariosFijos.length > 0">
+            <thead>
+              <tr>
+                <th>Terapeuta</th>
+                <th>Terapia</th>
+                <th>Día y hora</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let h of horariosFijos; let i = index">
+                <td>{{ nombreTerapeuta(h.terapeutaId) }}</td>
+                <td>{{ nombreTipoTerapia(h.tipoTerapiaId) }}</td>
+                <td>{{ DIAS[h.diaSemana] }} · {{ h.horaInicio }}<span *ngIf="h.horaFin"> – {{ h.horaFin }}</span></td>
+                <td class="hf-acciones">
+                  <button type="button" class="hf-quitar" (click)="quitarHorarioFijo(i)" title="Quitar">×</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="hf-alta">
+            <select [(ngModel)]="hfTerapeutaId" name="hfTerapeutaId" (ngModelChange)="alCambiarTerapeutaHF()">
+              <option [ngValue]="null">Terapeuta…</option>
+              <option *ngFor="let t of terapeutas" [ngValue]="t.id">{{ nombreTerapeuta(t.id) }}</option>
+            </select>
+
+            <select [(ngModel)]="hfTipoTerapiaId" name="hfTipoTerapiaId">
+              <option [ngValue]="null">Terapia…</option>
+              <option *ngFor="let tt of tiposTerapia" [ngValue]="tt.id">{{ tt.nombre }}</option>
+            </select>
+
+            <select [(ngModel)]="hfDiaSemana" name="hfDiaSemana" (ngModelChange)="alCambiarDiaHF()">
+              <option [ngValue]="null">Día…</option>
+              <!-- Solo los dias que el terapeuta realmente trabaja: elegir un dia que no atiende
+                   es un error que no tiene por que llegar a guardarse. -->
+              <option *ngFor="let d of diasDelTerapeuta()" [ngValue]="d">{{ DIAS[d] }}</option>
+            </select>
+
+            <select [(ngModel)]="hfHoraInicio" name="hfHoraInicio">
+              <option [ngValue]="null">Hora…</option>
+              <!-- Las horas salen del horario real del terapeuta ese dia. -->
+              <option *ngFor="let hora of horasDelTerapeuta()" [ngValue]="hora">{{ hora }}</option>
+            </select>
+
+            <button type="button" class="hf-agregar" (click)="agregarHorarioFijo()"
+                    [disabled]="!hfTerapeutaId || !hfDiaSemana || !hfHoraInicio">Agregar</button>
+          </div>
+
+          <p class="hf-aviso" *ngIf="hfTerapeutaId && diasDelTerapeuta().length === 0">
+            {{ nombreTerapeuta(hfTerapeutaId) }} no tiene horario cargado. Configúralo en Terapeutas.
+          </p>
+          <p class="hf-aviso" *ngIf="hfError">{{ hfError }}</p>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn-primary" [disabled]="guardando || form.invalid">

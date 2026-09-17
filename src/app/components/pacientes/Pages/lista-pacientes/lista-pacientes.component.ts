@@ -7,6 +7,13 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
 import { Paciente, PacienteForm } from '../../Models/paciente.model';
 import { CatalogItem, Sede } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
+import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
+import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
+import { Terapeuta } from '../../../terapeutas/Models/terapeuta.model';
+import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
+import { HorarioFijo, HorarioFijoRequest, DIAS_SEMANA, soloHoraYMinuto } from '../../Models/horario-fijo.model';
 
 @Component({
   selector: 'app-lista-pacientes',
@@ -60,7 +67,9 @@ export class ListaPacientesComponent implements OnInit {
     private catalogService: CatalogService,
     private toast: ToastService,
     private authService: AuthService,
-    private excelExportService: ExcelExportService
+    private excelExportService: ExcelExportService,
+    private terapeutaService: TerapeutaService,
+    private terapeutaHorarioService: TerapeutaHorarioService
   ) {}
 
   /** Exporta TODOS los pacientes que cumplen los filtros activos (no solo la página visible). */
@@ -159,6 +168,17 @@ export class ListaPacientesComponent implements OnInit {
     const listo = () => { if (--pendientes === 0) this.cargandoCatalogos = false; };
     this.catalogService.getSedes().subscribe(d => { this.sedes = d; listo(); });
     this.catalogService.getOrigenes().subscribe(d => { this.origenes = d; listo(); });
+
+    // Lo que alimenta el bloque de horario fijo. No cuenta para `cargandoCatalogos` porque ese
+    // flag bloquea sede y origen, que son obligatorios: el horario fijo es opcional y no debe
+    // impedir crear un paciente si algo de esto falla.
+    this.terapeutaService.getAll().pipe(catchError(() => of([] as Terapeuta[])))
+      .subscribe(d => this.terapeutas = d);
+    this.catalogService.getTiposTerapia().pipe(catchError(() => of([] as CatalogItem[])))
+      .subscribe(d => this.tiposTerapia = d);
+    // Todos los horarios en una peticion: pedirlos por terapeuta serian N llamadas al abrir.
+    this.terapeutaHorarioService.getAll().pipe(catchError(() => of([] as TerapeutaHorario[])))
+      .subscribe(d => this.horariosTerapeutas = d);
   }
 
   cargar(): void {
@@ -212,6 +232,7 @@ export class ListaPacientesComponent implements OnInit {
     if (!this.puedeCrear) return;
     this.editando = null;
     this.formData = this.emptyForm();
+    this.limpiarHorarioFijo();
     this.modalAbierto = true;
   }
 
@@ -233,6 +254,20 @@ export class ListaPacientesComponent implements OnInit {
       sedeId:            p.sede?.id          ?? null,
       origenId:          p.origen?.id        ?? null,
     };
+    this.limpiarHorarioFijo();
+    if (p.id) {
+      this.pacienteService.getHorariosFijos(p.id).pipe(catchError(() => of([] as HorarioFijo[])))
+        .subscribe(lista => {
+          this.horariosFijos = lista.map(h => ({
+            terapeutaId:   h.terapeuta?.id as number,
+            tipoTerapiaId: h.tipoTerapia?.id ?? null,
+            diaSemana:     h.diaSemana,
+            horaInicio:    soloHoraYMinuto(h.horaInicio),
+            horaFin:       h.horaFin ? soloHoraYMinuto(h.horaFin) : null,
+            notas:         h.notas ?? null,
+          }));
+        });
+    }
     this.modalAbierto = true;
   }
 
@@ -252,6 +287,137 @@ export class ListaPacientesComponent implements OnInit {
 
   cerrarModal(): void { this.modalAbierto = false; }
 
+  /**
+   * Manda el horario fijo una vez que el paciente ya existe.
+   *
+   * Al crear solo se llama si hay algo que guardar: una lista vacía borraría, y en un paciente
+   * nuevo no hay nada que borrar. Al editar sí se manda vacía, porque quitar todas las líneas es
+   * precisamente cómo se le sacan los horarios.
+   */
+  private guardarHorarioFijoDe(paciente: Paciente, esEdicion: boolean): void {
+    if (!paciente?.id) return;
+    if (!esEdicion && this.horariosFijos.length === 0) return;
+    this.pacienteService.guardarHorariosFijos(paciente.id, this.horariosFijos).subscribe({
+      error: (err) => this.toast.warning(
+        (err?.error?.error || 'No se pudo guardar el horario fijo') + ' — el paciente sí quedó guardado.')
+    });
+  }
+
+  // ── Horario fijo del paciente (opcional) ──────────────────────────────────
+  // Es una anotacion de referencia: no reserva el espacio en la agenda ni genera citas. Sirve
+  // para saber si el paciente tiene horarios fijos, en que terapias y con que terapeutas.
+  //
+  // Se edita como borrador en memoria y se manda de una sola vez al guardar el paciente, porque
+  // al crearlo todavia no hay id contra el cual colgar los horarios.
+
+  readonly DIAS = DIAS_SEMANA;
+
+  terapeutas: Terapeuta[] = [];
+  tiposTerapia: CatalogItem[] = [];
+  /** Horario semanal de TODOS los terapeutas, de una sola peticion. */
+  private horariosTerapeutas: TerapeutaHorario[] = [];
+
+  horariosFijos: HorarioFijoRequest[] = [];
+  hfTerapeutaId: number | null = null;
+  hfTipoTerapiaId: number | null = null;
+  hfDiaSemana: number | null = null;
+  hfHoraInicio: string | null = null;
+  hfError = '';
+
+  nombreTerapeuta(id?: number | null): string {
+    if (!id) return '—';
+    const t = this.terapeutas.find(x => x.id === id);
+    if (!t) return `Terapeuta #${id}`;
+    const nombre = `${t.nombre ?? t.usuario?.nombre ?? ''} ${t.apellido ?? t.usuario?.apellido ?? ''}`.trim();
+    return nombre || `Terapeuta #${id}`;
+  }
+
+  nombreTipoTerapia(id?: number | null): string {
+    return this.tiposTerapia.find(t => t.id === id)?.nombre ?? '—';
+  }
+
+  /** Los dias que el terapeuta elegido realmente trabaja, en orden. */
+  diasDelTerapeuta(): number[] {
+    if (!this.hfTerapeutaId) return [];
+    const dias = this.horariosTerapeutas
+      .filter(h => this.idDelHorario(h) === this.hfTerapeutaId && h.activo)
+      .map(h => h.diaSemana);
+    return [...new Set(dias)].sort((a, b) => a - b);
+  }
+
+  /**
+   * Las horas en punto y media dentro de la jornada del terapeuta ese dia. Se generan a partir
+   * de su horario real en vez de ofrecer un reloj completo: elegir una hora en la que no atiende
+   * es un error que no tiene por que llegar a guardarse.
+   */
+  horasDelTerapeuta(): string[] {
+    if (!this.hfTerapeutaId || !this.hfDiaSemana) return [];
+    const bloques = this.horariosTerapeutas.filter(
+      h => this.idDelHorario(h) === this.hfTerapeutaId && h.diaSemana === this.hfDiaSemana && h.activo);
+    const horas = new Set<string>();
+    for (const b of bloques) {
+      for (let m = this.aMinutos(b.horaInicio); m < this.aMinutos(b.horaFin); m += 30) {
+        horas.add(this.aTexto(m));
+      }
+    }
+    return [...horas].sort();
+  }
+
+  alCambiarTerapeutaHF(): void { this.hfDiaSemana = null; this.hfHoraInicio = null; this.hfError = ''; }
+  alCambiarDiaHF(): void { this.hfHoraInicio = null; this.hfError = ''; }
+
+  agregarHorarioFijo(): void {
+    if (!this.hfTerapeutaId || !this.hfDiaSemana || !this.hfHoraInicio) return;
+    // El mismo terapeuta, dia y hora dos veces choca con el UNIQUE de la tabla; se avisa aqui
+    // en vez de dejar que el guardado falle con un mensaje generico.
+    const repetido = this.horariosFijos.some(h =>
+      h.terapeutaId === this.hfTerapeutaId && h.diaSemana === this.hfDiaSemana && h.horaInicio === this.hfHoraInicio);
+    if (repetido) {
+      this.hfError = 'Ese horario ya está en la lista.';
+      return;
+    }
+    this.horariosFijos.push({
+      terapeutaId:   this.hfTerapeutaId,
+      tipoTerapiaId: this.hfTipoTerapiaId,
+      diaSemana:     this.hfDiaSemana,
+      horaInicio:    this.hfHoraInicio,
+      horaFin:       null,
+    });
+    this.horariosFijos.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
+    this.hfDiaSemana = null;
+    this.hfHoraInicio = null;
+    this.hfError = '';
+  }
+
+  quitarHorarioFijo(i: number): void {
+    this.horariosFijos.splice(i, 1);
+    this.hfError = '';
+  }
+
+  private limpiarHorarioFijo(): void {
+    this.horariosFijos = [];
+    this.hfTerapeutaId = null;
+    this.hfTipoTerapiaId = null;
+    this.hfDiaSemana = null;
+    this.hfHoraInicio = null;
+    this.hfError = '';
+  }
+
+  /** El horario puede venir con el terapeuta anidado o como id plano, segun el endpoint. */
+  private idDelHorario(h: TerapeutaHorario): number | undefined {
+    return h.terapeuta?.id ?? h.terapeutaId;
+  }
+
+  private aMinutos(hora: string): number {
+    const [h, m] = hora.split(':').map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  private aTexto(minutos: number): string {
+    const h = Math.floor(minutos / 60), m = minutos % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
     if (this.esMenorDeEdad && (!this.formData.dniApoderado.trim() || !this.formData.nombreApoderado.trim() || !this.formData.celularApoderado.trim())) {
@@ -267,6 +433,10 @@ export class ListaPacientesComponent implements OnInit {
     op$.subscribe({
       next: actualizado => {
         this.toast.success(esEdicion ? 'Paciente actualizado correctamente' : 'Paciente creado correctamente');
+        // El horario fijo va en una segunda llamada: al crear todavía no existe el id contra el
+        // cual colgarlo. Va después del toast de éxito a propósito — el paciente ya quedó
+        // guardado, y si esto falla no se debe dar a entender lo contrario.
+        this.guardarHorarioFijoDe(actualizado, esEdicion);
         this.cerrarModal();
         // Editar solo cambia campos de una fila ya visible: se actualiza en el array local, sin
         // volver a pedirle la página entera al back. Crear sí necesita recargar (posición según orden/filtro).
