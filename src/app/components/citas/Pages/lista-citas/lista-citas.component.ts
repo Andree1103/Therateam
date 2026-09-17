@@ -367,20 +367,67 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   // ── Exportar a Excel ─────────────────────────────────────────────────────
   // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
   // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
+  // ── Exportar con rango de fechas ──────────────────────────────────────────
+  // El rango es del EXCEL, no de la pantalla: la agenda sigue mostrando su semana. Antes el
+  // excel salía de `this.citas`, o sea de lo que estuviera cargado en memoria, y no había forma
+  // de bajar un mes entero sin ir semana por semana.
+  modalExportarCitas = false;
+  exportDesde = '';
+  exportHasta = '';
+  exportandoCitas = false;
+
+  abrirExportarCitas(): void {
+    // Arranca con la semana que se está viendo, que es lo que se esperaría al pulsar Exportar.
+    if (this.diasSemana.length === 7) {
+      this.exportDesde = this.fechaToISO(this.diasSemana[0].fecha);
+      this.exportHasta = this.fechaToISO(this.diasSemana[6].fecha);
+    }
+    this.modalExportarCitas = true;
+  }
+
+  cerrarExportarCitas(): void { this.modalExportarCitas = false; }
+
+  get rangoExportCitasInvalido(): boolean {
+    return !this.exportDesde || !this.exportHasta || this.exportDesde > this.exportHasta;
+  }
+
+  /** La semana visible (lo que se ve) o el mes completo de esa semana — los dos casos de siempre. */
+  rangoExportSemana(): void {
+    if (this.diasSemana.length !== 7) return;
+    this.exportDesde = this.fechaToISO(this.diasSemana[0].fecha);
+    this.exportHasta = this.fechaToISO(this.diasSemana[6].fecha);
+  }
+
+  rangoExportMes(): void {
+    const ref = this.diasSemana.length ? this.diasSemana[0].fecha : new Date();
+    this.exportDesde = this.fechaToISO(new Date(ref.getFullYear(), ref.getMonth(), 1));
+    this.exportHasta = this.fechaToISO(new Date(ref.getFullYear(), ref.getMonth() + 1, 0));
+  }
+
   exportarExcel(): void {
-    // El rango se vuelve a aplicar aquí aunque cargarCitas() ya solo traiga la semana visible:
-    // es lo que garantiza que el excel coincida con lo que se ve, sin depender de cómo se
-    // cargaron los datos.
-    const desde = this.diasSemana.length ? this.fechaToISO(this.diasSemana[0].fecha) : null;
-    const hasta = this.diasSemana.length ? this.fechaToISO(this.diasSemana[6].fecha) : null;
-    const filas = this.citas
-      .filter(c => {
-        if (!desde || !hasta) return true;
-        const dia = this.fechaToISO(new Date(c.fecha_inicio));
-        return dia >= desde && dia <= hasta;
-      })
-      .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
-      .filter(c => this.pasaFiltrosAgenda(c))
+    if (this.rangoExportCitasInvalido) {
+      this.toast.warning('Elige un rango válido: la fecha inicial no puede ser posterior a la final.');
+      return;
+    }
+    const desde = this.exportDesde;
+    const hasta = this.exportHasta;
+    const f = this.filtrosAgendaParaElBack();
+    if (!f) return;
+
+    // Se piden al servidor en vez de usar `this.citas`: en memoria solo está la semana visible,
+    // así que exportar octubre desde la semana del 5 habría traído siete días y nada más.
+    this.exportandoCitas = true;
+    const inicio = new Date(`${desde}T00:00:00`);
+    const fin    = new Date(`${hasta}T23:59:59`);
+    this.citaService.getCitasAgenda({ ...f, desde: inicio, hasta: fin }).subscribe({
+      next: citas => { this.exportandoCitas = false; this.construirExcelCitas(citas, desde, hasta); },
+      error: ()    => { this.exportandoCitas = false; this.toast.error('Error al exportar las citas'); }
+    });
+  }
+
+  private construirExcelCitas(citas: Cita[], desde: string, hasta: string): void {
+    const filas = citas
+      .slice()
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
       .map(c => ({
         'Fecha': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
@@ -402,10 +449,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Usuario creación': c.usuario_creacion_nombre ?? '',
       }));
     if (filas.length === 0) {
-      this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
+      this.toast.warning('No hay citas para exportar en ese rango con los filtros actuales');
       return;
     }
-    this.excelExportService.exportar(filas, desde && hasta ? `citas_${desde}_a_${hasta}` : 'citas');
+    this.cerrarExportarCitas();
+    this.excelExportService.exportar(filas, `citas_${desde}_a_${hasta}`);
+    this.toast.success(`${filas.length} cita(s) exportadas`);
   }
 
   ngOnInit(): void {
