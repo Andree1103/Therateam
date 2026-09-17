@@ -278,8 +278,17 @@ export class CitaService {
     };
   }
 
+  /**
+   * Fecha y hora tal como se ven en pantalla, sin zona.
+   *
+   * Antes esto hacía `toISOString()`, que pasa a UTC: en Perú (UTC-5) pedir la semana desde el
+   * lunes a las 00:00 salía como "T05:00:00" y el rango quedaba corrido cinco horas. El back
+   * recibe un LocalDateTime y lo compara contra citas.fecha_inicio, que está en hora local, así
+   * que el desfase no se compensaba en ningún lado. No se notaba porque la agenda solo dibuja de
+   * 07:00 a 22:00, pero el rango que se pedía nunca fue el que se veía.
+   */
   private toISOLocal(d: Date): string {
-    return d.toISOString().slice(0, 19);
+    return this.toLocalDateTime(d);
   }
 
   private toLocalDateTime(d: Date): string {

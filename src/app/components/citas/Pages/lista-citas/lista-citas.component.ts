@@ -356,9 +356,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
   // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
   exportarExcel(): void {
-    // getCitas() trae todo el histórico y la semana se recorta recién al pintar la grilla, así
-    // que aquí hay que aplicar el rango a mano — si no, el excel sale con todas las citas de
-    // siempre aunque en pantalla se vea una sola semana.
+    // El rango se vuelve a aplicar aquí aunque cargarCitas() ya solo traiga la semana visible:
+    // es lo que garantiza que el excel coincida con lo que se ve, sin depender de cómo se
+    // cargaron los datos.
     const desde = this.diasSemana.length ? this.fechaToISO(this.diasSemana[0].fecha) : null;
     const hasta = this.diasSemana.length ? this.fechaToISO(this.diasSemana[6].fecha) : null;
     const filas = this.citas
@@ -558,6 +558,13 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return c.estado !== 'CANCELADA_PACIENTE' && c.estado !== 'CANCELADA_CLINICA';
   }
 
+  /**
+   * Choques con lo que ya está cargado, es decir la SEMANA VISIBLE. Es un aviso temprano para no
+   * mandar al servidor algo que va a rebotar, no la validación de verdad: quien decide es
+   * validarDisponibilidad() en el back, que mira toda la base y aplica el maxPacientes del tipo.
+   * Por eso agendar hacia otra semana desde el modal sigue siendo seguro aunque aquí no se vea
+   * el choque — lo rechaza el servidor con su mensaje.
+   */
   private citasSolapadas(terapeutaNombreStr: string, inicio: Date, fin: Date, excluirId?: string): Cita[] {
     return this.citas.filter(c => {
       if (!this.ocupaCupo(c)) return false;
@@ -761,16 +768,39 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.weekLabel = `${this.fechaInicioSemana.toLocaleDateString('es-PE', opts)} – ${this.diasSemana[6].fecha.toLocaleDateString('es-PE', opts)}`;
   }
 
+  /**
+   * Rango de la semana visible, de lunes 00:00 a domingo 23:59:59.
+   *
+   * La agenda pedía `/api/citas?size=1000`: las 1000 PRIMERAS por fecha, sin rango. Al pasar de
+   * 1000 citas en la base, todo lo posterior al corte dejaba de llegar al navegador y la semana
+   * salía vacía aunque las citas existieran — se veían en el perfil del paciente, que usa otro
+   * endpoint sin tope. Con 1092 citas en producción el corte cayó en el 1-oct-2026, y por eso
+   * octubre aparecía en blanco. Además empeoraba solo: cada cita nueva adelantaba el corte.
+   */
+  private rangoSemanaVisible(): { desde: Date; hasta: Date } | null {
+    if (this.diasSemana.length < 7) return null;
+    const desde = new Date(this.diasSemana[0].fecha);
+    desde.setHours(0, 0, 0, 0);
+    const hasta = new Date(this.diasSemana[6].fecha);
+    hasta.setHours(23, 59, 59, 0);
+    return { desde, hasta };
+  }
+
   cargarCitas(): void {
+    const rango = this.rangoSemanaVisible();
+    if (!rango) return;
     this.loading = true;
-    this.citaService.getCitas().subscribe({
+    this.citaService.getCitas({ fechaInicio: rango.desde, fechaFin: rango.hasta }).subscribe({
       next: citas => { this.citas = citas; this.loading = false; },
       error: ()    => { this.loading = false; }
     });
   }
 
   private recargarSilencioso(): void {
-    this.citaService.getCitas().subscribe({ next: citas => { this.citas = citas; } });
+    const rango = this.rangoSemanaVisible();
+    if (!rango) return;
+    this.citaService.getCitas({ fechaInicio: rango.desde, fechaFin: rango.hasta })
+      .subscribe({ next: citas => { this.citas = citas; } });
   }
 
   // ── Filtro de terapeutas ────────────────────────────────────────────────────
