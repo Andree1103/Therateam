@@ -380,6 +380,38 @@ export class ListaPacientesComponent implements OnInit {
     this.hfError = '';
   }
 
+  /**
+   * Lo ya agregado, agrupado por tipo de terapia.
+   *
+   * Es como se piensa el horario de un paciente: "Física lunes, miércoles y viernes; Psicología
+   * los martes". En una lista plana esa estructura había que reconstruirla leyendo terapia por
+   * terapia en cada chip.
+   *
+   * Se arrastra el índice original de cada línea porque quitarHorarioFijo() trabaja sobre el
+   * array plano: sin él, borrar desde un grupo eliminaría la fila equivocada.
+   */
+  horariosAgrupados(): { tipoId: number | null; nombre: string; items: { h: HorarioFijoRequest; i: number }[] }[] {
+    const grupos = new Map<number | null, { h: HorarioFijoRequest; i: number }[]>();
+    this.horariosFijos.forEach((h, i) => {
+      const clave = h.tipoTerapiaId ?? null;
+      if (!grupos.has(clave)) grupos.set(clave, []);
+      grupos.get(clave)!.push({ h, i });
+    });
+    return [...grupos.entries()]
+      .map(([tipoId, items]) => ({
+        tipoId,
+        nombre: tipoId ? this.nombreTipoTerapia(tipoId) : 'Sin terapia definida',
+        items: items.sort((a, b) => a.h.diaSemana - b.h.diaSemana || a.h.horaInicio.localeCompare(b.h.horaInicio)),
+      }))
+      // "Sin terapia definida" al final: es el caso incompleto, no encabeza la lista.
+      .sort((a, b) => (a.tipoId === null ? 1 : b.tipoId === null ? -1 : a.nombre.localeCompare(b.nombre)));
+  }
+
+  /** Todo el grupo con el mismo terapeuta: entonces se nombra una vez y no en cada chip. */
+  mismoTerapeutaEnGrupo(items: { h: HorarioFijoRequest; i: number }[]): boolean {
+    return items.every(x => x.h.terapeutaId === items[0].h.terapeutaId);
+  }
+
   toggleDiaHF(d: number): void {
     const i = this.hfDias.indexOf(d);
     if (i >= 0) this.hfDias.splice(i, 1);

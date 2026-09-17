@@ -256,18 +256,35 @@
             <p class="hf-nota">A qué hora suele venir. No agenda las citas — queda como referencia.</p>
           </div>
 
-          <!-- Lo ya agregado, como chips: son pocas lineas y una tabla pesaba mas que el dato. -->
-          <div class="hf-chips" *ngIf="horariosFijos.length > 0">
-            <span class="hf-chip" *ngFor="let h of horariosFijos; let i = index">
-              <span class="hf-chip-dia">{{ DIAS_C[h.diaSemana] }}</span>
-              <span class="hf-chip-hora">{{ h.horaInicio }}</span>
-              <span class="hf-chip-sep">·</span>
-              <span class="hf-chip-ter">{{ nombreTerapeuta(h.terapeutaId) }}</span>
-              <span class="hf-chip-ter hf-chip-tip" *ngIf="h.tipoTerapiaId">· {{ nombreTipoTerapia(h.tipoTerapiaId) }}</span>
-              <button type="button" class="hf-chip-x" (click)="quitarHorarioFijo(i)" title="Quitar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </span>
+          <!-- Agrupado por tipo de terapia: es como se piensa el horario de un paciente ("Física
+               lunes, miércoles y viernes; Psicología los martes"). En una lista plana esa
+               estructura habia que reconstruirla leyendo la terapia en cada chip. -->
+          <div class="hf-grupos" *ngIf="horariosFijos.length > 0">
+            <div class="hf-grupo" *ngFor="let g of horariosAgrupados()">
+              <div class="hf-grupo-hdr">
+                <span class="hf-grupo-nom" [class.hf-grupo-sin]="g.tipoId === null">{{ g.nombre }}</span>
+                <span class="hf-grupo-n">{{ g.items.length }}×</span>
+              </div>
+              <div class="hf-chips">
+                <span class="hf-chip" *ngFor="let it of g.items">
+                  <span class="hf-chip-dia">{{ DIAS_C[it.h.diaSemana] }}</span>
+                  <span class="hf-chip-hora">{{ it.h.horaInicio }}</span>
+                  <!-- El terapeuta solo cuando aporta: dentro de una terapia suele ser siempre el
+                       mismo, y repetirlo en cada chip es ruido. -->
+                  <ng-container *ngIf="g.items.length === 1 || !mismoTerapeutaEnGrupo(g.items)">
+                    <span class="hf-chip-sep">·</span>
+                    <span class="hf-chip-ter">{{ nombreTerapeuta(it.h.terapeutaId) }}</span>
+                  </ng-container>
+                  <button type="button" class="hf-chip-x" (click)="quitarHorarioFijo(it.i)" title="Quitar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </span>
+              </div>
+              <!-- Cuando el terapeuta es el mismo en todo el grupo se dice una vez, abajo. -->
+              <div class="hf-grupo-ter" *ngIf="g.items.length > 1 && mismoTerapeutaEnGrupo(g.items)">
+                con {{ nombreTerapeuta(g.items[0].h.terapeutaId) }}
+              </div>
+            </div>
           </div>
 
           <!-- Los tres desplegables son buscadores: con muchos terapeutas y terapias, tener
