@@ -8,7 +8,7 @@
       <p *ngIf="vistaRestringida">{{ total }} paciente{{ total !== 1 ? 's' : '' }} con citas contigo</p>
     </div>
     <div style="display:flex;gap:8px">
-      <button *ngIf="puedeExportar" class="btn-secondary" [disabled]="exportando" (click)="abrirExportar()">
+      <button *ngIf="puedeExportar" class="btn-secondary" [disabled]="exportando" (click)="exportarExcel()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
       </button>
@@ -36,6 +36,15 @@
         <option value="true">Activos</option>
         <option value="false">Inactivos</option>
       </select>
+      <!-- Rango de fecha de ALTA. Es un filtro como los demas: acota la lista y, con ella, lo
+           que se exporta. Antes solo existia dentro del modal de exportar, asi que no habia
+           forma de VER en pantalla los pacientes nuevos de un rango, solo bajarlos. -->
+      <label class="rango-lbl">Alta:</label>
+      <input type="date" class="filter-sel filter-fecha" [(ngModel)]="filtroCreadoDesde"
+             [max]="filtroCreadoHasta || null" title="Alta desde">
+      <span class="rango-sep">–</span>
+      <input type="date" class="filter-sel filter-fecha" [(ngModel)]="filtroCreadoHasta"
+             [min]="filtroCreadoDesde || null" title="Alta hasta">
       <button class="btn-secondary" (click)="buscar()">Buscar</button>
       <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
     </div>
@@ -273,21 +282,24 @@
               <option *ngFor="let tt of tiposTerapia" [ngValue]="tt.id">{{ tt.nombre }}</option>
             </select>
 
-            <select [(ngModel)]="hfDiaSemana" name="hfDiaSemana" (ngModelChange)="alCambiarDiaHF()">
-              <option [ngValue]="null">Día…</option>
-              <!-- Solo los dias que el terapeuta realmente trabaja: elegir un dia que no atiende
-                   es un error que no tiene por que llegar a guardarse. -->
-              <option *ngFor="let d of diasDelTerapeuta()" [ngValue]="d">{{ DIAS[d] }}</option>
-            </select>
-
             <select [(ngModel)]="hfHoraInicio" name="hfHoraInicio">
               <option [ngValue]="null">Hora…</option>
-              <!-- Las horas salen del horario real del terapeuta ese dia. -->
+              <!-- Las horas salen del horario real del terapeuta, y con varios dias marcados solo
+                   las que atiende en TODOS ellos. -->
               <option *ngFor="let hora of horasDelTerapeuta()" [ngValue]="hora">{{ hora }}</option>
             </select>
+          </div>
 
+          <!-- Dias como pastillas y no un desplegable: el caso normal es "lunes, miercoles y
+               viernes a las 10", y con un selector de un solo dia eso eran tres pasadas.
+               Solo aparecen los dias que el terapeuta realmente trabaja. -->
+          <div class="hf-dias" *ngIf="hfTerapeutaId && diasDelTerapeuta().length > 0">
+            <button type="button" class="hf-dia" *ngFor="let d of diasDelTerapeuta()"
+                    [class.sel]="diaMarcadoHF(d)" (click)="toggleDiaHF(d)">{{ DIAS[d].slice(0, 3) }}</button>
             <button type="button" class="hf-agregar" (click)="agregarHorarioFijo()"
-                    [disabled]="!hfTerapeutaId || !hfDiaSemana || !hfHoraInicio">Agregar</button>
+                    [disabled]="!hfTerapeutaId || hfDias.length === 0 || !hfHoraInicio">
+              Agregar<span *ngIf="hfDias.length > 1"> {{ hfDias.length }} días</span>
+            </button>
           </div>
 
           <p class="hf-aviso" *ngIf="hfTerapeutaId && diasDelTerapeuta().length === 0">
@@ -311,44 +323,7 @@
   <!-- ── MODAL: exportar a Excel con rango de fechas de alta ──────────────── -->
   <!-- El rango es sobre la FECHA DE ALTA del paciente, no sobre sus citas: sirve para bajar
        cada día solo los pacientes nuevos. Vacío = todos, como antes. -->
-  <div class="modal-overlay" *ngIf="modalExportar">
-    <div class="modal modal-sm" (click)="$event.stopPropagation()">
-      <div class="modal-hdr">
-        <h2>Exportar pacientes</h2>
-        <button class="modal-close" (click)="cerrarExportar()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p class="text-muted" style="margin:0;font-size:12px">
-          Filtra por fecha de alta del paciente. Si dejas las fechas vacías se exportan todos los
-          que cumplan los filtros de la lista.
-        </p>
-        <div class="frow-2">
-          <div class="frow">
-            <label>Alta desde</label>
-            <input type="date" [(ngModel)]="exportDesde" [max]="exportHasta || null">
-          </div>
-          <div class="frow">
-            <label>Alta hasta</label>
-            <input type="date" [(ngModel)]="exportHasta" [min]="exportDesde || null">
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn-link" (click)="rangoExportRapido(0)">Hoy</button>
-          <button type="button" class="btn-link" (click)="rangoExportRapido(7)">Últimos 7 días</button>
-          <button type="button" class="btn-link" (click)="rangoExportRapido(30)">Últimos 30 días</button>
-          <button type="button" class="btn-link" (click)="limpiarRangoExport()">Sin rango</button>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" (click)="cerrarExportar()">Cancelar</button>
-        <button class="btn-primary" [disabled]="exportando || rangoExportInvalido" (click)="exportarExcel()">
-          {{ exportando ? 'Exportando...' : 'Exportar' }}
-        </button>
-      </div>
-    </div>
-  </div>
+
 
   <div class="modal-overlay" *ngIf="modalEliminar">
     <div class="modal modal-sm" (click)="$event.stopPropagation()">

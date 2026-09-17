@@ -121,3 +121,17 @@
 .hf-agregar:disabled{background:#cbd5e1;cursor:not-allowed}
 
 .hf-aviso{margin:8px 0 0;font-size:11.5px;color:#b45309}
+
+/* Dias del horario fijo como pastillas: el caso normal es marcar varios (lunes, miercoles y
+   viernes), y con un desplegable de un solo dia eso obligaba a repetir el gesto por cada uno. */
+.hf-dias{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.hf-dia{padding:6px 11px;font-size:12px;font-weight:600;border:1px solid #cbd5e1;border-radius:7px;
+        background:#fff;color:#64748b;cursor:pointer}
+.hf-dia:hover{border-color:#94a3b8;color:#475569}
+.hf-dia.sel{background:#185FA5;border-color:#185FA5;color:#fff}
+.hf-dias .hf-agregar{margin-left:auto}
+
+/* Rango de fecha de alta en la barra de filtros. */
+.rango-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#64748b}
+.rango-sep{color:#94a3b8}
+.filter-fecha{min-width:132px}

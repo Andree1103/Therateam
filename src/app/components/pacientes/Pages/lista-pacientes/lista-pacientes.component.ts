@@ -35,6 +35,9 @@ export class ListaPacientesComponent implements OnInit {
   filtroCorreo = '';
   filtroSedeId: number | null = null;
   filtroActivo = '';
+  // Rango de fecha de ALTA. Filtra la lista y, con ella, lo que se exporta.
+  filtroCreadoDesde = '';
+  filtroCreadoHasta = '';
 
   // ── Paginación server-side ───────────────────────────────────────────────
   readonly tamanioPaginaOpciones = [5, 10, 15, 20];
@@ -73,57 +76,26 @@ export class ListaPacientesComponent implements OnInit {
   ) {}
 
   /** Exporta TODOS los pacientes que cumplen los filtros activos (no solo la página visible). */
-  // ── Exportar a Excel con rango de fecha de ALTA del paciente ──────────────
-  // El rango es opcional: vacio exporta todo lo que cumpla los filtros de la lista, que es
-  // como funcionaba antes. Sirve para bajar cada dia solo los pacientes nuevos.
-  modalExportar = false;
-  exportDesde = '';
-  exportHasta = '';
-
-  abrirExportar(): void { this.modalExportar = true; }
-  cerrarExportar(): void { this.modalExportar = false; }
-
-  get rangoExportInvalido(): boolean {
-    return !!(this.exportDesde && this.exportHasta && this.exportDesde > this.exportHasta);
-  }
-
-  /** Fecha local (no UTC): toISOString() adelanta el dia en Peru (UTC-5) cerca de medianoche. */
-  private fechaLocalISO(d: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
-
-  /** Atajos del modal: 0 = hoy, N = los ultimos N dias contando hoy. */
-  rangoExportRapido(dias: number): void {
-    const hoy = new Date();
-    const desde = new Date();
-    if (dias > 0) desde.setDate(desde.getDate() - dias);
-    this.exportDesde = this.fechaLocalISO(desde);
-    this.exportHasta = this.fechaLocalISO(hoy);
-  }
-
-  limpiarRangoExport(): void { this.exportDesde = ''; this.exportHasta = ''; }
-
+  /**
+   * Exporta lo que dicen los filtros de la lista, sin preguntar nada.
+   *
+   * El rango de fecha de alta vivía dentro de un modal de exportación: había que abrirlo para
+   * elegirlo y no se podía VER en pantalla a los pacientes de ese rango, solo bajarlos. Ahora es
+   * un filtro más de la barra, así que exportar es un clic y siempre coincide con la lista.
+   *
+   * Se piden de nuevo al servidor con los mismos filtros porque la pantalla muestra una página
+   * de 10 y el excel tiene que traer todo lo que cumple, no solo lo que se ve.
+   */
   exportarExcel(): void {
-    if (this.rangoExportInvalido) {
+    if (this.rangoAltaInvalido) {
       this.toast.warning('La fecha inicial no puede ser posterior a la final');
       return;
     }
     this.exportando = true;
-    const filtros: PacienteFiltros = {
-      nombre: this.filtroNombre,
-      dni: this.filtroDni,
-      correo: this.filtroCorreo,
-      sedeId: this.filtroSedeId,
-      activo: this.filtroActivo === '' ? null : this.filtroActivo === 'true',
-      creadoDesde: this.exportDesde || null,
-      creadoHasta: this.exportHasta || null,
-    };
-    this.pacienteService.getAllPaged(0, 10000, filtros).subscribe({
+    this.pacienteService.getAllPaged(0, 10000, this.filtrosActuales()).subscribe({
       next: res => {
         this.exportando = false;
         if (res.content.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
-        this.modalExportar = false;
         const filas = res.content.map(p => ({
           'Nombre': p.nombre,
           'Apellido': p.apellido,
@@ -141,8 +113,8 @@ export class ListaPacientesComponent implements OnInit {
           'Fecha de alta': p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-PE') : '',
           'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
-        const sufijo = this.exportDesde || this.exportHasta
-          ? `_altas_${this.exportDesde || 'inicio'}_a_${this.exportHasta || 'hoy'}` : '';
+        const sufijo = this.filtroCreadoDesde || this.filtroCreadoHasta
+          ? `_altas_${this.filtroCreadoDesde || 'inicio'}_a_${this.filtroCreadoHasta || 'hoy'}` : '';
         this.excelExportService.exportar(filas, `pacientes${sufijo}`);
       },
       error: () => { this.exportando = false; this.toast.error('Error al exportar pacientes'); }
@@ -181,16 +153,30 @@ export class ListaPacientesComponent implements OnInit {
       .subscribe(d => this.horariosTerapeutas = d);
   }
 
-  cargar(): void {
-    this.loading = true;
-    const filtros: PacienteFiltros = {
+  get rangoAltaInvalido(): boolean {
+    return !!(this.filtroCreadoDesde && this.filtroCreadoHasta && this.filtroCreadoDesde > this.filtroCreadoHasta);
+  }
+
+  /** Un solo sitio donde se arman los filtros, para que la lista y el excel no puedan divergir. */
+  private filtrosActuales(): PacienteFiltros {
+    return {
       nombre: this.filtroNombre,
       dni: this.filtroDni,
       correo: this.filtroCorreo,
       sedeId: this.filtroSedeId,
       activo: this.filtroActivo === '' ? null : this.filtroActivo === 'true',
+      creadoDesde: this.filtroCreadoDesde || null,
+      creadoHasta: this.filtroCreadoHasta || null,
     };
-    this.pacienteService.getAllPaged(this.paginaActual, this.tamanioPagina, filtros).subscribe({
+  }
+
+  cargar(): void {
+    if (this.rangoAltaInvalido) {
+      this.toast.warning('La fecha inicial no puede ser posterior a la final');
+      return;
+    }
+    this.loading = true;
+    this.pacienteService.getAllPaged(this.paginaActual, this.tamanioPagina, this.filtrosActuales()).subscribe({
       next: res => {
         this.pacientes = res.content;
         this.totalElementos = res.totalElements;
@@ -213,6 +199,8 @@ export class ListaPacientesComponent implements OnInit {
     this.filtroCorreo = '';
     this.filtroSedeId = null;
     this.filtroActivo = '';
+    this.filtroCreadoDesde = '';
+    this.filtroCreadoHasta = '';
     this.buscar();
   }
 
@@ -320,9 +308,25 @@ export class ListaPacientesComponent implements OnInit {
   horariosFijos: HorarioFijoRequest[] = [];
   hfTerapeutaId: number | null = null;
   hfTipoTerapiaId: number | null = null;
-  hfDiaSemana: number | null = null;
+  /** Varios días a la vez: "Física los lunes, miércoles y viernes a las 10" es UN gesto, no tres. */
+  hfDias: number[] = [];
   hfHoraInicio: string | null = null;
   hfError = '';
+
+  toggleDiaHF(d: number): void {
+    const i = this.hfDias.indexOf(d);
+    if (i >= 0) this.hfDias.splice(i, 1);
+    else this.hfDias.push(d);
+    this.hfDias.sort((a, b) => a - b);
+    // La hora se ofrece según el horario del terapeuta ese día; al cambiar los días puede dejar
+    // de estar disponible, y dejarla puesta guardaría algo que el selector ya no muestra.
+    if (this.hfHoraInicio && !this.horasDelTerapeuta().includes(this.hfHoraInicio)) {
+      this.hfHoraInicio = null;
+    }
+    this.hfError = '';
+  }
+
+  diaMarcadoHF(d: number): boolean { return this.hfDias.includes(d); }
 
   nombreTerapeuta(id?: number | null): string {
     if (!id) return '—';
@@ -351,42 +355,55 @@ export class ListaPacientesComponent implements OnInit {
    * es un error que no tiene por que llegar a guardarse.
    */
   horasDelTerapeuta(): string[] {
-    if (!this.hfTerapeutaId || !this.hfDiaSemana) return [];
-    const bloques = this.horariosTerapeutas.filter(
-      h => this.idDelHorario(h) === this.hfTerapeutaId && h.diaSemana === this.hfDiaSemana && h.activo);
-    const horas = new Set<string>();
-    for (const b of bloques) {
-      for (let m = this.aMinutos(b.horaInicio); m < this.aMinutos(b.horaFin); m += 30) {
-        horas.add(this.aTexto(m));
+    if (!this.hfTerapeutaId || this.hfDias.length === 0) return [];
+    // Con varios dias marcados solo se ofrecen las horas en que el terapeuta atiende TODOS ellos:
+    // "lunes, miercoles y viernes a las 10" solo tiene sentido si los tres dias tienen esa hora.
+    const porDia = this.hfDias.map(dia => {
+      const horas = new Set<string>();
+      for (const b of this.horariosTerapeutas.filter(
+              h => this.idDelHorario(h) === this.hfTerapeutaId && h.diaSemana === dia && h.activo)) {
+        for (let m = this.aMinutos(b.horaInicio); m < this.aMinutos(b.horaFin); m += 30) {
+          horas.add(this.aTexto(m));
+        }
       }
-    }
-    return [...horas].sort();
+      return horas;
+    });
+    return [...porDia[0] ?? []].filter(h => porDia.every(set => set.has(h))).sort();
   }
 
-  alCambiarTerapeutaHF(): void { this.hfDiaSemana = null; this.hfHoraInicio = null; this.hfError = ''; }
-  alCambiarDiaHF(): void { this.hfHoraInicio = null; this.hfError = ''; }
+  alCambiarTerapeutaHF(): void { this.hfDias = []; this.hfHoraInicio = null; this.hfError = ''; }
 
+  /** Agrega una línea por cada día marcado — el caso normal es marcar lunes, miércoles y viernes. */
   agregarHorarioFijo(): void {
-    if (!this.hfTerapeutaId || !this.hfDiaSemana || !this.hfHoraInicio) return;
-    // El mismo terapeuta, dia y hora dos veces choca con el UNIQUE de la tabla; se avisa aqui
-    // en vez de dejar que el guardado falle con un mensaje generico.
-    const repetido = this.horariosFijos.some(h =>
-      h.terapeutaId === this.hfTerapeutaId && h.diaSemana === this.hfDiaSemana && h.horaInicio === this.hfHoraInicio);
-    if (repetido) {
-      this.hfError = 'Ese horario ya está en la lista.';
+    if (!this.hfTerapeutaId || this.hfDias.length === 0 || !this.hfHoraInicio) return;
+
+    // El mismo terapeuta, día y hora dos veces choca con el UNIQUE de la tabla; se avisa aquí en
+    // vez de dejar que el guardado falle con un mensaje genérico.
+    const yaEstaban = this.hfDias.filter(dia => this.horariosFijos.some(h =>
+      h.terapeutaId === this.hfTerapeutaId && h.diaSemana === dia && h.horaInicio === this.hfHoraInicio));
+    const nuevos = this.hfDias.filter(d => !yaEstaban.includes(d));
+
+    if (nuevos.length === 0) {
+      this.hfError = 'Esos horarios ya están en la lista.';
       return;
     }
-    this.horariosFijos.push({
-      terapeutaId:   this.hfTerapeutaId,
-      tipoTerapiaId: this.hfTipoTerapiaId,
-      diaSemana:     this.hfDiaSemana,
-      horaInicio:    this.hfHoraInicio,
-      horaFin:       null,
-    });
+    for (const dia of nuevos) {
+      this.horariosFijos.push({
+        terapeutaId:   this.hfTerapeutaId,
+        tipoTerapiaId: this.hfTipoTerapiaId,
+        diaSemana:     dia,
+        horaInicio:    this.hfHoraInicio,
+        horaFin:       null,
+      });
+    }
     this.horariosFijos.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
-    this.hfDiaSemana = null;
+    this.hfDias = [];
     this.hfHoraInicio = null;
-    this.hfError = '';
+    // Si algunos dias se agregaron y otros ya estaban, se dice cual fue el caso en vez de
+    // agregarlos en silencio y dejar al usuario contando filas.
+    this.hfError = yaEstaban.length
+      ? `${this.DIAS[yaEstaban[0]]}${yaEstaban.length > 1 ? ' y otros' : ''} ya estaba en la lista; se agregó el resto.`
+      : '';
   }
 
   quitarHorarioFijo(i: number): void {
@@ -398,7 +415,7 @@ export class ListaPacientesComponent implements OnInit {
     this.horariosFijos = [];
     this.hfTerapeutaId = null;
     this.hfTipoTerapiaId = null;
-    this.hfDiaSemana = null;
+    this.hfDias = [];
     this.hfHoraInicio = null;
     this.hfError = '';
   }
