@@ -109,6 +109,16 @@ export interface PacienteEnCita {
   dniApoderado?: string;
   nombreApoderado?: string;
   celularApoderado?: string;
+  /**
+   * Tipo de terapia PROPIO de este paciente cuando comparte horario con otro.
+   *
+   * Compartir bloque y terapeuta no obliga a recibir lo mismo: en física uno puede venir a
+   * descarga muscular y el otro a convencional. Si no se manda, hereda el de la cita principal.
+   * La duración y el precio dependen del tipo, así que viajan con él.
+   */
+  tipoKey?: string;
+  duracionMinutos?: number;
+  precioPorSesion?: number;
 }
 
 export interface CrearCitaConPacienteRequest {

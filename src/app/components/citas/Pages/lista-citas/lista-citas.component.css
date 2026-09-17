@@ -511,3 +511,7 @@ tbody tr{height:var(--slot-h)}
 
 /* Aviso al cobrar una cita sin precio: reemplaza al bloqueo que antes impedia cobrar. */
 .hc-pago-sinprecio{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:6px 9px;font-size:11px;color:#92400e;line-height:1.4;margin-bottom:6px}
+
+/* Marca de "este acompañante lleva otra terapia": el caso normal es heredar el tipo de la cita,
+   así que cuando difiere conviene que salte a la vista antes de guardar. */
+.opc-tag-dif{background:#fef3c7;color:#b45309;border-color:#fde68a}

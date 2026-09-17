@@ -46,6 +46,12 @@ export interface PacienteState {
   busquedaNombre: string;
   resultadosBusqueda: PacienteResumen[];
   dropdownAbierto: boolean;
+  /**
+   * Tipo de terapia propio del acompañante. Vacío = el mismo de la cita principal, que es el
+   * caso habitual. Existe porque dos pacientes en el mismo bloque no tienen por qué recibir lo
+   * mismo: en física uno puede venir a descarga muscular y el otro a convencional.
+   */
+  tipoId: string;
 }
 
 @Component({
@@ -462,6 +468,20 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
   get tipoSeleccionado(): TipoTerapia | undefined { return this.tiposTerapia.find(t => t.id === this.fTipoId); }
   get esMultipaciente(): boolean { return (this.tipoSeleccionado?.max_pacientes ?? 1) > 1; }
+
+  /**
+   * Tipos que un acompañante puede recibir en este mismo bloque.
+   *
+   * Se acotan a los de la MISMA ÁREA y que también admitan varios pacientes: el terapeuta es el
+   * mismo, así que ofrecer terapias de otra área sería ofrecer algo que no puede dar; y un tipo
+   * de un solo paciente no cabe en un horario compartido por definición.
+   */
+  tiposParaAcompanante(): TipoTerapia[] {
+    const base = this.tipoSeleccionado;
+    if (!base) return [];
+    return this.tiposTerapia.filter(t =>
+      t.id !== base.id && t.area_id === base.area_id && (t.max_pacientes ?? 1) > 1);
+  }
 
   /**
    * Terapeutas que realmente pueden atender en la fecha/hora/tipo seleccionados en el modal.
@@ -1585,6 +1605,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       fechaNacimiento: '', dniApoderado: '', nombreApoderado: '', celularApoderado: '',
       busquedaNombre: `${cita.paciente_nombre ?? ''} ${cita.paciente_apellido ?? ''}`.trim(),
       resultadosBusqueda: [], dropdownAbierto: false,
+      // El paciente principal usa el tipo de la cita, no uno propio.
+      tipoId: '',
     };
     this.pacsExtra = [];
     this.fTer       = cita.terapeuta_nombre ?? '';
@@ -2033,6 +2055,13 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       dniApoderado:     p.dniApoderado     || undefined,
       nombreApoderado:  p.nombreApoderado  || undefined,
       celularApoderado: p.celularApoderado || undefined,
+      // El tipo propio solo viaja si de verdad difiere del de la cita: mandarlo siempre no rompe
+      // nada, pero deja en el payload un dato que no significa nada.
+      ...(p.tipoId && p.tipoId !== this.fTipoId ? {
+        tipoKey:         p.tipoId,
+        duracionMinutos: this.getTipo(p.tipoId).duracion_minutos,
+        precioPorSesion: this.getTipo(p.tipoId).precio_recomendado ?? undefined,
+      } : {}),
     });
 
     if (this.citaEditando) {
@@ -2186,6 +2215,13 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       dniApoderado:     p.dniApoderado     || undefined,
       nombreApoderado:  p.nombreApoderado  || undefined,
       celularApoderado: p.celularApoderado || undefined,
+      // El tipo propio solo viaja si de verdad difiere del de la cita: mandarlo siempre no rompe
+      // nada, pero deja en el payload un dato que no significa nada.
+      ...(p.tipoId && p.tipoId !== this.fTipoId ? {
+        tipoKey:         p.tipoId,
+        duracionMinutos: this.getTipo(p.tipoId).duracion_minutos,
+        precioPorSesion: this.getTipo(p.tipoId).precio_recomendado ?? undefined,
+      } : {}),
     });
 
     let creadas = 0;
@@ -2611,7 +2647,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return {
       colapsado: false, modo: 'buscar', buscando: false, id: null, dni: '', nombre: '', apellido: '', telefono: '', correo: '',
       fechaNacimiento: '', dniApoderado: '', nombreApoderado: '', celularApoderado: '',
-      busquedaNombre: '', resultadosBusqueda: [], dropdownAbierto: false,
+      busquedaNombre: '', resultadosBusqueda: [], dropdownAbierto: false, tipoId: '',
     };
   }
 

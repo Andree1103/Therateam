@@ -676,6 +676,27 @@
                   <div class="frow"><label>Nombre apoderado *</label><input [(ngModel)]="pac.nombreApoderado" [name]="'pacApoNom' + i" placeholder="Nombre y apellido"></div>
                 </div>
               </ng-container>
+
+              <!-- Tipo de terapia PROPIO. Compartir horario y terapeuta no obliga a recibir lo
+                   mismo: en fisica uno puede venir a descarga muscular y el otro a convencional.
+                   Antes heredaba a la fuerza el de la cita principal y no habia forma de cambiarlo.
+                   Solo se ofrecen los tipos que caben en el slot (mismo cupo y misma area). -->
+              <div class="frow" *ngIf="pac.modo !== 'buscar'">
+                <label>Tipo de terapia
+                  <span class="opc-tag" *ngIf="!pac.tipoId || pac.tipoId === fTipoId">igual que la cita</span>
+                  <span class="opc-tag opc-tag-dif" *ngIf="pac.tipoId && pac.tipoId !== fTipoId">distinto</span>
+                </label>
+                <select [(ngModel)]="pac.tipoId" [name]="'pacTipo' + i">
+                  <option value="">{{ getTipo(fTipoId).nombre }} (igual que la cita)</option>
+                  <option *ngFor="let t of tiposParaAcompanante()" [value]="t.id">
+                    {{ t.nombre }} · {{ t.duracion_minutos }} min
+                  </option>
+                </select>
+                <p class="pac-hint" *ngIf="pac.tipoId && pac.tipoId !== fTipoId">
+                  Su cita durará {{ getTipo(pac.tipoId).duracion_minutos }} min en vez de
+                  {{ getTipo(fTipoId).duracion_minutos }} min. Comparten terapeuta y hora de inicio.
+                </p>
+              </div>
             </div>
           </div>
 
