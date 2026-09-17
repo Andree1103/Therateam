@@ -46,7 +46,7 @@
       <button class="filtro-clear" (click)="limpiarFiltros()">✕</button>
     </span>
 
-    <button *ngIf="puedeExportar" class="btn-secondary ml-auto" (click)="abrirExportarCitas()">
+    <button *ngIf="puedeExportar" class="btn-secondary ml-auto" (click)="exportarExcel()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Exportar Excel
     </button>
@@ -1313,48 +1313,6 @@
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="cerrarMultiCitas()">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Exportar citas a Excel ────────────────────────────────────────────────
-     El rango es del EXCEL, no de la pantalla: la agenda se queda en su semana. Antes el
-     excel salia de lo que hubiera cargado en memoria, asi que bajar un mes obligaba a ir
-     semana por semana. Respeta los filtros activos de la barra y del sidebar. -->
-<div class="modal-overlay" *ngIf="modalExportarCitas" (click)="cerrarExportarCitas()">
-  <div class="modal modal-sm" (click)="$event.stopPropagation()">
-    <div class="modal-hdr">
-      <h2>Exportar citas</h2>
-      <button class="modal-close" (click)="cerrarExportarCitas()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <p class="text-muted" style="margin:0 0 10px;font-size:12px">
-        Elige el rango de fechas a exportar. Se respetan los filtros que tengas puestos
-        (terapeuta, estado, pago, tipo de terapia y paciente).
-      </p>
-      <div class="frow-2">
-        <div class="frow">
-          <label>Desde</label>
-          <input type="date" [(ngModel)]="exportDesde" [max]="exportHasta || null">
-        </div>
-        <div class="frow">
-          <label>Hasta</label>
-          <input type="date" [(ngModel)]="exportHasta" [min]="exportDesde || null">
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button type="button" class="btn-link" (click)="rangoExportSemana()">Esta semana</button>
-        <button type="button" class="btn-link" (click)="rangoExportMes()">Todo el mes</button>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" (click)="cerrarExportarCitas()">Cancelar</button>
-      <button class="btn-primary" [disabled]="exportandoCitas || rangoExportCitasInvalido"
-              (click)="exportarExcel()">
-        {{ exportandoCitas ? 'Exportando...' : 'Exportar' }}
-      </button>
     </div>
   </div>
 </div>

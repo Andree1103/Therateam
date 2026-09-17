@@ -367,62 +367,23 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   // ── Exportar a Excel ─────────────────────────────────────────────────────
   // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
   // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
-  // ── Exportar con rango de fechas ──────────────────────────────────────────
-  // El rango es del EXCEL, no de la pantalla: la agenda sigue mostrando su semana. Antes el
-  // excel salía de `this.citas`, o sea de lo que estuviera cargado en memoria, y no había forma
-  // de bajar un mes entero sin ir semana por semana.
-  modalExportarCitas = false;
-  exportDesde = '';
-  exportHasta = '';
-  exportandoCitas = false;
-
-  abrirExportarCitas(): void {
-    // Arranca con la semana que se está viendo, que es lo que se esperaría al pulsar Exportar.
-    if (this.diasSemana.length === 7) {
-      this.exportDesde = this.fechaToISO(this.diasSemana[0].fecha);
-      this.exportHasta = this.fechaToISO(this.diasSemana[6].fecha);
-    }
-    this.modalExportarCitas = true;
-  }
-
-  cerrarExportarCitas(): void { this.modalExportarCitas = false; }
-
-  get rangoExportCitasInvalido(): boolean {
-    return !this.exportDesde || !this.exportHasta || this.exportDesde > this.exportHasta;
-  }
-
-  /** La semana visible (lo que se ve) o el mes completo de esa semana — los dos casos de siempre. */
-  rangoExportSemana(): void {
-    if (this.diasSemana.length !== 7) return;
-    this.exportDesde = this.fechaToISO(this.diasSemana[0].fecha);
-    this.exportHasta = this.fechaToISO(this.diasSemana[6].fecha);
-  }
-
-  rangoExportMes(): void {
-    const ref = this.diasSemana.length ? this.diasSemana[0].fecha : new Date();
-    this.exportDesde = this.fechaToISO(new Date(ref.getFullYear(), ref.getMonth(), 1));
-    this.exportHasta = this.fechaToISO(new Date(ref.getFullYear(), ref.getMonth() + 1, 0));
-  }
-
+  /**
+   * Exporta lo que se está viendo: la semana visible con los filtros puestos.
+   *
+   * Sale directo de `this.citas`, sin pedir nada extra, porque esa lista ya ES exactamente eso —
+   * el servidor la devuelve acotada a la semana y filtrada. Antes no coincidía: la lista traía
+   * las 1000 primeras citas de siempre, así que al pararse en octubre el excel salía incompleto
+   * sin avisar de nada.
+   */
   exportarExcel(): void {
-    if (this.rangoExportCitasInvalido) {
-      this.toast.warning('Elige un rango válido: la fecha inicial no puede ser posterior a la final.');
-      return;
-    }
-    const desde = this.exportDesde;
-    const hasta = this.exportHasta;
-    const f = this.filtrosAgendaParaElBack();
-    if (!f) return;
-
-    // Se piden al servidor en vez de usar `this.citas`: en memoria solo está la semana visible,
-    // así que exportar octubre desde la semana del 5 habría traído siete días y nada más.
-    this.exportandoCitas = true;
-    const inicio = new Date(`${desde}T00:00:00`);
-    const fin    = new Date(`${hasta}T23:59:59`);
-    this.citaService.getCitasAgenda({ ...f, desde: inicio, hasta: fin }).subscribe({
-      next: citas => { this.exportandoCitas = false; this.construirExcelCitas(citas, desde, hasta); },
-      error: ()    => { this.exportandoCitas = false; this.toast.error('Error al exportar las citas'); }
-    });
+    const desde = this.diasSemana.length ? this.fechaToISO(this.diasSemana[0].fecha) : '';
+    const hasta = this.diasSemana.length ? this.fechaToISO(this.diasSemana[6].fecha) : '';
+    // Los mismos filtros que aplica la grilla al pintar: garantiza que el excel tenga las mismas
+    // filas que se ven, aunque la respuesta del servidor todavía no haya llegado.
+    const visibles = this.citas
+      .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
+      .filter(c => this.pasaFiltrosAgenda(c));
+    this.construirExcelCitas(visibles, desde, hasta);
   }
 
   private construirExcelCitas(citas: Cita[], desde: string, hasta: string): void {
@@ -449,12 +410,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Usuario creación': c.usuario_creacion_nombre ?? '',
       }));
     if (filas.length === 0) {
-      this.toast.warning('No hay citas para exportar en ese rango con los filtros actuales');
+      this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
       return;
     }
-    this.cerrarExportarCitas();
-    this.excelExportService.exportar(filas, `citas_${desde}_a_${hasta}`);
-    this.toast.success(`${filas.length} cita(s) exportadas`);
+    this.excelExportService.exportar(filas, desde && hasta ? `citas_${desde}_a_${hasta}` : 'citas');
   }
 
   ngOnInit(): void {
@@ -869,20 +828,36 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
+   * Identifica la petición en curso. Ahora que cada semana y cada filtro piden algo distinto, dos
+   * respuestas pueden cruzarse: pasando semanas rápido con "›", la de una semana anterior llega
+   * después y pisa la que corresponde, dejando en pantalla citas de otra fecha. Antes no pasaba
+   * porque todas las peticiones eran la misma (todo el histórico) y daba igual cuál ganara.
+   */
+  private peticionCitasVigente = 0;
+
   cargarCitas(): void {
     const f = this.filtrosAgendaParaElBack();
     if (!f) return;
+    const miPeticion = ++this.peticionCitasVigente;
     this.loading = true;
     this.citaService.getCitasAgenda(f).subscribe({
-      next: citas => { this.citas = citas; this.loading = false; },
-      error: ()    => { this.loading = false; }
+      next: citas => {
+        if (miPeticion !== this.peticionCitasVigente) return;  // llegó tarde: ya hay otra más nueva
+        this.citas = citas;
+        this.loading = false;
+      },
+      error: () => { if (miPeticion === this.peticionCitasVigente) this.loading = false; }
     });
   }
 
   private recargarSilencioso(): void {
     const f = this.filtrosAgendaParaElBack();
     if (!f) return;
-    this.citaService.getCitasAgenda(f).subscribe({ next: citas => { this.citas = citas; } });
+    const miPeticion = ++this.peticionCitasVigente;
+    this.citaService.getCitasAgenda(f).subscribe({
+      next: citas => { if (miPeticion === this.peticionCitasVigente) this.citas = citas; }
+    });
   }
 
   // ── Filtro de terapeutas ────────────────────────────────────────────────────
