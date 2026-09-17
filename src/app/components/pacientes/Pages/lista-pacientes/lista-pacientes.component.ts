@@ -13,7 +13,7 @@ import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service
 import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
 import { Terapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
-import { HorarioFijo, HorarioFijoRequest, DIAS_SEMANA, soloHoraYMinuto } from '../../Models/horario-fijo.model';
+import { HorarioFijo, HorarioFijoRequest, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto } from '../../Models/horario-fijo.model';
 
 @Component({
   selector: 'app-lista-pacientes',
@@ -299,6 +299,7 @@ export class ListaPacientesComponent implements OnInit {
   // al crearlo todavia no hay id contra el cual colgar los horarios.
 
   readonly DIAS = DIAS_SEMANA;
+  readonly DIAS_C = DIAS_CORTOS;
 
   terapeutas: Terapeuta[] = [];
   tiposTerapia: CatalogItem[] = [];
@@ -313,6 +314,72 @@ export class ListaPacientesComponent implements OnInit {
   hfHoraInicio: string | null = null;
   hfError = '';
 
+  // ── Los tres buscadores del alta ──────────────────────────────────────────
+  // Desplegables normales obligaban a recorrer con el raton listas largas de terapeutas y
+  // terapias. Estos filtran al escribir. El texto visible y el id elegido van por separado:
+  // mientras se escribe el id queda en null, asi que "Agregar" no se habilita con algo a medias.
+  hfDropdown: 'terapeuta' | 'terapia' | 'hora' | null = null;
+  hfTerapeutaTexto = '';
+  hfTerapiaTexto = '';
+  hfHoraTexto = '';
+
+  abrirHfDropdown(cual: 'terapeuta' | 'terapia' | 'hora'): void {
+    // Al enfocar se vacia el texto para que la lista salga completa: si quedara el nombre ya
+    // elegido, el filtro lo dejaria como unica opcion y no se podria cambiar sin borrar a mano.
+    if (cual === 'terapeuta') { this.hfTerapeutaTexto = ''; this.hfTerapeutaId = null; this.alCambiarTerapeutaHF(); }
+    if (cual === 'terapia')   { this.hfTerapiaTexto = ''; this.hfTipoTerapiaId = null; }
+    if (cual === 'hora')      { this.hfHoraTexto = ''; this.hfHoraInicio = null; }
+    this.hfDropdown = cual;
+  }
+
+  /** El blur llega antes que el mousedown de la opcion; sin la espera, el clic no alcanza. */
+  cerrarHfDropdownDiferido(): void {
+    setTimeout(() => {
+      this.hfDropdown = null;
+      // Si se salio sin elegir, el texto vuelve a lo que de verdad esta seleccionado, para que no
+      // quede una busqueda a medias que parezca un valor puesto.
+      this.hfTerapeutaTexto = this.hfTerapeutaId ? this.nombreTerapeuta(this.hfTerapeutaId) : '';
+      this.hfTerapiaTexto   = this.hfTipoTerapiaId ? this.nombreTipoTerapia(this.hfTipoTerapiaId) : '';
+      this.hfHoraTexto      = this.hfHoraInicio ?? '';
+    }, 150);
+  }
+
+  private coincide(texto: string, filtro: string): boolean {
+    return texto.toLowerCase().includes(filtro.trim().toLowerCase());
+  }
+
+  terapeutasFiltradosHF(): Terapeuta[] {
+    return this.terapeutas.filter(t => this.coincide(this.nombreTerapeuta(t.id), this.hfTerapeutaTexto));
+  }
+
+  terapiasFiltradasHF(): CatalogItem[] {
+    return this.tiposTerapia.filter(t => this.coincide(t.nombre ?? '', this.hfTerapiaTexto));
+  }
+
+  horasFiltradasHF(): string[] {
+    return this.horasDelTerapeuta().filter(h => h.includes(this.hfHoraTexto.trim()));
+  }
+
+  elegirTerapeutaHF(t: Terapeuta): void {
+    this.hfTerapeutaId = t.id ?? null;
+    this.hfTerapeutaTexto = this.nombreTerapeuta(t.id);
+    this.hfDropdown = null;
+    this.alCambiarTerapeutaHF();
+  }
+
+  elegirTerapiaHF(tt: CatalogItem | null): void {
+    this.hfTipoTerapiaId = tt?.id ?? null;
+    this.hfTerapiaTexto = tt ? (tt.nombre ?? '') : '';
+    this.hfDropdown = null;
+  }
+
+  elegirHoraHF(hora: string): void {
+    this.hfHoraInicio = hora;
+    this.hfHoraTexto = hora;
+    this.hfDropdown = null;
+    this.hfError = '';
+  }
+
   toggleDiaHF(d: number): void {
     const i = this.hfDias.indexOf(d);
     if (i >= 0) this.hfDias.splice(i, 1);
@@ -322,6 +389,7 @@ export class ListaPacientesComponent implements OnInit {
     // de estar disponible, y dejarla puesta guardaría algo que el selector ya no muestra.
     if (this.hfHoraInicio && !this.horasDelTerapeuta().includes(this.hfHoraInicio)) {
       this.hfHoraInicio = null;
+      this.hfHoraTexto = '';
     }
     this.hfError = '';
   }
@@ -371,7 +439,12 @@ export class ListaPacientesComponent implements OnInit {
     return [...porDia[0] ?? []].filter(h => porDia.every(set => set.has(h))).sort();
   }
 
-  alCambiarTerapeutaHF(): void { this.hfDias = []; this.hfHoraInicio = null; this.hfError = ''; }
+  alCambiarTerapeutaHF(): void {
+    this.hfDias = [];
+    this.hfHoraInicio = null;
+    this.hfHoraTexto = '';
+    this.hfError = '';
+  }
 
   /** Agrega una línea por cada día marcado — el caso normal es marcar lunes, miércoles y viernes. */
   agregarHorarioFijo(): void {
@@ -399,6 +472,7 @@ export class ListaPacientesComponent implements OnInit {
     this.horariosFijos.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
     this.hfDias = [];
     this.hfHoraInicio = null;
+    this.hfHoraTexto = '';
     // Si algunos dias se agregaron y otros ya estaban, se dice cual fue el caso en vez de
     // agregarlos en silencio y dejar al usuario contando filas.
     this.hfError = yaEstaban.length
@@ -418,6 +492,10 @@ export class ListaPacientesComponent implements OnInit {
     this.hfDias = [];
     this.hfHoraInicio = null;
     this.hfError = '';
+    this.hfDropdown = null;
+    this.hfTerapeutaTexto = '';
+    this.hfTerapiaTexto = '';
+    this.hfHoraTexto = '';
   }
 
   /** El horario puede venir con el terapeuta anidado o como id plano, segun el endpoint. */

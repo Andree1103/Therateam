@@ -34,6 +34,13 @@ export interface HorarioFijoRequest {
 /** Índice 0 sin usar para que DIAS_SEMANA[1] sea lunes, igual que en la base. */
 export const DIAS_SEMANA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+/**
+ * Abreviatura de dos letras para las pastillas del selector.
+ * Con una sola letra, "M" vale para martes y miércoles, y "Lunes/Martes/Miércoles" quedaba como
+ * "L M M": imposible saber cuál se marcó sin pasar el mouse por encima.
+ */
+export const DIAS_CORTOS = ['', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+
 /** "09:00:00" -> "09:00". El back manda segundos que aquí no aportan nada. */
 export function soloHoraYMinuto(hora?: string | null): string {
   return hora ? hora.slice(0, 5) : '';

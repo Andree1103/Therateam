@@ -240,65 +240,113 @@
         <!-- ── Horario fijo (opcional) ──────────────────────────────────────────────
              Es una anotacion de referencia: no reserva el espacio ni crea las citas.
              Se dice explicitamente en pantalla para que nadie de por hecho que ya quedo
-             agendado. -->
+             agendado.
+
+             Todo el alta va en UNA sola fila: terapeuta, terapia, dias y hora. Antes estaba
+             partida en dos niveles (los selects arriba, los dias abajo) y el gesto se leia como
+             dos pasos separados cuando en realidad es uno. -->
         <div class="hf-bloque">
           <div class="hf-cabecera">
-            <div>
+            <div class="hf-titulo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
               <strong>Horario fijo</strong>
               <span class="hf-opcional">opcional</span>
+              <span class="hf-cuenta" *ngIf="horariosFijos.length">{{ horariosFijos.length }}</span>
             </div>
-            <p class="hf-nota">Deja anotado a qué hora suele venir. No agenda las citas — solo queda como referencia.</p>
+            <p class="hf-nota">A qué hora suele venir. No agenda las citas — queda como referencia.</p>
           </div>
 
-          <table class="hf-tabla" *ngIf="horariosFijos.length > 0">
-            <thead>
-              <tr>
-                <th>Terapeuta</th>
-                <th>Terapia</th>
-                <th>Día y hora</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let h of horariosFijos; let i = index">
-                <td>{{ nombreTerapeuta(h.terapeutaId) }}</td>
-                <td>{{ nombreTipoTerapia(h.tipoTerapiaId) }}</td>
-                <td>{{ DIAS[h.diaSemana] }} · {{ h.horaInicio }}<span *ngIf="h.horaFin"> – {{ h.horaFin }}</span></td>
-                <td class="hf-acciones">
-                  <button type="button" class="hf-quitar" (click)="quitarHorarioFijo(i)" title="Quitar">×</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="hf-alta">
-            <select [(ngModel)]="hfTerapeutaId" name="hfTerapeutaId" (ngModelChange)="alCambiarTerapeutaHF()">
-              <option [ngValue]="null">Terapeuta…</option>
-              <option *ngFor="let t of terapeutas" [ngValue]="t.id">{{ nombreTerapeuta(t.id) }}</option>
-            </select>
-
-            <select [(ngModel)]="hfTipoTerapiaId" name="hfTipoTerapiaId">
-              <option [ngValue]="null">Terapia…</option>
-              <option *ngFor="let tt of tiposTerapia" [ngValue]="tt.id">{{ tt.nombre }}</option>
-            </select>
-
-            <select [(ngModel)]="hfHoraInicio" name="hfHoraInicio">
-              <option [ngValue]="null">Hora…</option>
-              <!-- Las horas salen del horario real del terapeuta, y con varios dias marcados solo
-                   las que atiende en TODOS ellos. -->
-              <option *ngFor="let hora of horasDelTerapeuta()" [ngValue]="hora">{{ hora }}</option>
-            </select>
+          <!-- Lo ya agregado, como chips: son pocas lineas y una tabla pesaba mas que el dato. -->
+          <div class="hf-chips" *ngIf="horariosFijos.length > 0">
+            <span class="hf-chip" *ngFor="let h of horariosFijos; let i = index">
+              <span class="hf-chip-dia">{{ DIAS_C[h.diaSemana] }}</span>
+              <span class="hf-chip-hora">{{ h.horaInicio }}</span>
+              <span class="hf-chip-sep">·</span>
+              <span class="hf-chip-ter">{{ nombreTerapeuta(h.terapeutaId) }}</span>
+              <span class="hf-chip-ter hf-chip-tip" *ngIf="h.tipoTerapiaId">· {{ nombreTipoTerapia(h.tipoTerapiaId) }}</span>
+              <button type="button" class="hf-chip-x" (click)="quitarHorarioFijo(i)" title="Quitar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </span>
           </div>
 
-          <!-- Dias como pastillas y no un desplegable: el caso normal es "lunes, miercoles y
-               viernes a las 10", y con un selector de un solo dia eso eran tres pasadas.
+          <!-- Los tres desplegables son buscadores: con muchos terapeutas y terapias, tener
+               que recorrer una lista larga con el raton es lo que hacia lento esto. Se escribe
+               y se filtra.
+
+               Quien / que arriba; dia y hora juntos abajo, en un solo nivel: elegir "miercoles
+               a las 10" es un gesto y partirlo en dos alturas lo hacia parecer dos. -->
+          <div class="hf-fila hf-fila-quien">
+            <div class="hf-campo autocomplete-wrap">
+              <input type="text" class="hf-inp" placeholder="Terapeuta" autocomplete="off"
+                     [(ngModel)]="hfTerapeutaTexto" name="hfTerapeutaTexto"
+                     (focus)="abrirHfDropdown('terapeuta')" (blur)="cerrarHfDropdownDiferido()">
+              <div class="autocomplete-dropdown" *ngIf="hfDropdown === 'terapeuta'">
+                <div class="autocomplete-item" *ngFor="let t of terapeutasFiltradosHF()"
+                     (mousedown)="elegirTerapeutaHF(t)">
+                  <span class="ac-nombre">{{ nombreTerapeuta(t.id) }}</span>
+                  <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
+                </div>
+                <div class="autocomplete-item ac-vacio" *ngIf="terapeutasFiltradosHF().length === 0">
+                  <span class="ac-nombre">Sin resultados</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="hf-campo autocomplete-wrap">
+              <input type="text" class="hf-inp" placeholder="Terapia" autocomplete="off"
+                     [(ngModel)]="hfTerapiaTexto" name="hfTerapiaTexto"
+                     (focus)="abrirHfDropdown('terapia')" (blur)="cerrarHfDropdownDiferido()">
+              <div class="autocomplete-dropdown" *ngIf="hfDropdown === 'terapia'">
+                <div class="autocomplete-item" (mousedown)="elegirTerapiaHF(null)">
+                  <span class="ac-nombre">Sin especificar</span>
+                </div>
+                <div class="autocomplete-item" *ngFor="let tt of terapiasFiltradasHF()"
+                     (mousedown)="elegirTerapiaHF(tt)">
+                  <span class="ac-nombre">{{ tt.nombre }}</span>
+                </div>
+                <div class="autocomplete-item ac-vacio" *ngIf="terapiasFiltradasHF().length === 0">
+                  <span class="ac-nombre">Sin resultados</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Dia y hora, mismo nivel. Las pastillas: el caso normal es "lunes, miercoles y
+               viernes a las 10", y con un desplegable de un solo dia eso eran tres pasadas.
                Solo aparecen los dias que el terapeuta realmente trabaja. -->
-          <div class="hf-dias" *ngIf="hfTerapeutaId && diasDelTerapeuta().length > 0">
-            <button type="button" class="hf-dia" *ngFor="let d of diasDelTerapeuta()"
-                    [class.sel]="diaMarcadoHF(d)" (click)="toggleDiaHF(d)">{{ DIAS[d].slice(0, 3) }}</button>
+          <div class="hf-fila hf-fila-cuando">
+            <div class="hf-dias" [class.hf-dias-off]="!hfTerapeutaId">
+              <ng-container *ngIf="hfTerapeutaId && diasDelTerapeuta().length > 0">
+                <button type="button" class="hf-dia" *ngFor="let d of diasDelTerapeuta()"
+                        [class.sel]="diaMarcadoHF(d)" (click)="toggleDiaHF(d)"
+                        [title]="DIAS[d]">{{ DIAS_C[d] }}</button>
+              </ng-container>
+              <span class="hf-dias-hint" *ngIf="!hfTerapeutaId">Elige terapeuta</span>
+            </div>
+
+            <div class="hf-campo hf-campo-hora autocomplete-wrap">
+              <input type="text" class="hf-inp" placeholder="Hora" autocomplete="off"
+                     [disabled]="hfDias.length === 0"
+                     [(ngModel)]="hfHoraTexto" name="hfHoraTexto"
+                     (focus)="abrirHfDropdown('hora')" (blur)="cerrarHfDropdownDiferido()">
+              <div class="autocomplete-dropdown hf-dd-hora" *ngIf="hfDropdown === 'hora'">
+                <div class="autocomplete-item" *ngFor="let hora of horasFiltradasHF()"
+                     (mousedown)="elegirHoraHF(hora)">
+                  <span class="ac-nombre">{{ hora }}</span>
+                </div>
+                <div class="autocomplete-item ac-vacio" *ngIf="horasFiltradasHF().length === 0">
+                  <span class="ac-nombre">Sin horas libres en esos días</span>
+                </div>
+              </div>
+            </div>
+
             <button type="button" class="hf-agregar" (click)="agregarHorarioFijo()"
-                    [disabled]="!hfTerapeutaId || hfDias.length === 0 || !hfHoraInicio">
-              Agregar<span *ngIf="hfDias.length > 1"> {{ hfDias.length }} días</span>
+                    [disabled]="!hfTerapeutaId || hfDias.length === 0 || !hfHoraInicio"
+                    [title]="hfDias.length > 1 ? 'Agrega ' + hfDias.length + ' días' : 'Agregar'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span *ngIf="hfDias.length > 1">{{ hfDias.length }}</span>
             </button>
           </div>
 
