@@ -70,6 +70,37 @@ export class CitaService {
     }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
   }
 
+  /**
+   * Las citas de la agenda: una semana, ya filtrada por el servidor.
+   *
+   * Los filtros viajan en la consulta en vez de aplicarse sobre lo descargado. Traerse la semana
+   * entera para descartar en el navegador lo que no cumple es memoria y red gastadas en filas que
+   * nadie va a ver, y se multiplica por cada persona que tenga la agenda abierta.
+   */
+  getCitasAgenda(f: {
+    desde: Date;
+    hasta: Date;
+    estadoKey?: string;
+    estadoPagoKey?: string;
+    tipoTerapiaKey?: string;
+    paciente?: string;
+    terapeutaIds?: number[];
+  }): Observable<Cita[]> {
+    return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(`${this.PATH}/filtro`, {
+      fechaInicio:    this.toLocalDateTime(f.desde),
+      fechaFin:       this.toLocalDateTime(f.hasta),
+      estadoKey:      f.estadoKey      || undefined,
+      estadoPagoKey:  f.estadoPagoKey  || undefined,
+      tipoTerapiaKey: f.tipoTerapiaKey || undefined,
+      paciente:       f.paciente       || undefined,
+      // Repetido como `terapeutaIds=1&terapeutaIds=2`, que es como Spring arma un List<Long>.
+      terapeutaIds:   f.terapeutaIds && f.terapeutaIds.length ? f.terapeutaIds.join(',') : undefined,
+      // Una semana de toda la clínica no llega a estas cifras ni de lejos (en producción son ~40);
+      // el tope está solo para que una semana atípica no se corte en la página por defecto de 50.
+      size: '2000',
+    }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
+  }
+
   /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha).
    *  `sort` es el formato de Spring Data: "propiedad,asc|desc" (ej. "paciente.nombre,asc"). */
   /**

@@ -158,6 +158,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.filtrosTerapeutas = nombre ? [nombre] : [];
     this.terapeutaFiltroBusquedaTexto = nombre;
     this.terapeutaFiltroDropdownAbierto = false;
+    this.cargarCitas();
   }
 
   get hayFiltrosAgendaActivos(): boolean {
@@ -169,6 +170,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.filtroPago     = this.busquedaPago;
     this.filtroPaciente = this.busquedaPaciente.trim();
     this.filtroTipoId   = this.busquedaTipoId;
+    // Los filtros los resuelve el servidor, así que aplicar uno es volver a pedir la semana.
+    this.cargarCitas();
   }
 
   limpiarBusquedaAgenda(): void {
@@ -176,9 +179,18 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.estadoBusquedaTexto = ''; this.pagoBusquedaTexto = ''; this.tipoFiltroBusquedaTexto = '';
     this.terapeutaFiltroBusquedaTexto = ''; this.filtrosTerapeutas = [];
     this.filtroEstado = ''; this.filtroPago = ''; this.filtroPaciente = ''; this.filtroTipoId = '';
+    this.cargarCitas();
   }
 
   /** true si la cita pasa los filtros de agenda actualmente aplicados (estado/pago/paciente/tipo). */
+  /**
+   * Los mismos filtros que ya aplicó el servidor, repetidos sobre lo que hay en memoria.
+   *
+   * No es que sobre: entre que se cambia un filtro y llega la respuesta, la grilla sigue pintando
+   * la lista anterior. Sin esto se ve un parpadeo con las citas que justo se acaban de excluir.
+   * Los criterios son los mismos que los de la consulta, así que no puede ocultar nada que el
+   * servidor sí haya mandado.
+   */
   private pasaFiltrosAgenda(c: Cita): boolean {
     if (this.filtroEstado && c.estado !== this.filtroEstado) return false;
     if (this.filtroPago && c.estado_pago_key !== this.filtroPago) return false;
@@ -786,43 +798,68 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return { desde, hasta };
   }
 
-  cargarCitas(): void {
+  /**
+   * Lo que se le pide al servidor: la semana visible más los filtros activos de la barra y del
+   * sidebar de terapeutas. Antes todo esto se resolvía en el navegador sobre la semana completa.
+   */
+  private filtrosAgendaParaElBack() {
     const rango = this.rangoSemanaVisible();
-    if (!rango) return;
+    if (!rango) return null;
+    // El sidebar guarda los terapeutas marcados por nombre; el back filtra por id.
+    const ids = this.filtrosTerapeutas
+      .map(nombre => this.terapeutas.find(t => terapeutaNombre(t) === nombre)?.id)
+      .filter((id): id is number => typeof id === 'number');
+    return {
+      desde:          rango.desde,
+      hasta:          rango.hasta,
+      estadoKey:      this.filtroEstado,
+      estadoPagoKey:  this.filtroPago,
+      tipoTerapiaKey: this.filtroTipoId,
+      paciente:       this.filtroPaciente,
+      terapeutaIds:   ids,
+    };
+  }
+
+  cargarCitas(): void {
+    const f = this.filtrosAgendaParaElBack();
+    if (!f) return;
     this.loading = true;
-    this.citaService.getCitas({ fechaInicio: rango.desde, fechaFin: rango.hasta }).subscribe({
+    this.citaService.getCitasAgenda(f).subscribe({
       next: citas => { this.citas = citas; this.loading = false; },
       error: ()    => { this.loading = false; }
     });
   }
 
   private recargarSilencioso(): void {
-    const rango = this.rangoSemanaVisible();
-    if (!rango) return;
-    this.citaService.getCitas({ fechaInicio: rango.desde, fechaFin: rango.hasta })
-      .subscribe({ next: citas => { this.citas = citas; } });
+    const f = this.filtrosAgendaParaElBack();
+    if (!f) return;
+    this.citaService.getCitasAgenda(f).subscribe({ next: citas => { this.citas = citas; } });
   }
 
   // ── Filtro de terapeutas ────────────────────────────────────────────────────
 
+  // Marcar terapeutas o cambiar de area ya no recorta lo que hay en pantalla: vuelve a pedir la
+  // semana con esos terapeutas, para que el servidor mande solo sus citas.
   toggleFiltroTerapeuta(nombre: string): void {
     const idx = this.filtrosTerapeutas.indexOf(nombre);
     if (idx >= 0) this.filtrosTerapeutas.splice(idx, 1);
     else this.filtrosTerapeutas.push(nombre);
+    this.cargarCitas();
   }
 
   filtrarPorArea(area: string): void {
     this.filtroArea = area;
-    if (!area) { this.filtrosTerapeutas = []; return; }
-    this.filtrosTerapeutas = this.terapeutas
+    this.filtrosTerapeutas = !area ? [] : this.terapeutas
       .filter(t => (t.area?.nombre ?? '') === area)
       .map(t => terapeutaNombre(t))
       .filter(Boolean);
+    this.cargarCitas();
   }
 
   limpiarFiltros(): void {
     this.filtrosTerapeutas = [];
     this.filtroArea = '';
+    this.cargarCitas();
   }
 
   // ── Helpers de estado, tipo, chips ─────────────────────────────────────────
