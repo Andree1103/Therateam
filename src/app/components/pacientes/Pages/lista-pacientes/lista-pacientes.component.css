@@ -186,3 +186,8 @@
 .hf-grupo-ter{margin-top:6px;font-size:11px;color:#94a3b8}
 .hf-grupo .hf-chips{margin-bottom:0}
 .hf-grupo .hf-chip{background:#f8fafc;border-color:#e2e8f0}
+
+/* Hora escrita a mano que no cae en la cuadricula: se separa del resto para que se vea que es
+   una eleccion deliberada y no una opcion mas de la lista. */
+.ac-libre{background:#f0f6ff;border:1px dashed #93c5fd}
+.ac-libre .ac-nombre{color:#185FA5;font-weight:600}

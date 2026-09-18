@@ -349,12 +349,21 @@
                      [(ngModel)]="hfHoraTexto" name="hfHoraTexto"
                      (focus)="abrirHfDropdown('hora')" (blur)="cerrarHfDropdownDiferido()">
               <div class="autocomplete-dropdown hf-dd-hora" *ngIf="hfDropdown === 'hora'">
+                <!-- Una hora escrita a mano que el terapeuta si atiende pero que no cae en la
+                     cuadricula. La cuadricula orienta, no limita: si alguien viene 08:20 hay que
+                     poder anotarlo. -->
+                <div class="autocomplete-item ac-libre" *ngIf="horaLibreHF() as libre"
+                     (mousedown)="elegirHoraHF(libre)">
+                  <span class="ac-nombre">Usar {{ libre }}</span>
+                  <span class="ac-sub">Fuera de la cuadrícula, pero el terapeuta atiende</span>
+                </div>
                 <div class="autocomplete-item" *ngFor="let hora of horasFiltradasHF()"
                      (mousedown)="elegirHoraHF(hora)">
                   <span class="ac-nombre">{{ hora }}</span>
                 </div>
-                <div class="autocomplete-item ac-vacio" *ngIf="horasFiltradasHF().length === 0">
+                <div class="autocomplete-item ac-vacio" *ngIf="horasFiltradasHF().length === 0 && !horaLibreHF()">
                   <span class="ac-nombre">Sin horas libres en esos días</span>
+                  <span class="ac-sub">Puedes escribir una hora dentro de su jornada</span>
                 </div>
               </div>
             </div>

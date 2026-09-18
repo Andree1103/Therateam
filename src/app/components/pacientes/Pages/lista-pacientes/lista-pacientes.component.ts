@@ -371,6 +371,14 @@ export class ListaPacientesComponent implements OnInit {
     this.hfTipoTerapiaId = tt?.id ?? null;
     this.hfTerapiaTexto = tt ? (tt.nombre ?? '') : '';
     this.hfDropdown = null;
+    // La terapia define cada cuántos minutos se ofrecen las horas (Kids de 40 en 40, física
+    // 30/45/50/60). Al cambiarla, la hora ya elegida puede dejar de caer en la cuadrícula: se
+    // conserva solo si el terapeuta de verdad atiende a esa hora.
+    if (this.hfHoraInicio && !this.horasDelTerapeuta().includes(this.hfHoraInicio)
+        && this.horaLibreHF() !== this.hfHoraInicio) {
+      this.hfHoraInicio = null;
+      this.hfHoraTexto = '';
+    }
   }
 
   elegirHoraHF(hora: string): void {
@@ -454,21 +462,60 @@ export class ListaPacientesComponent implements OnInit {
    * de su horario real en vez de ofrecer un reloj completo: elegir una hora en la que no atiende
    * es un error que no tiene por que llegar a guardarse.
    */
+  /**
+   * Cada cuántos minutos se ofrecen las horas.
+   *
+   * Sale de la duración de la terapia elegida, no de un paso fijo: Kids va de 40 en 40 y física
+   * tiene tipos de 30, 45, 50 o 60. Con el paso de 30 que había antes, un horario de Kids a las
+   * 08:40 no aparecía en la lista y no había forma de anotarlo.
+   *
+   * Sin terapia elegida se usan 15 minutos: es el paso más fino, así que no deja fuera ninguna
+   * hora razonable mientras todavía no se sabe de qué terapia se trata.
+   */
+  pasoHorasHF(): number {
+    const tt = this.tiposTerapia.find(t => t.id === this.hfTipoTerapiaId) as any;
+    const dur = tt?.duracionMinutos ?? tt?.duracion_minutos;
+    return dur && dur > 0 ? dur : 15;
+  }
+
   horasDelTerapeuta(): string[] {
     if (!this.hfTerapeutaId || this.hfDias.length === 0) return [];
+    const paso = this.pasoHorasHF();
     // Con varios dias marcados solo se ofrecen las horas en que el terapeuta atiende TODOS ellos:
     // "lunes, miercoles y viernes a las 10" solo tiene sentido si los tres dias tienen esa hora.
     const porDia = this.hfDias.map(dia => {
       const horas = new Set<string>();
       for (const b of this.horariosTerapeutas.filter(
               h => this.idDelHorario(h) === this.hfTerapeutaId && h.diaSemana === dia && h.activo)) {
-        for (let m = this.aMinutos(b.horaInicio); m < this.aMinutos(b.horaFin); m += 30) {
+        for (let m = this.aMinutos(b.horaInicio); m < this.aMinutos(b.horaFin); m += paso) {
           horas.add(this.aTexto(m));
         }
       }
       return horas;
     });
     return [...porDia[0] ?? []].filter(h => porDia.every(set => set.has(h))).sort();
+  }
+
+  /**
+   * Una hora escrita a mano que el terapeuta sí atiende pero que no cae en la cuadrícula.
+   *
+   * La cuadrícula es una ayuda, no un límite: si alguien viene a las 08:20 hay que poder
+   * anotarlo. Se acepta cualquier HH:MM que quede dentro de la jornada del terapeuta en TODOS
+   * los días marcados — fuera de eso sigue sin ofrecerse, que es la validación que importa.
+   */
+  horaLibreHF(): string | null {
+    const txt = this.hfHoraTexto.trim();
+    if (!/^\d{1,2}:\d{2}$/.test(txt)) return null;
+    const [h, m] = txt.split(':').map(Number);
+    if (h > 23 || m > 59) return null;
+    const normalizada = this.aTexto(h * 60 + m);
+    if (this.horasDelTerapeuta().includes(normalizada)) return null;   // ya está en la lista
+    if (!this.hfTerapeutaId || this.hfDias.length === 0) return null;
+    const min = h * 60 + m;
+    const atiendeTodosLosDias = this.hfDias.every(dia =>
+      this.horariosTerapeutas.some(b => this.idDelHorario(b) === this.hfTerapeutaId && b.diaSemana === dia
+        && b.activo && min >= this.aMinutos(b.horaInicio) && min < this.aMinutos(b.horaFin)));
+    return atiendeTodosLosDias ? normalizada : null;
   }
 
   alCambiarTerapeutaHF(): void {

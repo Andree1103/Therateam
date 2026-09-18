@@ -596,28 +596,6 @@
           </div>
         </div>
 
-        <!-- ── HORARIO FIJO DEL PACIENTE ────────────────────────────────
-             Si el paciente ya viene siempre los mismos dias a la misma hora, agendarlo a mano
-             cada vez es reescribir algo que el sistema ya sabe. Va como bloque propio y no como
-             una nota al pie, porque es justo lo que hay que mirar antes de elegir fecha y hora.
-             Cada linea se aplica de un clic: pone terapeuta, terapia, fecha y hora. -->
-        <div class="hfx-bloque" *ngIf="!citaEditando && horariosFijosPaciente.length > 0">
-          <div class="hfx-hdr">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
-            <strong>{{ pac1.nombre }} ya tiene horario fijo</strong>
-            <span class="hfx-n">{{ horariosFijosPaciente.length }}</span>
-          </div>
-          <p class="hfx-nota">Toca uno para aplicarlo a esta cita.</p>
-          <div class="hfx-lista">
-            <button type="button" class="hfx-item" *ngFor="let h of horariosFijosSugeridos"
-                    [class.hfx-match]="esDelTipoElegido(h)" (click)="aplicarHorarioFijo(h)">
-              <span class="hfx-txt">{{ etiquetaHorarioFijo(h) }}</span>
-              <span class="hfx-badge" *ngIf="esDelTipoElegido(h)">esta terapia</span>
-              <svg class="hfx-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-          </div>
-        </div>
-
         <!-- ── ACOMPANANTES (2do en adelante) ──────────────────────────
              Un bloque por cada acompanante. El cupo lo define maxPacientes del tipo. -->
         <ng-container *ngIf="esMultipaciente">
@@ -852,6 +830,28 @@
               <option [value]="60">60 min (1 hora)</option><option [value]="80">80 min</option>
               <option [value]="100">100 min</option><option [value]="120">120 min (2 horas)</option>
             </select>
+          </div>
+
+        <!-- ── HORARIO FIJO DEL PACIENTE ────────────────────────────────
+               Si el paciente ya viene siempre los mismos dias a la misma hora, agendarlo a mano
+               cada vez es reescribir algo que el sistema ya sabe. Va como bloque propio y no como
+               una nota al pie, porque es justo lo que hay que mirar antes de elegir fecha y hora.
+               Cada linea se aplica de un clic: pone terapeuta, terapia, fecha y hora. -->
+          <div class="hfx-bloque" *ngIf="!citaEditando && horariosFijosPaciente.length > 0">
+            <div class="hfx-hdr">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+              <strong>{{ pac1.nombre }} ya tiene horario fijo</strong>
+              <span class="hfx-n">{{ horariosFijosPaciente.length }}</span>
+            </div>
+            <p class="hfx-nota">Toca uno para aplicarlo a esta cita.</p>
+            <div class="hfx-lista">
+              <button type="button" class="hfx-item" *ngFor="let h of horariosFijosSugeridos"
+                      [class.hfx-match]="esDelTipoElegido(h)" (click)="aplicarHorarioFijo(h)">
+                <span class="hfx-txt">{{ etiquetaHorarioFijo(h) }}</span>
+                <span class="hfx-badge" *ngIf="esDelTipoElegido(h)">esta terapia</span>
+                <svg class="hfx-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
           </div>
 
           <ng-container *ngIf="fTer">
