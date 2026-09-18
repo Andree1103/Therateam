@@ -114,11 +114,11 @@ export interface PacienteEnCita {
    *
    * Compartir bloque y terapeuta no obliga a recibir lo mismo: en física uno puede venir a
    * descarga muscular y el otro a convencional. Si no se manda, hereda el de la cita principal.
-   * La duración y el precio dependen del tipo, así que viajan con él.
+   *
+   * La duración y el precio NO viajan aparte: son los del bloque, aunque el tipo elegido tenga
+   * otros en el catálogo. Es el mismo horario con el mismo terapeuta.
    */
   tipoKey?: string;
-  duracionMinutos?: number;
-  precioPorSesion?: number;
 }
 
 export interface CrearCitaConPacienteRequest {

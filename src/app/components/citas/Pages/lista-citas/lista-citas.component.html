@@ -686,15 +686,15 @@
                   <span class="opc-tag" *ngIf="!pac.tipoId || pac.tipoId === fTipoId">igual que la cita</span>
                   <span class="opc-tag opc-tag-dif" *ngIf="pac.tipoId && pac.tipoId !== fTipoId">distinto</span>
                 </label>
+                <!-- Sin la duracion de catalogo al lado de cada opcion: no es la que va a tener.
+                     Ponerla invitaba a creer que elegir otra terapia cambia el horario. -->
                 <select [(ngModel)]="pac.tipoId" [name]="'pacTipo' + i">
                   <option value="">{{ getTipo(fTipoId).nombre }} (igual que la cita)</option>
-                  <option *ngFor="let t of tiposParaAcompanante()" [value]="t.id">
-                    {{ t.nombre }} · {{ t.duracion_minutos }} min
-                  </option>
+                  <option *ngFor="let t of tiposParaAcompanante()" [value]="t.id">{{ t.nombre }}</option>
                 </select>
                 <p class="pac-hint" *ngIf="pac.tipoId && pac.tipoId !== fTipoId">
-                  Su cita durará {{ getTipo(pac.tipoId).duracion_minutos }} min en vez de
-                  {{ getTipo(fTipoId).duracion_minutos }} min. Comparten terapeuta y hora de inicio.
+                  Cambia solo la terapia que queda registrada. Mantiene el horario y el precio del
+                  bloque: {{ fDur }} min.
                 </p>
               </div>
             </div>

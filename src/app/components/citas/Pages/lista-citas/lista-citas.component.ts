@@ -2057,11 +2057,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       celularApoderado: p.celularApoderado || undefined,
       // El tipo propio solo viaja si de verdad difiere del de la cita: mandarlo siempre no rompe
       // nada, pero deja en el payload un dato que no significa nada.
-      ...(p.tipoId && p.tipoId !== this.fTipoId ? {
-        tipoKey:         p.tipoId,
-        duracionMinutos: this.getTipo(p.tipoId).duracion_minutos,
-        precioPorSesion: this.getTipo(p.tipoId).precio_recomendado ?? undefined,
-      } : {}),
+      // Solo el TIPO. La duración y el precio son los del bloque — los pone la cita principal.
+      ...(p.tipoId && p.tipoId !== this.fTipoId ? { tipoKey: p.tipoId } : {}),
     });
 
     if (this.citaEditando) {
@@ -2217,11 +2214,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       celularApoderado: p.celularApoderado || undefined,
       // El tipo propio solo viaja si de verdad difiere del de la cita: mandarlo siempre no rompe
       // nada, pero deja en el payload un dato que no significa nada.
-      ...(p.tipoId && p.tipoId !== this.fTipoId ? {
-        tipoKey:         p.tipoId,
-        duracionMinutos: this.getTipo(p.tipoId).duracion_minutos,
-        precioPorSesion: this.getTipo(p.tipoId).precio_recomendado ?? undefined,
-      } : {}),
+      // Solo el TIPO. La duración y el precio son los del bloque — los pone la cita principal.
+      ...(p.tipoId && p.tipoId !== this.fTipoId ? { tipoKey: p.tipoId } : {}),
     });
 
     let creadas = 0;
