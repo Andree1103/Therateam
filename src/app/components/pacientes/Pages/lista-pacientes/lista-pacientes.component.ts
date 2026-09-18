@@ -8,12 +8,13 @@ import { Paciente, PacienteForm } from '../../Models/paciente.model';
 import { CatalogItem, Sede } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
 import { Terapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
-import { HorarioFijo, HorarioFijoRequest, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto } from '../../Models/horario-fijo.model';
+import { HorarioFijo, HorarioFijoRequest, HorarioFijoResumen, DIAS_SEMANA, DIAS_CORTOS,
+         soloHoraYMinuto, resumirHorarioFijo, duracionHorarioFijo } from '../../Models/horario-fijo.model';
 
 @Component({
   selector: 'app-lista-pacientes',
@@ -75,28 +76,100 @@ export class ListaPacientesComponent implements OnInit {
     private terapeutaHorarioService: TerapeutaHorarioService
   ) {}
 
-  /** Exporta TODOS los pacientes que cumplen los filtros activos (no solo la página visible). */
   /**
-   * Exporta lo que dicen los filtros de la lista, sin preguntar nada.
+   * Los pacientes que dicen los filtros de la lista, con su horario fijo, sin preguntar nada.
    *
    * El rango de fecha de alta vivía dentro de un modal de exportación: había que abrirlo para
    * elegirlo y no se podía VER en pantalla a los pacientes de ese rango, solo bajarlos. Ahora es
    * un filtro más de la barra, así que exportar es un clic y siempre coincide con la lista.
-   *
-   * Se piden de nuevo al servidor con los mismos filtros porque la pantalla muestra una página
-   * de 10 y el excel tiene que traer todo lo que cumple, no solo lo que se ve.
    */
   exportarExcel(): void {
+    this.exportar('pacientes');
+  }
+
+  /**
+   * Solo el cuadro de horarios fijos, sin los datos de los pacientes.
+   *
+   * Es el mismo dato que ya viaja como hoja del export de pacientes, pero suelto: cuando lo
+   * que se quiere es repartir el cuadro semanal, abrir un archivo con las direcciones y los
+   * apoderados de todos para llegar a la segunda hoja estorba más de lo que ayuda.
+   */
+  exportarHorariosFijos(): void {
+    this.exportar('horarios_fijos');
+  }
+
+  /**
+   * Un solo camino para las dos exportaciones: cambian las hojas, no de dónde salen los datos.
+   *
+   * Los horarios se piden en UNA llamada al listado general y se cruzan en memoria con los
+   * pacientes exportados; pedirlos por paciente serían cien peticiones para cien pacientes.
+   */
+  private exportar(que: 'pacientes' | 'horarios_fijos'): void {
     if (this.rangoAltaInvalido) {
       this.toast.warning('La fecha inicial no puede ser posterior a la final');
       return;
     }
     this.exportando = true;
-    this.pacienteService.getAllPaged(0, 10000, this.filtrosActuales()).subscribe({
-      next: res => {
+    forkJoin({
+      pagina:   this.pacienteService.getAllPaged(0, 10000, this.filtrosActuales()),
+      // El null distingue "falló la consulta" de "nadie tiene horario": tragarse el error y
+      // devolver [] hacía decir "ningún paciente tiene horario fijo" cuando en realidad el
+      // servidor no había respondido — un mensaje que manda a revisar los datos, que estan bien.
+      horarios: this.pacienteService.getTodosHorariosFijos().pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ pagina, horarios }) => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
-        const filas = res.content.map(p => ({
+        const pacientes = pagina.content;
+        if (pacientes.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
+
+        if (horarios === null) {
+          this.toast.error('No se pudieron cargar los horarios fijos. Si el servidor se acaba de actualizar, reinícialo e intenta de nuevo.');
+          if (que === 'horarios_fijos') return;
+        }
+
+        // El listado de horarios viene completo: se recorta a los pacientes que pasaron los
+        // filtros, para que el archivo diga lo mismo que la pantalla.
+        const exportados = new Set(pacientes.map(p => p.id));
+        const suyos = (horarios ?? []).filter(h => exportados.has(h.pacienteId));
+
+        if (que === 'horarios_fijos' && suyos.length === 0) {
+          this.toast.warning('Ningún paciente de la lista tiene horario fijo cargado');
+          return;
+        }
+
+        const filasHorario = suyos
+          .slice()
+          .sort((a, b) => a.paciente.localeCompare(b.paciente) || a.diaSemana - b.diaSemana
+                       || a.horaInicio.localeCompare(b.horaInicio))
+          .map(h => ({
+            'Paciente': h.paciente,
+            'DNI': h.dni ?? '',
+            'Sede': h.sede ?? '',
+            'Día': DIAS_SEMANA[h.diaSemana],
+            'Hora inicio': soloHoraYMinuto(h.horaInicio),
+            'Hora fin': h.horaFin ? soloHoraYMinuto(h.horaFin) : '',
+            'Duración (min)': duracionHorarioFijo(h) ?? '',
+            'Terapeuta': h.terapeuta ?? '',
+            'Terapia': h.tipoTerapia ?? '',
+            'Notas': h.notas ?? '',
+          }));
+
+        if (que === 'horarios_fijos') {
+          this.excelExportService.exportarLibro(
+            [{ nombre: 'Horarios fijos', filas: filasHorario }], `horarios_fijos${this.sufijoArchivo()}`);
+          return;
+        }
+
+        // Resumen en la propia fila del paciente además de la hoja de detalle: quien abre el
+        // export para revisar pacientes quiere ver ahí mismo si vienen fijo, sin saltar de hoja.
+        const porPaciente = new Map<number, HorarioFijoResumen[]>();
+        for (const h of suyos) {
+          const lista = porPaciente.get(h.pacienteId) ?? [];
+          lista.push(h);
+          porPaciente.set(h.pacienteId, lista);
+        }
+
+        const filas = pacientes.map(p => ({
           'Nombre': p.nombre,
           'Apellido': p.apellido,
           'DNI': p.dni ?? '',
@@ -109,16 +182,28 @@ export class ListaPacientesComponent implements OnInit {
           'Sede': p.sede?.nombre ?? '',
           'Origen': p.origen?.nombre ?? '',
           'Activo': p.activo ? 'Sí' : 'No',
+          'Horario fijo': (porPaciente.get(p.id!) ?? [])
+            .slice()
+            .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio))
+            .map(resumirHorarioFijo).join(' | '),
           'Notas': p.notas ?? '',
           'Fecha de alta': p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-PE') : '',
           'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));
-        const sufijo = this.filtroCreadoDesde || this.filtroCreadoHasta
-          ? `_altas_${this.filtroCreadoDesde || 'inicio'}_a_${this.filtroCreadoHasta || 'hoy'}` : '';
-        this.excelExportService.exportar(filas, `pacientes${sufijo}`);
+
+        this.excelExportService.exportarLibro([
+          { nombre: 'Pacientes', filas },
+          { nombre: 'Horarios fijos', filas: filasHorario },
+        ], `pacientes${this.sufijoArchivo()}`);
       },
-      error: () => { this.exportando = false; this.toast.error('Error al exportar pacientes'); }
+      error: () => { this.exportando = false; this.toast.error('Error al exportar'); }
     });
+  }
+
+  /** Deja dicho en el nombre del archivo el rango de altas, cuando se filtró por él. */
+  private sufijoArchivo(): string {
+    return this.filtroCreadoDesde || this.filtroCreadoHasta
+      ? `_altas_${this.filtroCreadoDesde || 'inicio'}_a_${this.filtroCreadoHasta || 'hoy'}` : '';
   }
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PACIENTES'); }
@@ -469,13 +554,36 @@ export class ListaPacientesComponent implements OnInit {
     return this.tiposTerapia.find(t => t.id === id)?.nombre ?? '—';
   }
 
-  /** Los dias que el terapeuta elegido realmente trabaja, en orden. */
+  /**
+   * Los siete dias, siempre.
+   *
+   * Antes solo salian los que el terapeuta tiene cargados en su horario, y eso dejaba fuera
+   * sabado y domingo en cuanto su jornada no los incluia — aunque el paciente si venga. El
+   * horario fijo es una anotacion de referencia: no reserva nada, asi que limitarlo al horario
+   * configurado impedia anotar la realidad. Los dias que el terapeuta no tiene cargados se
+   * marcan aparte (ver diaSinJornada) pero se pueden elegir igual.
+   */
   diasDelTerapeuta(): number[] {
-    if (!this.hfTerapeutaId) return [];
-    const dias = this.horariosTerapeutas
-      .filter(h => this.idDelHorario(h) === this.hfTerapeutaId && h.activo)
-      .map(h => h.diaSemana);
-    return [...new Set(dias)].sort((a, b) => a - b);
+    return [1, 2, 3, 4, 5, 6, 7];
+  }
+
+  /** El terapeuta no tiene jornada cargada ese dia: se puede elegir, pero se avisa. */
+  diaSinJornada(d: number): boolean {
+    if (!this.hfTerapeutaId) return false;
+    return !this.horariosTerapeutas.some(
+      h => this.idDelHorario(h) === this.hfTerapeutaId && h.diaSemana === d && h.activo);
+  }
+
+  /** "lunes, martes y sábado" — para decirlo en una frase y no como lista de códigos. */
+  nombresDias(dias: number[]): string {
+    const n = dias.map(d => this.DIAS[d].toLowerCase());
+    return n.length <= 1 ? (n[0] ?? '')
+         : n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
+  }
+
+  /** Los dias marcados que caen fuera de la jornada del terapeuta. */
+  diasMarcadosSinJornada(): number[] {
+    return this.hfDias.filter(d => this.diaSinJornada(d));
   }
 
   /**
@@ -502,6 +610,13 @@ export class ListaPacientesComponent implements OnInit {
   horasDelTerapeuta(): string[] {
     if (!this.hfTerapeutaId || this.hfDias.length === 0) return [];
     const paso = this.pasoHorasHF();
+    // Si alguno de los dias marcados no tiene jornada cargada, no hay franjas que cruzar: se
+    // ofrece la rejilla de la jornada habitual de la clinica para que igual se pueda anotar.
+    if (this.hfDias.some(d => this.diaSinJornada(d))) {
+      const horas: string[] = [];
+      for (let m = 7 * 60; m < 21 * 60; m += paso) horas.push(this.aTexto(m));
+      return horas;
+    }
     // Con varios dias marcados solo se ofrecen las horas en que el terapeuta atiende TODOS ellos:
     // "lunes, miercoles y viernes a las 10" solo tiene sentido si los tres dias tienen esa hora.
     const porDia = this.hfDias.map(dia => {
@@ -533,10 +648,12 @@ export class ListaPacientesComponent implements OnInit {
     if (this.horasDelTerapeuta().includes(normalizada)) return null;   // ya está en la lista
     if (!this.hfTerapeutaId || this.hfDias.length === 0) return null;
     const min = h * 60 + m;
-    const atiendeTodosLosDias = this.hfDias.every(dia =>
+    // En un dia sin jornada cargada no hay contra que validar: se acepta cualquier hora, que es
+    // lo coherente con poder anotar sabados y domingos aunque no esten configurados.
+    const cabeEseDia = (dia: number) => this.diaSinJornada(dia) ||
       this.horariosTerapeutas.some(b => this.idDelHorario(b) === this.hfTerapeutaId && b.diaSemana === dia
-        && b.activo && min >= this.aMinutos(b.horaInicio) && min < this.aMinutos(b.horaFin)));
-    return atiendeTodosLosDias ? normalizada : null;
+        && b.activo && min >= this.aMinutos(b.horaInicio) && min < this.aMinutos(b.horaFin));
+    return this.hfDias.every(cabeEseDia) ? normalizada : null;
   }
 
   alCambiarTerapeutaHF(): void {
@@ -631,11 +748,10 @@ export class ListaPacientesComponent implements OnInit {
     // Una fila de horario fijo completa pero sin pulsar "+" se perdía en silencio al guardar:
     // el usuario la ve llena en pantalla y da por hecho que se guarda con el paciente. Se agrega
     // sola, que es lo que evidentemente se quería.
+    // Una fila a medias no se avisa con un toast: saltaba por solo haber abierto el selector de
+    // terapeuta, encima del "Paciente actualizado", y no habia nada que el usuario tuviera que
+    // hacer. La pista bajo la fila ya dice lo que falta mientras se esta llenando.
     if (this.hfFilaCompleta) this.agregarHorarioFijo();
-    // A medias no se puede agregar nada, pero callarlo haría creer que sí se guardó.
-    if (this.hfFilaAMedias) {
-      this.toast.warning('El horario fijo que empezaste a llenar está incompleto — se guardará el paciente sin él.');
-    }
     if (this.esMenorDeEdad && (!this.formData.dniApoderado.trim() || !this.formData.nombreApoderado.trim() || !this.formData.celularApoderado.trim())) {
       this.toast.warning('El paciente es menor de edad — completa el DNI, nombre y celular del apoderado.');
       return;

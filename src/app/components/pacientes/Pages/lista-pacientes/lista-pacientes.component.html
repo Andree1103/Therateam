@@ -12,6 +12,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
       </button>
+      <!-- Aparte del export de pacientes porque el cuadro semanal se reparte solo: no obliga a
+           abrir un archivo con los datos personales de todos para llegar a la segunda hoja. -->
+      <button *ngIf="puedeExportar" class="btn-secondary" [disabled]="exportando"
+              (click)="exportarHorariosFijos()"
+              title="Descarga los horarios fijos de los pacientes que cumplen los filtros actuales">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        {{ exportando ? 'Exportando...' : 'Horarios fijos' }}
+      </button>
       <button class="btn-primary" *ngIf="puedeCrear" (click)="abrirNuevo()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo paciente
@@ -336,10 +344,13 @@
                Solo aparecen los dias que el terapeuta realmente trabaja. -->
           <div class="hf-fila hf-fila-cuando">
             <div class="hf-dias" [class.hf-dias-off]="!hfTerapeutaId">
-              <ng-container *ngIf="hfTerapeutaId && diasDelTerapeuta().length > 0">
+              <ng-container *ngIf="hfTerapeutaId">
+                <!-- Los siete dias. Los que el terapeuta no tiene en su jornada se marcan con un
+                     punto: se pueden elegir igual, porque el horario fijo solo anota, no reserva. -->
                 <button type="button" class="hf-dia" *ngFor="let d of diasDelTerapeuta()"
-                        [class.sel]="diaMarcadoHF(d)" (click)="toggleDiaHF(d)"
-                        [title]="DIAS[d]">{{ DIAS_C[d] }}</button>
+                        [class.sel]="diaMarcadoHF(d)" [class.sin-jornada]="diaSinJornada(d)"
+                        (click)="toggleDiaHF(d)"
+                        [title]="DIAS[d] + (diaSinJornada(d) ? ' — sin jornada cargada' : '')">{{ DIAS_C[d] }}</button>
               </ng-container>
               <span class="hf-dias-hint" *ngIf="!hfTerapeutaId">Elige terapeuta</span>
             </div>
@@ -392,8 +403,10 @@
             </button>
           </div>
 
-          <p class="hf-aviso" *ngIf="hfTerapeutaId && diasDelTerapeuta().length === 0">
-            {{ nombreTerapeuta(hfTerapeutaId) }} no tiene horario cargado. Configúralo en Terapeutas.
+          <p class="hf-aviso" *ngIf="diasMarcadosSinJornada().length > 0">
+            {{ nombreTerapeuta(hfTerapeutaId) }} no tiene jornada cargada
+            {{ diasMarcadosSinJornada().length === 1 ? 'el' : 'los' }}
+            {{ nombresDias(diasMarcadosSinJornada()) }} — se puede anotar igual.
           </p>
           <p class="hf-aviso" *ngIf="hfError">{{ hfError }}</p>
           <!-- Sin esto, una fila completa que no se agrego parecia guardada y se perdia. -->

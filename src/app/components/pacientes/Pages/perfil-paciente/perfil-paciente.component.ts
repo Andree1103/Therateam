@@ -15,6 +15,8 @@ import { Pago } from '../../../pagos/Models/pago.model';
 import { Cita } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
+  from '../../Models/horario-fijo.model';
 
 type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
@@ -77,9 +79,11 @@ export class PerfilPacienteComponent implements OnInit {
       pagos:        this.pagoService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Pago[]))),
       citas:        this.citaService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Cita[]))),
       saldo:        this.pacienteService.getSaldoMovimientos(this.pacienteId).pipe(catchError(() => of([] as SaldoMovimiento[]))),
+      horarios:     this.pacienteService.getHorariosFijos(this.pacienteId).pipe(catchError(() => of([] as HorarioFijo[]))),
     }).subscribe({
-      next: ({ paciente, tratamientos, pagos, citas, saldo }) => {
+      next: ({ paciente, tratamientos, pagos, citas, saldo, horarios }) => {
         this.movimientosSaldo = saldo;
+        this.horariosFijos = horarios;
         this.paciente     = paciente;
         this.tratamientos = tratamientos;
         this.pagos        = pagos;
@@ -108,6 +112,40 @@ export class PerfilPacienteComponent implements OnInit {
         // tabla y su fila quedaría sin fecha ni terapeuta).
         this.atenciones = resultados.filter(a => idsVisibles.has(Number(a.citaId)));
       });
+  }
+
+  // ── Horario fijo ──────────────────────────────────────────────────────────
+  // Se edita desde el modal de Pacientes; aquí solo se muestra, que es lo que se busca al abrir
+  // la ficha: saber de un vistazo cuándo suele venir.
+
+  horariosFijos: HorarioFijo[] = [];
+
+  /** Agrupados por terapia, igual que en el modal: es como se lee el horario de un paciente. */
+  horariosPorTerapia(): { nombre: string; items: HorarioFijo[] }[] {
+    const grupos = new Map<string, HorarioFijo[]>();
+    for (const h of this.horariosFijos) {
+      const clave = h.tipoTerapia?.nombre ?? 'Sin terapia definida';
+      if (!grupos.has(clave)) grupos.set(clave, []);
+      grupos.get(clave)!.push(h);
+    }
+    return [...grupos.entries()]
+      .map(([nombre, items]) => ({
+        nombre,
+        items: items.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio)),
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
+  diaCorto(d: number): string { return DIAS_CORTOS[d]; }
+  soloHora(h?: string | null): string { return soloHoraYMinuto(h); }
+  terapeutaDeHorario(h: HorarioFijo): string { return nombreTerapeutaDeHorario(h); }
+
+  /** Minutos del horario, cuando quedó anotada la hora de fin. */
+  duracionHorario(h: HorarioFijo): number | null {
+    if (!h.horaFin) return null;
+    const min = (t: string) => { const [a, b] = soloHoraYMinuto(t).split(':').map(Number); return a * 60 + (b || 0); };
+    const d = min(h.horaFin) - min(h.horaInicio);
+    return d > 0 ? d : null;
   }
 
   /**
@@ -236,6 +274,18 @@ export class PerfilPacienteComponent implements OnInit {
 
     this.excelExportService.exportarLibro([
       { nombre: 'Resumen', filas: datos },
+      { nombre: 'Horario fijo', filas: this.horariosFijos
+          .slice()
+          .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio))
+          .map(h => ({
+            'Día': DIAS_SEMANA[h.diaSemana],
+            'Hora inicio': this.soloHora(h.horaInicio),
+            'Hora fin': h.horaFin ? this.soloHora(h.horaFin) : '',
+            'Duración (min)': this.duracionHorario(h) ?? '',
+            'Terapeuta': this.terapeutaDeHorario(h),
+            'Terapia': h.tipoTerapia?.nombre ?? '',
+            'Notas': h.notas ?? '',
+          })) },
       { nombre: 'Citas', filas: citas },
       { nombre: 'Atenciones', filas: atenciones },
       { nombre: 'Pagos', filas: pagos },

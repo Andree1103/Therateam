@@ -214,3 +214,11 @@
 .hf-agregar.hf-listo{animation:hfPulso 1.6s ease-in-out infinite}
 @keyframes hfPulso{0%,100%{box-shadow:0 0 0 0 rgba(24,95,165,.45)}50%{box-shadow:0 0 0 5px rgba(24,95,165,0)}}
 .hf-pendiente{margin:8px 0 0;font-size:11.5px;color:#185FA5}
+
+/* Dia sin jornada cargada para ese terapeuta: se puede elegir igual (el horario fijo solo anota),
+   pero se marca con un punto para que no parezca un dato confirmado por su horario. */
+.hf-dia.sin-jornada{position:relative;color:#b45309}
+.hf-dia.sin-jornada::after{content:'';position:absolute;top:3px;right:3px;width:4px;height:4px;
+                           border-radius:50%;background:#f59e0b}
+.hf-dia.sin-jornada.sel{color:#fff}
+.hf-dia.sin-jornada.sel::after{background:#fde68a}

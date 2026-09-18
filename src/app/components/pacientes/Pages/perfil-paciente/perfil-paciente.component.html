@@ -124,6 +124,29 @@
           <span class="if-val">{{ formatFecha(paciente.createdAt) }}</span>
         </div>
       </div>
+
+      <!-- ── HORARIO FIJO ────────────────────────────────────────────────────
+           Solo lectura: se edita desde el modal de Pacientes. Aqui interesa la
+           pregunta "cuando suele venir", que es lo que se busca al abrir la ficha.
+           Agrupado por terapia, igual que en el modal. -->
+      <div class="hfp-card" *ngIf="horariosFijos.length > 0">
+        <div class="hfp-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          <strong>Horario fijo</strong>
+          <span class="hfp-nota">Referencia — no son citas agendadas</span>
+        </div>
+        <div class="hfp-grupo" *ngFor="let g of horariosPorTerapia()">
+          <span class="hfp-terapia">{{ g.nombre }}</span>
+          <div class="hfp-chips">
+            <span class="hfp-chip" *ngFor="let h of g.items">
+              <span class="hfp-dia">{{ diaCorto(h.diaSemana) }}</span>
+              <span class="hfp-hora">{{ soloHora(h.horaInicio) }}<span *ngIf="h.horaFin">–{{ soloHora(h.horaFin) }}</span></span>
+              <span class="hfp-dur" *ngIf="duracionHorario(h) as d">{{ d }}′</span>
+              <span class="hfp-ter" *ngIf="terapeutaDeHorario(h)">· {{ terapeutaDeHorario(h) }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: TRATAMIENTOS -->

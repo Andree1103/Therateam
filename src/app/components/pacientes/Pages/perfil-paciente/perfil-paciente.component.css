@@ -81,3 +81,23 @@
 .btn-exportar{display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;font-family:inherit;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
 .btn-exportar:hover:not(:disabled){background:#e2e8f0;border-color:#cbd5e1}
 .btn-exportar:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Horario fijo en la ficha (solo lectura) ───────────────────────────────── */
+/* Se dice que es referencia porque la ficha esta llena de citas reales y sin esa aclaracion
+   estas filas se leen como si fueran otras citas mas. */
+.hfp-card{margin-top:16px;padding:12px 14px;border:1px solid #c7d9ef;border-radius:12px;
+          background:linear-gradient(180deg,#f5f9ff,#eef5fd)}
+.hfp-hdr{display:flex;align-items:center;gap:7px;color:#185FA5;margin-bottom:10px}
+.hfp-hdr strong{font-size:13px;color:#1c2f52}
+.hfp-nota{margin-left:auto;font-size:10.5px;color:#64748b}
+.hfp-grupo+.hfp-grupo{margin-top:10px;padding-top:10px;border-top:1px solid #dbe4f0}
+.hfp-terapia{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;
+             letter-spacing:.4px;color:#185FA5;margin-bottom:6px}
+.hfp-chips{display:flex;flex-wrap:wrap;gap:6px}
+.hfp-chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #dbe4f0;
+          border-radius:20px;padding:4px 10px 4px 4px;font-size:11.5px;color:#1c2f52}
+.hfp-dia{background:#185FA5;color:#fff;font-weight:700;font-size:10px;text-transform:uppercase;
+         padding:3px 7px;border-radius:12px}
+.hfp-hora{font-weight:700;font-variant-numeric:tabular-nums}
+.hfp-dur{font-size:10px;font-weight:700;color:#64748b;background:#eef2f7;padding:2px 5px;border-radius:8px}
+.hfp-ter{color:#64748b}

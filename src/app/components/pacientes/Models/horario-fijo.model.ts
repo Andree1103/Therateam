@@ -58,3 +58,41 @@ export function nombreTerapeutaDeHorario(h: HorarioFijo): string {
 export function soloHoraYMinuto(hora?: string | null): string {
   return hora ? hora.slice(0, 5) : '';
 }
+
+/**
+ * Una línea de horario fijo vista desde fuera de la ficha: incluye de quién es.
+ *
+ * El listado por paciente omite al paciente a propósito —desde su ficha ya se sabe—, pero en
+ * la vista general esa es justo la columna que hace falta, así que el back manda otra forma.
+ */
+export interface HorarioFijoResumen {
+  id: number;
+  pacienteId: number;
+  paciente: string;
+  dni?: string | null;
+  sede?: string | null;
+  terapeutaId?: number | null;
+  terapeuta?: string | null;
+  tipoTerapiaId?: number | null;
+  tipoTerapia?: string | null;
+  /** 1 = lunes … 7 = domingo. */
+  diaSemana: number;
+  horaInicio: string;
+  horaFin?: string | null;
+  notas?: string | null;
+}
+
+/** "Lu 09:00-09:45 · Ana Quispe · KIDS" — una línea legible para resumir en una celda. */
+export function resumirHorarioFijo(h: HorarioFijoResumen): string {
+  const rango = soloHoraYMinuto(h.horaInicio) + (h.horaFin ? '-' + soloHoraYMinuto(h.horaFin) : '');
+  return [`${DIAS_CORTOS[h.diaSemana]} ${rango}`, h.terapeuta || null, h.tipoTerapia || null]
+    .filter(Boolean).join(' · ');
+}
+
+/** Minutos entre inicio y fin, cuando quedó anotada la hora de fin. */
+export function duracionHorarioFijo(h: { horaInicio: string; horaFin?: string | null }): number | null {
+  if (!h.horaFin) return null;
+  const min = (t: string) => { const [hh, mm] = t.split(':'); return (+hh) * 60 + (+mm); };
+  const d = min(h.horaFin) - min(h.horaInicio);
+  return d > 0 ? d : null;
+}

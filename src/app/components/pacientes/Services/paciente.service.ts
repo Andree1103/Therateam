@@ -4,7 +4,7 @@ import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { Paciente, SaldoMovimiento } from '../Models/paciente.model';
 import { PageResponse } from '../../../core/models/page.model';
-import { HorarioFijo, HorarioFijoRequest } from '../Models/horario-fijo.model';
+import { HorarioFijo, HorarioFijoRequest, HorarioFijoResumen } from '../Models/horario-fijo.model';
 
 export interface PacienteFiltros {
   nombre?: string;
@@ -52,6 +52,16 @@ export class PacienteService {
   /** Horario habitual del paciente — solo referencia, no reserva la agenda ni crea citas. */
   getHorariosFijos(pacienteId: number): Observable<HorarioFijo[]> {
     return this.api.get<HorarioFijo[]>(`${this.PATH}/${pacienteId}/horarios-fijos`);
+  }
+
+  /**
+   * Los horarios fijos de TODA la clínica en una sola llamada.
+   *
+   * Existe para exportar: pedirlos paciente por paciente serían cien peticiones para cien
+   * pacientes. El back ya los devuelve aplanados, con el nombre del paciente resuelto.
+   */
+  getTodosHorariosFijos(): Observable<HorarioFijoResumen[]> {
+    return this.api.get<HorarioFijoResumen[]>('/api/horarios-fijos');
   }
 
   /** Reemplaza el horario completo. Una lista vacía deja al paciente sin horarios fijos. */
