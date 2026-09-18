@@ -55,13 +55,23 @@ export class PacienteService {
   }
 
   /**
-   * Los horarios fijos de TODA la clínica en una sola llamada.
+   * Los horarios fijos en una sola llamada, acotados por los MISMOS filtros que el listado de
+   * pacientes.
    *
    * Existe para exportar: pedirlos paciente por paciente serían cien peticiones para cien
-   * pacientes. El back ya los devuelve aplanados, con el nombre del paciente resuelto.
+   * pacientes, y traerse el cuadro entero para recortarlo aquí es cargar memoria por nada. El
+   * back los devuelve aplanados, con el nombre del paciente ya resuelto.
    */
-  getTodosHorariosFijos(): Observable<HorarioFijoResumen[]> {
-    return this.api.get<HorarioFijoResumen[]>('/api/horarios-fijos');
+  getHorariosFijosDeTodos(filtros: PacienteFiltros = {}): Observable<HorarioFijoResumen[]> {
+    return this.api.get<HorarioFijoResumen[]>('/api/horarios-fijos', {
+      nombre: filtros.nombre?.trim() || undefined,
+      dni: filtros.dni?.trim() || undefined,
+      correo: filtros.correo?.trim() || undefined,
+      sedeId: filtros.sedeId != null ? String(filtros.sedeId) : undefined,
+      activo: filtros.activo == null ? undefined : String(filtros.activo),
+      creadoDesde: filtros.creadoDesde || undefined,
+      creadoHasta: filtros.creadoHasta || undefined,
+    });
   }
 
   /** Reemplaza el horario completo. Una lista vacía deja al paciente sin horarios fijos. */

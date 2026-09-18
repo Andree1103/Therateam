@@ -836,21 +836,22 @@
                Si el paciente ya viene siempre los mismos dias a la misma hora, agendarlo a mano
                cada vez es reescribir algo que el sistema ya sabe. Va como bloque propio y no como
                una nota al pie, porque es justo lo que hay que mirar antes de elegir fecha y hora.
-               Cada linea se aplica de un clic: pone terapeuta, terapia, fecha y hora. -->
+               Solo informa: NO se toca y no rellena nada. Llegó a aplicarse de un clic, y eso
+               convertía una anotación de referencia en una decisión del sistema — quien agenda
+               decide. -->
           <div class="hfx-bloque" *ngIf="!citaEditando && horariosFijosPaciente.length > 0">
             <div class="hfx-hdr">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
               <strong>{{ pac1.nombre }} ya tiene horario fijo</strong>
               <span class="hfx-n">{{ horariosFijosPaciente.length }}</span>
             </div>
-            <p class="hfx-nota">Toca uno para aplicarlo a esta cita.</p>
+            <p class="hfx-nota">Referencia — no modifica esta cita.</p>
             <div class="hfx-lista">
-              <button type="button" class="hfx-item" *ngFor="let h of horariosFijosSugeridos"
-                      [class.hfx-match]="esDelTipoElegido(h)" (click)="aplicarHorarioFijo(h)">
+              <div class="hfx-item" *ngFor="let h of horariosFijosSugeridos"
+                   [class.hfx-match]="esDelTipoElegido(h)">
                 <span class="hfx-txt">{{ etiquetaHorarioFijo(h) }}</span>
                 <span class="hfx-badge" *ngIf="esDelTipoElegido(h)">esta terapia</span>
-                <svg class="hfx-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
+              </div>
             </div>
           </div>
 

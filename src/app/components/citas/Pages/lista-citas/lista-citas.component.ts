@@ -1858,9 +1858,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   // ── Horario fijo del paciente ─────────────────────────────────────────────
-  // Si el paciente ya viene siempre los mismos días a la misma hora, agendarlo a mano cada vez
-  // es reescribir algo que el sistema ya sabe. Se ofrece al elegir paciente para poder aplicarlo
-  // de un clic, en vez de dejarlo como un dato suelto en su ficha.
+  // Se muestra al elegir paciente para tener a la vista cuándo suele venir antes de fijar fecha
+  // y hora. Es SOLO informativo: no rellena el formulario. Llegó a aplicarse de un clic, y eso
+  // convertía una anotación de referencia en una decisión del sistema — quien agenda decide.
 
   horariosFijosPaciente: HorarioFijo[] = [];
 
@@ -1901,36 +1901,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
          + (dur ? ` (${dur} min)` : '')
          + (ter ? ` · ${ter}` : '')
          + (h.tipoTerapia?.nombre ? ` · ${h.tipoTerapia.nombre}` : '');
-  }
-
-  /** La próxima fecha (de hoy en adelante) que cae en ese día de la semana. */
-  private proximaFechaDelDia(diaSemana: number): string {
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    // getDay(): 0=domingo … 6=sábado. En la base 1=lunes … 7=domingo.
-    const dowHoy = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    let faltan = diaSemana - dowHoy;
-    if (faltan < 0) faltan += 7;          // ya pasó esta semana: la siguiente
-    const destino = new Date(hoy);
-    destino.setDate(hoy.getDate() + faltan);
-    return this.fechaToISO(destino);
-  }
-
-  /** Aplica el horario fijo a la cita: terapeuta, terapia, fecha y hora de una sola vez. */
-  aplicarHorarioFijo(h: HorarioFijo): void {
-    const ter = nombreTerapeutaDeHorario(h);
-    if (ter) { this.fTer = ter; this.terapeutaBusqueda = ter; }
-    if (h.tipoTerapia?.key) {
-      const tipo = this.tiposTerapia.find(t => t.id.toUpperCase() === h.tipoTerapia!.key!.toUpperCase());
-      if (tipo) { this.fAreaId = tipo.area_id ?? this.fAreaId; this.fTipoId = tipo.id; this.onTipoChange(); }
-    }
-    this.fFecha = this.proximaFechaDelDia(h.diaSemana);
-    this.fHoraInicio = soloHoraYMinuto(h.horaInicio);
-    // La duración NO se copia: la del horario fijo es un dato informativo del paciente, y la de
-    // la cita la fija su tipo de terapia. Se muestra en la etiqueta para que se vea si difieren,
-    // pero quien decide cuánto dura la cita sigue siendo el tipo.
-    this.cargarSlotsSingle();
-    this.onDatosCitaChange();
-    this.toast.success(`Horario fijo aplicado: ${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`);
   }
 
   /** Hora de fin de un slot según la duración actual (fDur) — se muestra junto a cada botón

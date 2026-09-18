@@ -115,7 +115,7 @@ export class ListaPacientesComponent implements OnInit {
       // El null distingue "falló la consulta" de "nadie tiene horario": tragarse el error y
       // devolver [] hacía decir "ningún paciente tiene horario fijo" cuando en realidad el
       // servidor no había respondido — un mensaje que manda a revisar los datos, que estan bien.
-      horarios: this.pacienteService.getTodosHorariosFijos().pipe(catchError(() => of(null))),
+      horarios: this.pacienteService.getHorariosFijosDeTodos(this.filtrosActuales()).pipe(catchError(() => of(null))),
     }).subscribe({
       next: ({ pagina, horarios }) => {
         this.exportando = false;
@@ -127,8 +127,9 @@ export class ListaPacientesComponent implements OnInit {
           if (que === 'horarios_fijos') return;
         }
 
-        // El listado de horarios viene completo: se recorta a los pacientes que pasaron los
-        // filtros, para que el archivo diga lo mismo que la pantalla.
+        // Los horarios ya vienen acotados por los mismos filtros, pero se cruzan igual con los
+        // pacientes exportados: es una consulta aparte y una fila colada sería una línea del
+        // Excel que no corresponde a nadie de la lista.
         const exportados = new Set(pacientes.map(p => p.id));
         const suyos = (horarios ?? []).filter(h => exportados.has(h.pacienteId));
 
