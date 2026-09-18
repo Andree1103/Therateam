@@ -582,6 +582,16 @@ export class ListaPacientesComponent implements OnInit {
       : '';
   }
 
+  /** La fila de alta está completa y lista para agregarse. */
+  get hfFilaCompleta(): boolean {
+    return !!this.hfTerapeutaId && this.hfDias.length > 0 && !!this.hfHoraInicio;
+  }
+
+  /** Se empezó a llenar la fila pero le falta algo para poder agregarla. */
+  get hfFilaAMedias(): boolean {
+    return !this.hfFilaCompleta && (!!this.hfTerapeutaId || this.hfDias.length > 0 || !!this.hfHoraInicio);
+  }
+
   quitarHorarioFijo(i: number): void {
     this.horariosFijos.splice(i, 1);
     this.hfError = '';
@@ -618,6 +628,14 @@ export class ListaPacientesComponent implements OnInit {
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
+    // Una fila de horario fijo completa pero sin pulsar "+" se perdía en silencio al guardar:
+    // el usuario la ve llena en pantalla y da por hecho que se guarda con el paciente. Se agrega
+    // sola, que es lo que evidentemente se quería.
+    if (this.hfFilaCompleta) this.agregarHorarioFijo();
+    // A medias no se puede agregar nada, pero callarlo haría creer que sí se guardó.
+    if (this.hfFilaAMedias) {
+      this.toast.warning('El horario fijo que empezaste a llenar está incompleto — se guardará el paciente sin él.');
+    }
     if (this.esMenorDeEdad && (!this.formData.dniApoderado.trim() || !this.formData.nombreApoderado.trim() || !this.formData.celularApoderado.trim())) {
       this.toast.warning('El paciente es menor de edad — completa el DNI, nombre y celular del apoderado.');
       return;

@@ -384,6 +384,7 @@
             </div>
 
             <button type="button" class="hf-agregar hf-agregar-abajo" (click)="agregarHorarioFijo()"
+                    [class.hf-listo]="hfFilaCompleta"
                     [disabled]="!hfTerapeutaId || hfDias.length === 0 || !hfHoraInicio"
                     [title]="hfDias.length > 1 ? 'Agrega ' + hfDias.length + ' días' : 'Agregar'">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -395,6 +396,10 @@
             {{ nombreTerapeuta(hfTerapeutaId) }} no tiene horario cargado. Configúralo en Terapeutas.
           </p>
           <p class="hf-aviso" *ngIf="hfError">{{ hfError }}</p>
+          <!-- Sin esto, una fila completa que no se agrego parecia guardada y se perdia. -->
+          <p class="hf-pendiente" *ngIf="hfFilaCompleta">
+            Falta agregarlo con el botón <strong>+</strong> — si guardas el paciente lo agregamos igual.
+          </p>
         </div>
 
         <div class="modal-footer">
