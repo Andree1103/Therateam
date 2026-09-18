@@ -191,3 +191,12 @@
    una eleccion deliberada y no una opcion mas de la lista. */
 .ac-libre{background:#f0f6ff;border:1px dashed #93c5fd}
 .ac-libre .ac-nombre{color:#185FA5;font-weight:600}
+
+/* Duracion de la sesion, junto a la hora. La hora de fin se calcula sola y se muestra al lado
+   para que se vea el rango completo antes de agregar. */
+.hf-dur{flex:0 0 86px;padding:8px 6px;font-size:12.5px;font-family:inherit;color:#1c2f52;
+        border:1.5px solid #dbe4f0;border-radius:8px;background:#fff}
+.hf-dur:disabled{background:#f1f5f9;color:#94a3b8}
+.hf-fin{font-size:11.5px;color:#64748b;white-space:nowrap}
+.hf-chip-fin{color:#64748b;font-weight:400}
+.hf-chip-dur{font-size:10px;font-weight:700;color:#64748b;background:#eef2f7;padding:2px 5px;border-radius:8px}

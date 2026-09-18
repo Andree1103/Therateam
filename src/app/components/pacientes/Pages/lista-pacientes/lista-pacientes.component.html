@@ -268,7 +268,8 @@
               <div class="hf-chips">
                 <span class="hf-chip" *ngFor="let it of g.items">
                   <span class="hf-chip-dia">{{ DIAS_C[it.h.diaSemana] }}</span>
-                  <span class="hf-chip-hora">{{ it.h.horaInicio }}</span>
+                  <span class="hf-chip-hora">{{ it.h.horaInicio }}<span class="hf-chip-fin" *ngIf="it.h.horaFin">–{{ it.h.horaFin }}</span></span>
+                  <span class="hf-chip-dur" *ngIf="duracionDe(it.h) as d">{{ d }}′</span>
                   <!-- El terapeuta solo cuando aporta: dentro de una terapia suele ser siempre el
                        mismo, y repetirlo en cada chip es ruido. -->
                   <ng-container *ngIf="g.items.length === 1 || !mismoTerapeutaEnGrupo(g.items)">

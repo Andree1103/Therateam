@@ -1886,9 +1886,19 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return !!h.tipoTerapia?.key && h.tipoTerapia.key.toUpperCase() === (this.fTipoId ?? '').toUpperCase();
   }
 
+  /** Minutos entre la hora de inicio y la de fin del horario fijo, si quedó anotada. */
+  duracionDelHorarioFijo(h: HorarioFijo): number | null {
+    if (!h.horaFin) return null;
+    const min = (t: string) => { const [a, b] = t.split(':').map(Number); return a * 60 + (b || 0); };
+    const d = min(soloHoraYMinuto(h.horaFin)) - min(soloHoraYMinuto(h.horaInicio));
+    return d > 0 ? d : null;
+  }
+
   etiquetaHorarioFijo(h: HorarioFijo): string {
     const ter = nombreTerapeutaDeHorario(h);
+    const dur = this.duracionDelHorarioFijo(h);
     return `${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`
+         + (dur ? ` (${dur} min)` : '')
          + (ter ? ` · ${ter}` : '')
          + (h.tipoTerapia?.nombre ? ` · ${h.tipoTerapia.nombre}` : '');
   }
@@ -1915,6 +1925,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
     this.fFecha = this.proximaFechaDelDia(h.diaSemana);
     this.fHoraInicio = soloHoraYMinuto(h.horaInicio);
+    // La duración anotada en el horario fijo manda sobre la del catálogo: si al paciente se le
+    // anotó una sesión de 30 min, aplicar su horario no debe dejarla en los 45 del tipo.
+    const dur = this.duracionDelHorarioFijo(h);
+    if (dur) this.fDur = dur;
     this.cargarSlotsSingle();
     this.onDatosCitaChange();
     this.toast.success(`Horario fijo aplicado: ${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`);

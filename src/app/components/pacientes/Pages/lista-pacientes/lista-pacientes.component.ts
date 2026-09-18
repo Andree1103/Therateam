@@ -312,7 +312,20 @@ export class ListaPacientesComponent implements OnInit {
   /** Varios días a la vez: "Física los lunes, miércoles y viernes a las 10" es UN gesto, no tres. */
   hfDias: number[] = [];
   hfHoraInicio: string | null = null;
+  /**
+   * Cuánto dura la sesión de ESE horario. Arranca en la duración de la terapia, que es el caso
+   * normal, pero se puede cambiar: el mismo paciente puede venir a una sesión más corta o más
+   * larga de lo que dice el catálogo, y antes no había forma de anotarlo.
+   */
+  hfDuracion: number | null = null;
+  readonly DURACIONES_HF = [20, 30, 40, 45, 50, 60, 80, 90, 120];
   hfError = '';
+
+  /** Hora de fin que se guarda: la de inicio más la duración elegida. */
+  horaFinHF(): string | null {
+    if (!this.hfHoraInicio || !this.hfDuracion) return null;
+    return this.aTexto(this.aMinutos(this.hfHoraInicio) + this.hfDuracion);
+  }
 
   // ── Los tres buscadores del alta ──────────────────────────────────────────
   // Desplegables normales obligaban a recorrer con el raton listas largas de terapeutas y
@@ -371,6 +384,8 @@ export class ListaPacientesComponent implements OnInit {
     this.hfTipoTerapiaId = tt?.id ?? null;
     this.hfTerapiaTexto = tt ? (tt.nombre ?? '') : '';
     this.hfDropdown = null;
+    // La duración del catálogo es el punto de partida; queda editable.
+    this.hfDuracion = this.pasoHorasHF();
     // La terapia define cada cuántos minutos se ofrecen las horas (Kids de 40 en 40, física
     // 30/45/50/60). Al cambiarla, la hora ya elegida puede dejar de caer en la cuadrícula: se
     // conserva solo si el terapeuta de verdad atiende a esa hora.
@@ -413,6 +428,12 @@ export class ListaPacientesComponent implements OnInit {
       }))
       // "Sin terapia definida" al final: es el caso incompleto, no encabeza la lista.
       .sort((a, b) => (a.tipoId === null ? 1 : b.tipoId === null ? -1 : a.nombre.localeCompare(b.nombre)));
+  }
+
+  /** Minutos que dura una línea ya agregada, para mostrarlos en su chip. */
+  duracionDe(h: HorarioFijoRequest): number | null {
+    if (!h.horaFin) return null;
+    return this.aMinutos(h.horaFin) - this.aMinutos(h.horaInicio);
   }
 
   /** Todo el grupo con el mismo terapeuta: entonces se nombra una vez y no en cada chip. */
@@ -545,13 +566,15 @@ export class ListaPacientesComponent implements OnInit {
         tipoTerapiaId: this.hfTipoTerapiaId,
         diaSemana:     dia,
         horaInicio:    this.hfHoraInicio,
-        horaFin:       null,
+        horaFin:       this.horaFinHF(),
       });
     }
     this.horariosFijos.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio));
     this.hfDias = [];
     this.hfHoraInicio = null;
     this.hfHoraTexto = '';
+    // La duración NO se limpia: al agregar varias líneas seguidas casi siempre se repite, y
+    // volver a elegirla cada vez es trabajo de más.
     // Si algunos dias se agregaron y otros ya estaban, se dice cual fue el caso en vez de
     // agregarlos en silencio y dejar al usuario contando filas.
     this.hfError = yaEstaban.length
@@ -570,6 +593,7 @@ export class ListaPacientesComponent implements OnInit {
     this.hfTipoTerapiaId = null;
     this.hfDias = [];
     this.hfHoraInicio = null;
+    this.hfDuracion = null;
     this.hfError = '';
     this.hfDropdown = null;
     this.hfTerapeutaTexto = '';
