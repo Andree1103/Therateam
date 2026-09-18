@@ -345,6 +345,7 @@
             </div>
 
             <div class="hf-campo hf-campo-hora autocomplete-wrap">
+              <label class="hf-lbl">Hora</label>
               <input type="text" class="hf-inp" placeholder="Hora" autocomplete="off"
                      [disabled]="hfDias.length === 0"
                      [(ngModel)]="hfHoraTexto" name="hfHoraTexto"
@@ -369,7 +370,20 @@
               </div>
             </div>
 
-            <button type="button" class="hf-agregar" (click)="agregarHorarioFijo()"
+            <!-- Duracion: solo dato informativo del horario. Por defecto la del tipo de terapia,
+                 editable porque el mismo paciente puede venir a una sesion mas corta o mas larga
+                 de lo que dice el catalogo. No cambia nada del sistema — no reserva la agenda ni
+                 fija la duracion de las citas; queda anotada para consulta y reportes. -->
+            <div class="hf-campo hf-campo-dur">
+              <label class="hf-lbl">Duración</label>
+              <select class="hf-inp" [(ngModel)]="hfDuracion" name="hfDuracion"
+                      title="Cuánto dura su sesión. Solo informativo.">
+                <option [ngValue]="null">— min</option>
+                <option *ngFor="let d of DURACIONES_HF" [ngValue]="d">{{ d }} min</option>
+              </select>
+            </div>
+
+            <button type="button" class="hf-agregar hf-agregar-abajo" (click)="agregarHorarioFijo()"
                     [disabled]="!hfTerapeutaId || hfDias.length === 0 || !hfHoraInicio"
                     [title]="hfDias.length > 1 ? 'Agrega ' + hfDias.length + ' días' : 'Agregar'">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

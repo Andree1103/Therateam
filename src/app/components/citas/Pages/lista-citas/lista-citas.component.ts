@@ -1925,10 +1925,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
     this.fFecha = this.proximaFechaDelDia(h.diaSemana);
     this.fHoraInicio = soloHoraYMinuto(h.horaInicio);
-    // La duración anotada en el horario fijo manda sobre la del catálogo: si al paciente se le
-    // anotó una sesión de 30 min, aplicar su horario no debe dejarla en los 45 del tipo.
-    const dur = this.duracionDelHorarioFijo(h);
-    if (dur) this.fDur = dur;
+    // La duración NO se copia: la del horario fijo es un dato informativo del paciente, y la de
+    // la cita la fija su tipo de terapia. Se muestra en la etiqueta para que se vea si difieren,
+    // pero quien decide cuánto dura la cita sigue siendo el tipo.
     this.cargarSlotsSingle();
     this.onDatosCitaChange();
     this.toast.success(`Horario fijo aplicado: ${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`);

@@ -200,3 +200,12 @@
 .hf-fin{font-size:11.5px;color:#64748b;white-space:nowrap}
 .hf-chip-fin{color:#64748b;font-weight:400}
 .hf-chip-dur{font-size:10px;font-weight:700;color:#64748b;background:#eef2f7;padding:2px 5px;border-radius:8px}
+
+/* Etiquetas de Hora y Duracion. Sin ellas el desplegable de minutos parecia un dato mas del
+   horario y no se entendia que era editable. */
+.hf-lbl{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+        color:#64748b;margin-bottom:3px}
+.hf-campo-dur{flex:0 0 100px}
+.hf-campo-dur .hf-inp{padding:8px 6px}
+/* Con etiquetas encima, el boton se alinea abajo y no al centro de la fila. */
+.hf-agregar-abajo{align-self:flex-end}
