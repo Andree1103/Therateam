@@ -41,6 +41,19 @@ export const DIAS_SEMANA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Vier
  */
 export const DIAS_CORTOS = ['', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 
+/**
+ * Nombre del terapeuta del horario.
+ *
+ * El DTO trae la entidad Terapeuta completa y el nombre vive en su `usuario`, no en la raíz —
+ * leerlo de `terapeuta.nombre` devolvía vacío en silencio. Se resuelve una vez aquí para que
+ * ninguna pantalla tenga que recordarlo.
+ */
+export function nombreTerapeutaDeHorario(h: HorarioFijo): string {
+  const t: any = h.terapeuta;
+  if (!t) return '';
+  return `${t.usuario?.nombre ?? t.nombre ?? ''} ${t.usuario?.apellido ?? t.apellido ?? ''}`.trim();
+}
+
 /** "09:00:00" -> "09:00". El back manda segundos que aquí no aportan nada. */
 export function soloHoraYMinuto(hora?: string | null): string {
   return hora ? hora.slice(0, 5) : '';

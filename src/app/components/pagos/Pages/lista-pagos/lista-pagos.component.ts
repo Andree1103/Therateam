@@ -112,12 +112,32 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     return Math.max(0, (c.precio ?? 0) - (c.monto_pagado ?? 0));
   }
 
+  // ── Saldo a favor del paciente ────────────────────────────────────────────
+  // El backend siempre descuenta el saldo antes de pedir dinero nuevo, pero esta pantalla no lo
+  // mostraba ni lo restaba del monto sugerido: al cobrar una cita ya creada proponía el precio
+  // completo, así que se le volvía a cobrar al paciente y el saldo se quedaba sin usar.
+  pacienteSaldoAFavor = 0;
+
+  /** Lo que el saldo puede cubrir del concepto elegido. */
+  get saldoAplicable(): number {
+    const deuda = this.formData.citaId ? this.restanteCita
+                : this.formData.tratamientoId ? this.restantePaquete : 0;
+    return Math.min(this.pacienteSaldoAFavor, deuda);
+  }
+
+  /** Lo que de verdad hay que cobrar hoy, ya descontado el saldo. */
+  get aCobrarConSaldo(): number {
+    const deuda = this.formData.citaId ? this.restanteCita
+                : this.formData.tratamientoId ? this.restantePaquete : 0;
+    return Math.max(0, deuda - this.pacienteSaldoAFavor);
+  }
+
   usarMontoPaquete(): void {
-    this.formData.montoRecibido = this.restantePaquete;
+    this.formData.montoRecibido = this.aCobrarConSaldo;
   }
 
   usarMontoCita(): void {
-    this.formData.montoRecibido = this.restanteCita;
+    this.formData.montoRecibido = this.aCobrarConSaldo;
   }
 
   exportando = false;
@@ -330,7 +350,15 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     this.formData.citaId = null;
     this.tratamientos = [];
     this.citasPendientes = [];
+    this.pacienteSaldoAFavor = 0;
     if (!this.formData.pacienteId) return;
+
+    // Se pide fresco en vez de confiar en el que traiga el buscador: entre que se listó al
+    // paciente y se abre este modal puede haberse registrado un adelanto.
+    this.pacienteService.getById(this.formData.pacienteId).subscribe({
+      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+      error: () => { this.pacienteSaldoAFavor = 0; }
+    });
 
     this.cargandoTratamientos = true;
     this.pagoService.getTratamientosByPaciente(this.formData.pacienteId).subscribe({
@@ -370,7 +398,9 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   onCitaChange(): void {
     if (!this.formData.citaId) return;
     this.formData.tratamientoId = null;
-    this.formData.montoRecibido = this.restanteCita;
+    // Ya descontado el saldo: si alcanza para todo, el monto queda en 0 y el pago se cubre
+    // entero con el saldo. Antes sugería el precio completo y se cobraba de nuevo.
+    this.formData.montoRecibido = this.aCobrarConSaldo;
   }
 
   guardar(form: NgForm): void {

@@ -190,6 +190,24 @@
           </p>
         </div>
 
+        <!-- Saldo a favor: se avisa en cuanto se elige al paciente, antes de decidir cuanto
+             cobrar. Antes esta pantalla lo ignoraba y sugeria el precio completo, asi que se le
+             volvia a cobrar al paciente y el saldo se quedaba sin usar. -->
+        <div class="saldo-box" *ngIf="pacienteSaldoAFavor > 0">
+          <div class="saldo-box-hd">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9.5a2.5 2.5 0 0 1 5 0c0 1.5-1.2 2-2.5 2.5S11 13.5 11 15a2.5 2.5 0 0 0 5 0"/></svg>
+            <strong>Saldo a favor: S/ {{ pacienteSaldoAFavor | number:'1.2-2' }}</strong>
+          </div>
+          <p class="saldo-box-txt" *ngIf="saldoAplicable > 0">
+            Se aplicarán S/ {{ saldoAplicable | number:'1.2-2' }} de su saldo a este cobro.
+            <ng-container *ngIf="aCobrarConSaldo === 0"><strong>No hay que cobrarle nada más.</strong></ng-container>
+            <ng-container *ngIf="aCobrarConSaldo > 0">Faltan S/ {{ aCobrarConSaldo | number:'1.2-2' }} por cobrar.</ng-container>
+          </p>
+          <p class="saldo-box-txt" *ngIf="saldoAplicable === 0">
+            Elige el paquete o la cita a cobrar y su saldo se descontará solo.
+          </p>
+        </div>
+
         <!-- Citas individuales (fuera de un paquete) también pueden tener pago pendiente -->
         <div class="frow" *ngIf="formData.pacienteId && !formData.tratamientoId">
           <label>Cita individual pendiente</label>
@@ -210,7 +228,7 @@
             <span>Cobrado: S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }}</span>
           </div>
           <button type="button" class="btn-link-paquete" *ngIf="restanteCita > 0" (click)="usarMontoCita()">
-            Usar monto restante de la cita (S/ {{ restanteCita | number:'1.2-2' }})
+            Usar monto restante de la cita (S/ {{ aCobrarConSaldo | number:'1.2-2' }}<span *ngIf="saldoAplicable > 0"> tras el saldo</span>)
           </button>
           <span class="txt-success" *ngIf="restanteCita === 0">Cita cubierta por completo.</span>
         </div>

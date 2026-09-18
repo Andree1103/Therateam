@@ -23,6 +23,7 @@ import { ConfiguracionService } from '../../../../core/services/configuracion.se
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
 
@@ -1383,6 +1384,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
         error: () => {}
       });
+      this.cargarHorariosFijos(pac.id!);
     }
   }
 
@@ -1399,6 +1401,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.limpiarTratamientoExistente();
       this.pacienteSaldoAFavor = 0;
       this.usarSaldoAFavor = false;
+      this.horariosFijosPaciente = [];
     }
   }
 
@@ -1412,6 +1415,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.limpiarTratamientoExistente();
       this.pacienteSaldoAFavor = 0;
       this.usarSaldoAFavor = false;
+      this.horariosFijosPaciente = [];
     }
   }
 
@@ -1851,6 +1855,69 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   seleccionarSlotSingle(hora: string): void {
     this.fHoraInicio = hora;
     this.onDatosCitaChange();
+  }
+
+  // ── Horario fijo del paciente ─────────────────────────────────────────────
+  // Si el paciente ya viene siempre los mismos días a la misma hora, agendarlo a mano cada vez
+  // es reescribir algo que el sistema ya sabe. Se ofrece al elegir paciente para poder aplicarlo
+  // de un clic, en vez de dejarlo como un dato suelto en su ficha.
+
+  horariosFijosPaciente: HorarioFijo[] = [];
+
+  private cargarHorariosFijos(pacienteId: number): void {
+    this.horariosFijosPaciente = [];
+    this.pacienteService.getHorariosFijos(pacienteId)
+      .pipe(catchError(() => of([] as HorarioFijo[])))
+      .subscribe(lista => this.horariosFijosPaciente = lista);
+  }
+
+  /**
+   * Los del tipo de terapia elegido primero — son los que de verdad aplican a esta cita —, y
+   * detrás los de otras terapias, que igual conviene ver para no pisar otro de sus horarios.
+   */
+  get horariosFijosSugeridos(): HorarioFijo[] {
+    const delTipo = (h: HorarioFijo) =>
+      !!h.tipoTerapia?.key && h.tipoTerapia.key.toUpperCase() === (this.fTipoId ?? '').toUpperCase();
+    return [...this.horariosFijosPaciente].sort((a, b) =>
+      (delTipo(b) ? 1 : 0) - (delTipo(a) ? 1 : 0) || a.diaSemana - b.diaSemana);
+  }
+
+  esDelTipoElegido(h: HorarioFijo): boolean {
+    return !!h.tipoTerapia?.key && h.tipoTerapia.key.toUpperCase() === (this.fTipoId ?? '').toUpperCase();
+  }
+
+  etiquetaHorarioFijo(h: HorarioFijo): string {
+    const ter = nombreTerapeutaDeHorario(h);
+    return `${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`
+         + (ter ? ` · ${ter}` : '')
+         + (h.tipoTerapia?.nombre ? ` · ${h.tipoTerapia.nombre}` : '');
+  }
+
+  /** La próxima fecha (de hoy en adelante) que cae en ese día de la semana. */
+  private proximaFechaDelDia(diaSemana: number): string {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    // getDay(): 0=domingo … 6=sábado. En la base 1=lunes … 7=domingo.
+    const dowHoy = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    let faltan = diaSemana - dowHoy;
+    if (faltan < 0) faltan += 7;          // ya pasó esta semana: la siguiente
+    const destino = new Date(hoy);
+    destino.setDate(hoy.getDate() + faltan);
+    return this.fechaToISO(destino);
+  }
+
+  /** Aplica el horario fijo a la cita: terapeuta, terapia, fecha y hora de una sola vez. */
+  aplicarHorarioFijo(h: HorarioFijo): void {
+    const ter = nombreTerapeutaDeHorario(h);
+    if (ter) { this.fTer = ter; this.terapeutaBusqueda = ter; }
+    if (h.tipoTerapia?.key) {
+      const tipo = this.tiposTerapia.find(t => t.id.toUpperCase() === h.tipoTerapia!.key!.toUpperCase());
+      if (tipo) { this.fAreaId = tipo.area_id ?? this.fAreaId; this.fTipoId = tipo.id; this.onTipoChange(); }
+    }
+    this.fFecha = this.proximaFechaDelDia(h.diaSemana);
+    this.fHoraInicio = soloHoraYMinuto(h.horaInicio);
+    this.cargarSlotsSingle();
+    this.onDatosCitaChange();
+    this.toast.success(`Horario fijo aplicado: ${DIAS_SEMANA[h.diaSemana]} ${soloHoraYMinuto(h.horaInicio)}`);
   }
 
   /** Hora de fin de un slot según la duración actual (fDur) — se muestra junto a cada botón

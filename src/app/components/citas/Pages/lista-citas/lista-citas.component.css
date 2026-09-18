@@ -515,3 +515,24 @@ tbody tr{height:var(--slot-h)}
 /* Marca de "este acompañante lleva otra terapia": el caso normal es heredar el tipo de la cita,
    así que cuando difiere conviene que salte a la vista antes de guardar. */
 .opc-tag-dif{background:#fef3c7;color:#b45309;border-color:#fde68a}
+
+/* ── Horario fijo del paciente dentro del modal de cita ───────────────────── */
+/* Bloque propio, no una nota al pie: es lo que hay que mirar antes de elegir fecha y hora. */
+.hfx-bloque{margin:12px 0;padding:11px 12px;border:1px solid #c7d9ef;border-radius:11px;
+            background:linear-gradient(180deg,#f5f9ff,#eef5fd)}
+.hfx-hdr{display:flex;align-items:center;gap:7px;color:#185FA5}
+.hfx-hdr strong{font-size:12.5px;color:#1c2f52}
+.hfx-n{margin-left:auto;font-size:11px;font-weight:700;color:#fff;background:#185FA5;
+       min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 5px}
+.hfx-nota{margin:4px 0 9px;font-size:11px;color:#64748b}
+.hfx-lista{display:flex;flex-direction:column;gap:5px}
+.hfx-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;
+          padding:8px 10px;border:1px solid #dbe4f0;border-radius:8px;background:#fff;
+          font-family:inherit;font-size:12.5px;color:#1c2f52;transition:border-color .12s,box-shadow .12s}
+.hfx-item:hover{border-color:#185FA5;box-shadow:0 2px 8px rgba(24,95,165,.12)}
+/* El del tipo de terapia elegido resalta: es el que de verdad aplica a esta cita. */
+.hfx-item.hfx-match{border-color:#185FA5;background:#f0f6ff}
+.hfx-txt{flex:1;min-width:0}
+.hfx-badge{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+           color:#185FA5;background:#dbeafe;padding:2px 6px;border-radius:9px;white-space:nowrap}
+.hfx-go{color:#94a3b8;flex:0 0 auto}
