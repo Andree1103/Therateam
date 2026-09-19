@@ -536,3 +536,31 @@ tbody tr{height:var(--slot-h)}
 .hfx-txt{flex:1;min-width:0}
 .hfx-badge{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
            color:#185FA5;background:#dbeafe;padding:2px 6px;border-radius:9px;white-space:nowrap}
+
+/* ── Anulación: motivo obligatorio ───────────────────────────────────── */
+.anu-label{display:block;margin:8px 0 4px;font-size:10.5px;font-weight:700;letter-spacing:.5px;
+           text-transform:uppercase;color:#64748b}
+.anu-req{margin-left:6px;font-weight:600;letter-spacing:0;text-transform:none;color:#b91c1c}
+.anu-motivo{width:100%;padding:8px 10px;border:1px solid #dbe4f0;border-radius:8px;resize:vertical;
+            font-family:inherit;font-size:12.5px;color:#1c2f52;background:#fff}
+.anu-motivo:focus{outline:none;border-color:#185FA5}
+.anu-nota{margin:8px 0 0;font-size:11.5px;color:#64748b}
+/* En una cita ya anulada el motivo se lee, no se edita: cambiarlo reescribiría el porqué de una
+   operacion que ya movio dinero y quedo en el historial. */
+.anu-motivo-ro{margin-top:8px;padding:8px 10px;border-left:3px solid #DC2626;background:#fef2f2;
+               border-radius:0 8px 8px 0;font-size:12px;color:#7f1d1d}
+
+/* ── Reprogramación ──────────────────────────────────────────── */
+.rep-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:4px}
+@media (max-width:560px){ .rep-grid{grid-template-columns:1fr} }
+.anu-input{width:100%;padding:8px 10px;border:1px solid #dbe4f0;border-radius:8px;
+           font-family:inherit;font-size:12.5px;color:#1c2f52;background:#fff}
+.anu-input:focus{outline:none;border-color:#185FA5}
+/* Reprogramada no es una anulación: la cita sigue viva en otro sitio, así que no va en rojo. */
+.anu-motivo-ro.rep{border-left-color:#185FA5;background:#f0f6ff;color:#1c3d63}
+
+.anu-libre{margin-left:6px;font-weight:500;letter-spacing:0;text-transform:none;color:#94a3b8}
+.rep-grid.rep-grid-2{grid-template-columns:1fr 1fr;margin-top:8px}
+@media (max-width:560px){ .rep-grid.rep-grid-2{grid-template-columns:1fr} }
+/* El numero de cita es corto: no necesita el ancho de un buscador de nombres. */
+.filtro-cita-id{max-width:92px;font-variant-numeric:tabular-nums}

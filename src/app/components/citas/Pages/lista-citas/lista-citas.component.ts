@@ -87,6 +87,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   busquedaEstado = '';
   busquedaPago = '';
   busquedaPaciente = '';
+  /** Buscador por numero de cita: "me llaman por la #2987 y quiero verla, este donde este". */
+  busquedaCitaId = '';
+  buscandoCita = false;
   busquedaTipoId = '';
   filtroEstado = '';
   filtroPago = '';
@@ -172,7 +175,41 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return !!(this.filtroEstado || this.filtroPago || this.filtroPaciente || this.filtroTipoId);
   }
 
+  /**
+   * Va a la cita con ese numero, sin importar en que semana este.
+   *
+   * No es un filtro de la semana visible: el numero de cita se usa justo cuando NO se sabe
+   * cuando era. Mueve la agenda a su semana y abre su ficha; si no existe, lo dice.
+   */
+  buscarCitaPorNumero(): void {
+    const texto = this.busquedaCitaId.replace(/[^0-9]/g, '');
+    if (!texto) { this.toast.warning('Escribe el número de cita.'); return; }
+    this.buscandoCita = true;
+    this.citaService.getCitaById(texto).subscribe({
+      next: cita => {
+        this.buscandoCita = false;
+        const fecha = new Date(cita.fecha_inicio);
+        const dow = fecha.getDay();
+        const lunes = new Date(fecha);
+        lunes.setDate(fecha.getDate() + (dow === 0 ? -6 : 1 - dow));
+        lunes.setHours(0, 0, 0, 0);
+        this.fechaInicioSemana = lunes;
+        this.construirSemana();
+        this.diaIdx = dow === 0 ? 6 : dow - 1;
+        this.cargarCitas();
+        this.cargarDisponibilidadSemana(true);
+        this.abrirEditar(cita, new Event('click'));
+      },
+      error: () => {
+        this.buscandoCita = false;
+        this.toast.warning(`No existe ninguna cita con el número ${texto}.`);
+      }
+    });
+  }
+
   buscarEnAgenda(): void {
+    // El numero manda sobre el resto: si se escribio uno, se busca esa cita y no la semana.
+    if (this.busquedaCitaId.trim()) { this.buscarCitaPorNumero(); return; }
     this.filtroEstado   = this.busquedaEstado;
     this.filtroPago     = this.busquedaPago;
     this.filtroPaciente = this.busquedaPaciente.trim();
@@ -182,6 +219,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   limpiarBusquedaAgenda(): void {
+    this.busquedaCitaId = '';
     this.busquedaEstado = ''; this.busquedaPago = ''; this.busquedaPaciente = ''; this.busquedaTipoId = '';
     this.estadoBusquedaTexto = ''; this.pagoBusquedaTexto = ''; this.tipoFiltroBusquedaTexto = '';
     this.terapeutaFiltroBusquedaTexto = ''; this.filtrosTerapeutas = [];
@@ -398,6 +436,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       .slice()
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
       .map(c => ({
+        // El numero permite cruzar el Excel con la pantalla y seguir una reprogramacion de una
+        // fila a otra: sin el, dos citas del mismo paciente el mismo dia son indistinguibles.
+        'Cita #': c.id,
         'Fecha': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
         'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
         'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
@@ -411,6 +452,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Modalidad': c.modalidad,
         'Estado': this.estadosCita.find(e => e.key === c.estado)?.nombre ?? c.estado,
         'Estado de pago': c.estado_pago_nombre ?? '',
+        'Motivo (anulada/reprogramada)': c.motivo_estado ?? '',
+        'Viene de la cita #': c.reprogramacion_de ?? '',
+        'Se movió a la cita #': c.reprogramada_en ?? '',
         'Precio (S/)': c.precio ?? '',
         'Paquete': c.tratamiento_nombre ?? '',
         'Comentarios': c.observacion ?? '',
@@ -596,7 +640,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * del selector y el slot figuraba lleno, aunque el backend si aceptaba la cita nueva.
    */
   private ocupaCupo(c: Cita): boolean {
-    return c.estado !== 'CANCELADA_PACIENTE' && c.estado !== 'CANCELADA_CLINICA';
+    return c.estado !== 'ANULADA' && c.estado !== 'CANCELADA_PACIENTE' && c.estado !== 'CANCELADA_CLINICA';
   }
 
   /**
@@ -1010,7 +1054,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       if (pacienteId) {
         this.tratamientoService.getByPaciente(pacienteId).subscribe({
           next: ts => {
-            const t = ts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+            // El paquete de ESTA cita, no el ultimo que se le creo al paciente.
+            //
+            // Antes se tomaba el de id mas alto. Con dos paquetes, pagar una sesion del viejo
+            // abonaba al nuevo; y si el nuevo ya estaba pagado, el cobro no cubria ninguna deuda
+            // y se iba entero a saldo a favor, dejando la cita SIN_PAGO. El id del paquete viene
+            // en la propia cita; la lista solo sirve para leer su precio y su saldo.
+            const t = ts.find(x => x.id === cita.tratamiento_id)
+                   ?? ts.slice().sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
             if (t) {
               // Si la cita ya tenía un pago parcial, solo se cobra lo que falta — no el precio
               // completo otra vez.
@@ -1559,7 +1610,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirNueva(): void {
     if (!this.puedeCrearCitas) return;
-    this.citaEditando = null; this.resetForm(); this.modalAbierto = true;
+    this.citaEditando = null; this.resetForm(); this.cerrarPanelesDeEstado(); this.modalAbierto = true;
     // Refresca la disponibilidad cacheada al abrir el modal — si el horario de algún terapeuta
     // cambió después de la carga inicial de la página, no se debe seguir usando un caché viejo
     // para decidir quién aparece como disponible.
@@ -1568,7 +1619,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirSlot(diaIdx: number, s: Slot): void {
     if (!this.puedeCrearCitas) return;
-    this.citaEditando = null; this.resetForm();
+    this.citaEditando = null; this.resetForm(); this.cerrarPanelesDeEstado();
     // Solo se toma la fecha del día en que se hizo click — la hora ya NO se autocompleta,
     // el usuario elige un horario real desde los botones de disponibilidad del terapeuta.
     const fecha = this.diasSemana[diaIdx].fecha;
@@ -1594,6 +1645,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirEditar(cita: Cita, e: Event): void {
     e.stopPropagation();
+    // Se puede saltar de una cita a otra sin cerrar el modal, asi que los paneles se apagan aqui
+    // tambien: si no, el de reprogramar aparecia abierto con la fecha y el motivo de la anterior.
+    this.cerrarPanelesDeEstado();
     this.citaEditando = cita;
     const ini = new Date(cita.fecha_inicio);
     this.pac1 = {
@@ -1638,7 +1692,35 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
   }
 
-  cerrarModal(): void { this.modalAbierto = false; this.citaEditando = null; this.loteResumen = null; }
+  /**
+   * Cerrar el modal apaga tambien los paneles de anular y reprogramar.
+   *
+   * Sin esto se quedaban abiertos: al entrar a OTRA cita aparecia el panel ya desplegado, con la
+   * fecha, la hora y el motivo de la cita anterior. Un clic distraido ahi movia la cita
+   * equivocada a la hora de otra.
+   */
+  cerrarModal(): void {
+    this.modalAbierto = false;
+    this.citaEditando = null;
+    this.loteResumen = null;
+    this.cerrarPanelesDeEstado();
+  }
+
+  /** Deja anular y reprogramar como recien llegados: cerrados y sin lo que se escribio antes. */
+  private cerrarPanelesDeEstado(): void {
+    this.mostrarAnularOpciones = false;
+    this.mostrarReprogramar = false;
+    this.motivoAnulacion = '';
+    this.motivoReprogramacion = '';
+    // La fecha y la hora las vuelve a poner abrirReprogramar() con las de la cita, pero se
+    // limpian igual: nada de la cita anterior debe sobrevivir al cierre.
+    this.repFecha = '';
+    this.repHora = '';
+    this.repSlots = [];
+    this.repCargandoSlots = false;
+    this.anulando = false;
+    this.reprogramando = false;
+  }
 
   irAPaquete(): void {
     const id = this.citaEditando?.tratamiento_id;
@@ -1925,7 +2007,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // Se etiqueta cada petición para descartar cualquier respuesta que ya no sea la vigente.
     const idPeticion = ++this.fSlotsRequestId;
     this.fCargandoSlots = true;
-    this.disponibilidadService.getDia(terapeuta.id, this.fFecha).subscribe({
+    // Mismo criterio que al reprogramar: el hueco se mide con el cupo del tipo elegido, y la
+    // cita que se esta editando no se cuenta a si misma.
+    this.disponibilidadService.getDia(terapeuta.id, this.fFecha,
+        { cupo: tipo.max_pacientes, excluirCitaId: this.citaEditando?.id }).subscribe({
       next: dia => {
         if (idPeticion !== this.fSlotsRequestId) return;
         const slots = this.calcularSlotsDesdeFranjas(dia.franjas, dur);
@@ -2388,11 +2473,24 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   mostrarAnularOpciones = false;
   anulando = false;
+  motivoAnulacion = '';
 
-  /** "Anular" cambia el estado a Cancelada — no borra nada, así que aplica sobre cualquier cita
-   *  que no esté ya cancelada ni atendida. Una vez cancelada, no tiene sentido anularla de nuevo. */
+  /**
+   * Anular es UN estado, ANULADA, y el porqué va escrito aparte.
+   *
+   * Antes eran dos estados del desplegable ("cancelada por paciente" y "cancelada por clínica").
+   * Se siguen reconociendo porque en base puede quedar alguna cita vieja sin migrar, y tratarla
+   * como activa la haría ocupar su horario otra vez.
+   */
   esCitaCancelada(cita: Cita | null): boolean {
-    return cita?.estado === 'CANCELADA_PACIENTE' || cita?.estado === 'CANCELADA_CLINICA';
+    return cita?.estado === 'ANULADA'
+        || cita?.estado === 'CANCELADA_PACIENTE' || cita?.estado === 'CANCELADA_CLINICA';
+  }
+
+  /** La cita tiene dinero aplicado, así que anularla obliga a decidir qué pasa con él. */
+  get anularTienePago(): boolean {
+    const k = this.citaEditando?.estado_pago_key;
+    return !!k && k !== 'SIN_PAGO';
   }
 
   abrirAnular(): void {
@@ -2401,50 +2499,264 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.toast.warning('No se puede anular una cita ya atendida.'); return;
     }
     if (this.esCitaCancelada(this.citaEditando)) return;
-
-    // Si no tiene ningún pago, no hay nada que devolver — se cancela directo sin preguntar.
-    const sinPago = !this.citaEditando.estado_pago_key || this.citaEditando.estado_pago_key === 'SIN_PAGO';
-    if (sinPago) {
-      if (!confirm('¿Anular esta cita? No tiene ningún pago registrado.')) return;
-      this.anulando = true;
-      this.citaService.anularCita(this.citaEditando.id, 'SALDO').subscribe({
-        next: () => {
-          this.toast.success('Cita anulada correctamente');
-          this.anulando = false;
-          this.cerrarModal();
-          this.recargarSilencioso();
-        },
-        error: (err) => {
-          this.toast.error(err?.error?.error || 'Error al anular la cita');
-          this.anulando = false;
-        }
-      });
-      return;
-    }
-
+    this.motivoAnulacion = '';
+    this.mostrarReprogramar = false;
     this.mostrarAnularOpciones = true;
   }
 
-  cancelarAnular(): void { this.mostrarAnularOpciones = false; }
+  cancelarAnular(): void { this.mostrarAnularOpciones = false; this.motivoAnulacion = ''; }
 
-  confirmarAnular(devolucion: 'SALDO' | 'DINERO'): void {
+  /**
+   * Sin pago que resolver, `devolucion` da igual y no se pregunta: se manda SALDO, que no hace
+   * nada cuando no hay nada aplicado.
+   */
+  confirmarAnular(devolucion: 'SALDO' | 'DINERO' = 'SALDO'): void {
     if (!this.citaEditando) return;
-    const msg = devolucion === 'SALDO'
-      ? '¿Anular esta cita? El pago ya registrado quedará como saldo a favor del paciente.'
-      : '¿Anular esta cita y devolver el dinero? El pago se elimina y NO genera saldo a favor.';
-    if (!confirm(msg)) return;
+    // Se lee del DOM y no solo de la propiedad: el binding puede ir un tick por detras de lo
+    // ultimo tecleado, y esa diferencia no puede costar el clic.
+    const motivo = this.motivoEscrito('motivoAnulacion', this.motivoAnulacion);
+    if (!motivo) {
+      this.toast.warning('Escribe el motivo de la anulación.');
+      this.enfocar('motivoAnulacion');
+      return;
+    }
+    this.motivoAnulacion = motivo;
+    if (devolucion === 'DINERO'
+        && !confirm('¿Devolver el dinero? El pago se revierte y NO queda como saldo a favor.')) return;
     this.anulando = true;
-    this.citaService.anularCita(this.citaEditando.id, devolucion).subscribe({
+    this.citaService.anularCita(this.citaEditando.id, devolucion, motivo).subscribe({
       next: () => {
         this.toast.success('Cita anulada correctamente');
         this.anulando = false;
         this.mostrarAnularOpciones = false;
+        this.motivoAnulacion = '';
         this.cerrarModal();
         this.recargarSilencioso();
       },
       error: (err) => {
         this.toast.error(err?.error?.error || 'Error al anular la cita');
         this.anulando = false;
+      }
+    });
+  }
+
+  /**
+   * El texto que hay AHORA en el campo, con el valor del binding como respaldo.
+   *
+   * Angular actualiza la propiedad al teclear, pero el refresco de la vista y la lectura pueden
+   * desfasarse un tick; leer el input evita perder la ultima palabra escrita.
+   */
+  private motivoEscrito(id: string, respaldo: string): string {
+    const campo = document.getElementById(id) as HTMLTextAreaElement | null;
+    return (campo?.value ?? respaldo ?? '').trim();
+  }
+
+  private enfocar(id: string): void {
+    const campo = document.getElementById(id) as HTMLTextAreaElement | null;
+    campo?.focus();
+  }
+
+  // ── Reprogramar cita ────────────────────────────────────────
+
+  mostrarReprogramar = false;
+  reprogramando = false;
+  repFecha = '';
+  repHora = '';
+  repDuracion = 45;
+  motivoReprogramacion = '';
+  /** Horas libres del terapeuta el dia elegido — las mismas que se ofrecen al crear una cita. */
+  repSlots: string[] = [];
+  repCargandoSlots = false;
+  private repSlotsReqId = 0;
+  /** Fila de dias, igual que al crear la cita: se elige el dia tocandolo, no escribiendolo. */
+  repFechasVisibles: { iso: string; dow: string; dia: number; mes: string }[] = [];
+  repFechasOffset = 0;
+
+  /**
+   * Estados con puerta propia: no se eligen a mano, cada uno tiene su boton.
+   *
+   * ASISTIDA la marca el registro de la atencion; ANULADA, el boton Anular (resuelve el pago y
+   * pide motivo); REPROGRAMADA, el boton Reprogramar (crea la cita nueva). Ponerlos desde el
+   * desplegable se saltaba todo eso.
+   */
+  private readonly ESTADOS_CON_FLUJO_PROPIO = ['ASISTIDA', 'ANULADA', 'REPROGRAMADA'];
+
+  /**
+   * Lo que se ofrece en el desplegable: los estados de puro tramite.
+   *
+   * Los tres de arriba ni siquiera aparecen, en vez de salir en gris: una opcion que no se puede
+   * tocar solo invita a intentarlo. La unica excepcion es la cita que YA esta en ese estado, que
+   * necesita su propia opcion para que el desplegable no se muestre vacio.
+   */
+  get estadosElegibles(): CatalogItem[] {
+    const actual = this.citaEditando?.estado;
+    return this.estadosCita.filter(e => !this.ESTADOS_CON_FLUJO_PROPIO.includes(e.key ?? '') || e.key === actual);
+  }
+
+  /** Ya se movio: su lugar lo ocupa otra cita, asi que esta no se toca mas. */
+  esCitaReprogramada(cita: Cita | null): boolean {
+    return cita?.estado === 'REPROGRAMADA';
+  }
+
+  /**
+   * Reprogramar crea una cita nueva y deja esta como constancia. Por eso no aplica a una cita ya
+   * atendida (ya ocurrio), ni a una anulada (no hay nada que mover), ni a una ya reprogramada
+   * (habria que mover la nueva, no esta).
+   */
+  puedeReprogramar(cita: Cita | null): boolean {
+    return !!cita && cita.estado !== 'ASISTIDA'
+        && !this.esCitaCancelada(cita) && !this.esCitaReprogramada(cita);
+  }
+
+  abrirReprogramar(): void {
+    const cita = this.citaEditando;
+    if (!cita || !this.puedeReprogramar(cita)) return;
+    // Arranca en la fecha y hora que ya tiene: casi siempre se mueve un dia o unas horas, y
+    // empezar con los campos en blanco obliga a volver a escribir lo que ya estaba.
+    const d = new Date(cita.fecha_inicio);
+    const p = (n: number) => String(n).padStart(2, '0');
+    this.repFecha = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    this.repHora = `${p(d.getHours())}:${p(d.getMinutes())}`;
+    this.repDuracion = cita.duracion_minutos || 45;
+    this.motivoReprogramacion = '';
+    this.mostrarAnularOpciones = false;
+    this.mostrarReprogramar = true;
+    this.alinearFechasReprogramar(this.repFecha);
+    this.cargarSlotsReprogramar();
+  }
+
+  /**
+   * La fila de dias, con la misma forma que la del formulario de arriba.
+   *
+   * Se centra en el dia que la cita tiene ahora: reprogramar casi siempre mueve la cita unos
+   * dias, y obligar a navegar desde hoy para llegar a "el mismo dia de la semana que viene"
+   * es trabajo de mas.
+   */
+  private generarFechasReprogramar(): void {
+    const base = new Date();
+    base.setDate(base.getDate() - this.DIAS_ATRASO_PERMITIDOS + this.repFechasOffset);
+    const dias: { iso: string; dow: string; dia: number; mes: string }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      dias.push({ iso: this.fechaToISO(d), dow: this.DOW_ABR3[d.getDay()], dia: d.getDate(), mes: this.MES_ABR3[d.getMonth()] });
+    }
+    this.repFechasVisibles = dias;
+  }
+
+  private alinearFechasReprogramar(fechaISO: string): void {
+    const origen = new Date(); origen.setHours(0, 0, 0, 0);
+    origen.setDate(origen.getDate() - this.DIAS_ATRASO_PERMITIDOS);
+    const [y, m, d] = fechaISO.split('-').map(Number);
+    const objetivo = new Date(y, m - 1, d);
+    const diffDias = Math.round((objetivo.getTime() - origen.getTime()) / 86400000);
+    this.repFechasOffset = diffDias > 0 ? Math.floor(diffDias / 6) * 6 : 0;
+    this.generarFechasReprogramar();
+  }
+
+  repFechasAnterior(): void {
+    if (this.repFechasOffset <= 0) return;
+    this.repFechasOffset = Math.max(0, this.repFechasOffset - 6);
+    this.generarFechasReprogramar();
+  }
+
+  repFechasSiguiente(): void {
+    this.repFechasOffset += 6;
+    this.generarFechasReprogramar();
+  }
+
+  /** Elegir dia limpia la hora: la de antes casi nunca sigue libre en el dia nuevo. */
+  seleccionarFechaReprogramar(iso: string): void {
+    this.repFecha = iso;
+    this.repHora = '';
+    this.cargarSlotsReprogramar();
+  }
+
+  /**
+   * Las horas en las que el terapeuta puede de verdad ese dia.
+   *
+   * Sin esto habia que adivinar la hora y descubrir el choque al pulsar Reprogramar. Es la misma
+   * consulta que alimenta los horarios sugeridos al crear una cita: su jornada, menos sus
+   * excepciones, menos lo que ya tiene agendado.
+   */
+  cargarSlotsReprogramar(): void {
+    const cita = this.citaEditando;
+    const terapeutaId = cita?.terapeuta_id ? Number(cita.terapeuta_id) : null;
+    const idPeticion = ++this.repSlotsReqId;
+    if (!terapeutaId || !this.repFecha) { this.repSlots = []; return; }
+    const dur = Number(this.repDuracion) || cita?.duracion_minutos || 45;
+    this.repCargandoSlots = true;
+    // El cupo del tipo de ESTA cita y su exclusion del conteo: la lista tiene que decir lo mismo
+    // que la validacion al guardar, o se ofrecen horarios que luego rebotan.
+    const tipo = this.tiposTerapia.find(t => t.id === cita?.tipo_terapia_key);
+    this.disponibilidadService.getDia(terapeutaId, this.repFecha,
+        { cupo: tipo?.max_pacientes, excluirCitaId: cita?.id }).subscribe({
+      next: dia => {
+        // Una respuesta vieja no puede pisar a la nueva: al cambiar de dia rapido llegan
+        // desordenadas y se acaba mostrando la disponibilidad de otra fecha.
+        if (idPeticion !== this.repSlotsReqId) return;
+        this.repSlots = this.filtrarSlotsPasados(this.repFecha, this.calcularSlotsDesdeFranjas(dia.franjas, dur));
+        this.repCargandoSlots = false;
+      },
+      error: () => {
+        if (idPeticion !== this.repSlotsReqId) return;
+        this.repSlots = []; this.repCargandoSlots = false;
+      }
+    });
+  }
+
+  /** La hora en que termina un slot con la duracion elegida, para pintar "11:00-11:45". */
+  repFinDe(hora: string): string {
+    const dur = Number(this.repDuracion) || 45;
+    const [h, m] = hora.split(':').map(Number);
+    const fin = h * 60 + m + dur;
+    return `${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`;
+  }
+
+  seleccionarSlotReprogramar(hora: string): void { this.repHora = hora; }
+
+  cancelarReprogramar(): void { this.mostrarReprogramar = false; this.motivoReprogramacion = ''; }
+
+  /** Lo que se pide: fecha, hora y motivo. Sin los tres, no hay a donde mover ni por que. */
+  get reprogramarListo(): boolean {
+    return !!this.repFecha && !!this.repHora && !!this.motivoReprogramacion.trim();
+  }
+
+  confirmarReprogramar(): void {
+    const cita = this.citaEditando;
+    if (!cita) return;
+    const motivo = this.motivoEscrito('motivoReprogramacion', this.motivoReprogramacion);
+    if (!this.repFecha || !this.repHora) { this.toast.warning('Indica la nueva fecha y hora.'); return; }
+    if (!motivo) {
+      this.toast.warning('Escribe el motivo de la reprogramación.');
+      this.enfocar('motivoReprogramacion');
+      return;
+    }
+    this.motivoReprogramacion = motivo;
+    const [y, m, d] = this.repFecha.split('-').map(Number);
+    const [hh, mm] = this.repHora.split(':').map(Number);
+    const inicio = new Date(y, m - 1, d, hh, mm, 0);
+    const dur = Number(this.repDuracion) || cita.duracion_minutos || 45;
+    const fin = new Date(inicio.getTime() + dur * 60000);
+
+    this.reprogramando = true;
+    this.citaService.reprogramarCita(cita.id, {
+      nueva_fecha_inicio: inicio,
+      nueva_fecha_fin: fin,
+      nueva_duracion: dur,
+      motivo,
+    }).subscribe({
+      next: () => {
+        this.toast.success('Cita reprogramada correctamente');
+        this.reprogramando = false;
+        this.mostrarReprogramar = false;
+        this.motivoReprogramacion = '';
+        this.cerrarModal();
+        this.recargarSilencioso();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al reprogramar la cita');
+        this.reprogramando = false;
       }
     });
   }

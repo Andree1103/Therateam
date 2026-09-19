@@ -22,6 +22,12 @@ export interface Cita {
   estado_nombre?: string;
   estado_color?: string;
   motivo_cancelacion?: string;
+  /** Por qué la cita se anuló o se reprogramó — vacio en el resto de estados. */
+  motivo_estado?: string;
+  /** Id de la cita de la que sale esta, cuando nace de una reprogramacion. */
+  reprogramacion_de?: number;
+  /** Id de la cita que sustituye a esta, cuando se reprogramo. */
+  reprogramada_en?: number;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;
@@ -185,6 +191,12 @@ export interface CitaApiDTO {
   estado_nombre?: string;
   estado_color?: string;
   motivo_cancelacion?: string;
+  /** Por qué la cita se anuló o se reprogramó — vacio en el resto de estados. */
+  motivo_estado?: string;
+  /** Id de la cita de la que sale esta, cuando nace de una reprogramacion. */
+  reprogramacion_de?: number;
+  /** Id de la cita que sustituye a esta, cuando se reprogramo. */
+  reprogramada_en?: number;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;

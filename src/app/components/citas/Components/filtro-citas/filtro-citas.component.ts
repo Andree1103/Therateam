@@ -24,7 +24,7 @@ import { Component, EventEmitter, Output } from '@angular/core';
   `]
 })
 export class FiltroCitasComponent {
-  estados = ['PROGRAMADA', 'CONFIRMADA', 'ASISTIDA', 'CANCELADA'];
+  estados = ['PROGRAMADA', 'CONFIRMADA', 'ASISTIDA', 'ANULADA'];
   @Output() estadoSeleccionado = new EventEmitter<string>();
 
   onEstadoChange(event: any) {

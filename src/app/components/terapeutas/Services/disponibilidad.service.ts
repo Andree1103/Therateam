@@ -7,10 +7,26 @@ import { DisponibilidadDia } from '../Models/disponibilidad.model';
 export class DisponibilidadService {
   constructor(private api: ApiService) {}
 
-  getDia(terapeutaId: number, fecha: string): Observable<DisponibilidadDia> {
+  /**
+   * Las franjas libres de un terapeuta ese dia.
+   *
+   * `cupo` es cuantos pacientes admite a la vez la cita que se quiere colocar. Sin el, el back
+   * mide el hueco con el cupo de las citas que YA estan: una Terapia Fisica (2 pacientes) sola
+   * dejaba el hueco como libre para una terapia de 1 paciente, y al elegirlo el guardado lo
+   * rechazaba con "el terapeuta ya tiene el cupo completo".
+   *
+   * `excluirCitaId` saca una cita del conteo: al mover una cita, la que se mueve no debe
+   * estorbarse a si misma.
+   */
+  getDia(terapeutaId: number, fecha: string,
+         opciones: { cupo?: number | null; excluirCitaId?: number | string | null } = {}): Observable<DisponibilidadDia> {
     return this.api.get<DisponibilidadDia>(
       `/api/terapeutas/${terapeutaId}/disponibilidad`,
-      { fecha }
+      {
+        fecha,
+        cupo: opciones.cupo != null ? String(opciones.cupo) : undefined,
+        excluirCitaId: opciones.excluirCitaId != null ? String(opciones.excluirCitaId) : undefined,
+      }
     );
   }
 

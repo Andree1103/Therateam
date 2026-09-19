@@ -14,6 +14,15 @@ export class DetalleCitaComponent implements OnInit {
   showReprogramarModal: boolean = false;
   showCancelarModal: boolean = false;
   motivoCancelacion: string = '';
+
+  /**
+   * Anulada, con las dos claves retiradas incluidas por si queda alguna cita sin migrar.
+   * Antes esta comprobacion estaba escrita a mano en cada *ngIf de la plantilla.
+   */
+  esAnulada(cita: { estado: string } | null): boolean {
+    return cita?.estado === 'ANULADA'
+        || cita?.estado === 'CANCELADA_PACIENTE' || cita?.estado === 'CANCELADA_CLINICA';
+  }
   
   reprogramarData: ReprogramarCitaRequest = {
     nueva_fecha_inicio: new Date(),
@@ -139,6 +148,7 @@ export class DetalleCitaComponent implements OnInit {
       'ASISTIDA': 'status-completed',
       'NO_ASISTIO': 'status-missed',
       'REPROGRAMADA': 'status-rescheduled',
+      'ANULADA': 'status-cancelled',
       'CANCELADA_PACIENTE': 'status-cancelled',
       'CANCELADA_CLINICA': 'status-cancelled'
     };

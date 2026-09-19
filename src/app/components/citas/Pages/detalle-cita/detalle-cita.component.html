@@ -120,14 +120,14 @@
           </button>
           
           <button 
-            *ngIf="cita.estado !== 'CANCELADA_PACIENTE' && cita.estado !== 'CANCELADA_CLINICA' && cita.estado !== 'ASISTIDA'"
+            *ngIf="!esAnulada(cita) && cita.estado !== 'ASISTIDA'"
             class="btn btn-reschedule" 
             (click)="abrirModalReprogramar()">
             📅 Reprogramar
           </button>
           
           <button 
-            *ngIf="cita.estado !== 'CANCELADA_PACIENTE' && cita.estado !== 'CANCELADA_CLINICA' && cita.estado !== 'ASISTIDA'"
+            *ngIf="!esAnulada(cita) && cita.estado !== 'ASISTIDA'"
             class="btn btn-cancel" 
             (click)="abrirModalCancelar()">
             ✕ Cancelar Cita

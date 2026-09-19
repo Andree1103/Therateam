@@ -150,7 +150,7 @@ export class PerfilPacienteComponent implements OnInit {
 
   /**
    * El DTO de Cita que consume esta pantalla trae solo la key del estado (PROGRAMADA,
-   * CANCELADA_CLINICA...), no su nombre. Se traduce aca para que ni la tabla ni el Excel
+   * ANULADA...), no su nombre. Se traduce aca para que ni la tabla ni el Excel
    * muestren el identificador crudo.
    */
   estadoCitaLabel(key?: string | null): string {
@@ -161,6 +161,8 @@ export class PerfilPacienteComponent implements OnInit {
       ASISTIDA: 'Asistida',
       NO_ASISTIO: 'No asistió',
       REPROGRAMADA: 'Reprogramada',
+      ANULADA: 'Anulada',
+      // Retirados: quedan traducidos por si alguna cita vieja no se migro.
       CANCELADA_PACIENTE: 'Cancelada por paciente',
       CANCELADA_CLINICA: 'Cancelada por clínica',
     };
@@ -217,6 +219,7 @@ export class PerfilPacienteComponent implements OnInit {
     }];
 
     const citas = this.citas.map(c => ({
+      'Cita #': c.id,
       'Fecha': f(c.fecha_inicio),
       'Duración (min)': c.duracion_minutos ?? '',
       'Terapeuta': c.terapeuta_nombre ?? '',
@@ -229,6 +232,9 @@ export class PerfilPacienteComponent implements OnInit {
       'Pagado (S/)': c.monto_pagado ?? '',
       'Paquete': c.tratamiento_nombre ?? '',
       'Observación': c.observacion ?? '',
+      'Motivo (anulada/reprogramada)': c.motivo_estado ?? '',
+      'Viene de la cita #': c.reprogramacion_de ?? '',
+      'Se movió a la cita #': c.reprogramada_en ?? '',
     }));
 
     const atenciones = this.atenciones.map(a => {

@@ -179,13 +179,18 @@ export class CitaService {
   }
 
   /**
-   * Anula la cita (queda CANCELADA_CLINICA) y resuelve el pago asociado:
+   * Anula la cita (queda ANULADA, con su motivo) y resuelve el pago asociado:
    * `devolucion` = 'SALDO' (default) deja el monto como saldo a favor del paciente;
    * 'DINERO' revierte y elimina el pago (devolución real, no genera saldo).
+   *
+   * El motivo es obligatorio y lo exige también el backend: sustituye a los antiguos estados
+   * "cancelada por paciente" y "cancelada por clínica".
    */
-  anularCita(id: string, devolucion: 'SALDO' | 'DINERO' = 'SALDO', metodoId?: number | null): Observable<Cita> {
-    const qs = metodoId != null ? `?devolucion=${devolucion}&metodoId=${metodoId}` : `?devolucion=${devolucion}`;
-    return this.api.post<CitaApiDTO>(`${this.PATH}/${id}/anular${qs}`, {}).pipe(
+  anularCita(id: string, devolucion: 'SALDO' | 'DINERO' = 'SALDO', motivo = '',
+             metodoId?: number | null): Observable<Cita> {
+    const params = new URLSearchParams({ devolucion, motivo });
+    if (metodoId != null) params.set('metodoId', String(metodoId));
+    return this.api.post<CitaApiDTO>(`${this.PATH}/${id}/anular?${params}`, {}).pipe(
       map(d => this.mapDTO(d))
     );
   }
@@ -206,13 +211,21 @@ export class CitaService {
   }
 
   // ── Reprogramar cita ───────────────────────────────────────────────────────
+  /**
+   * Mueve la cita a otro momento y devuelve la cita NUEVA.
+   *
+   * Antes mandaba un PUT que cambiaba la fecha de la cita original: la cita se mudaba de sitio y
+   * no quedaba constancia de cuando estaba ni por que se movio, y el motivo viajaba en un campo
+   * que el backend no leia. Ahora la original se conserva marcada REPROGRAMADA con su motivo y la
+   * nueva nace apuntando a ella.
+   */
   reprogramarCita(id: string, req: ReprogramarCitaRequest): Observable<Cita> {
-    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, {
-      estado:              'REPROGRAMADA',
-      fecha_inicio:        req.nueva_fecha_inicio instanceof Date ? req.nueva_fecha_inicio.toISOString() : req.nueva_fecha_inicio,
-      fecha_fin:           req.nueva_fecha_fin     instanceof Date ? req.nueva_fecha_fin.toISOString()    : req.nueva_fecha_fin,
-      duracion_minutos:    req.nueva_duracion,
-      motivo_cancelacion:  req.motivo,
+    return this.api.post<CitaApiDTO>(`${this.PATH}/${id}/reprogramar`, {
+      fechaInicio:      this.toLocalDateTime(req.nueva_fecha_inicio),
+      fechaFin:         req.nueva_fecha_fin ? this.toLocalDateTime(req.nueva_fecha_fin) : undefined,
+      duracionMinutos:  req.nueva_duracion,
+      terapeutaId:      req.nuevo_terapeuta_id ? Number(req.nuevo_terapeuta_id) : undefined,
+      motivo:           req.motivo,
     }).pipe(map(d => this.mapDTO(d)));
   }
 
@@ -228,8 +241,15 @@ export class CitaService {
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, { estado: 'CONFIRMADA' }).pipe(map(d => this.mapDTO(d)));
   }
 
+  /**
+   * Anular una cita desde la pantalla de detalle.
+   *
+   * Antes mandaba un PUT con estado CANCELADA_PACIENTE y un `motivoCancelacion` que el backend
+   * nunca leyó — ni existía el campo —, y de paso se saltaba la devolución del pago. Ahora usa
+   * el mismo camino que la agenda, que resuelve el dinero y guarda el motivo de verdad.
+   */
   cancelarCita(id: string, motivo: string): Observable<Cita> {
-    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}`, { estado: 'CANCELADA_PACIENTE', motivoCancelacion: motivo }).pipe(map(d => this.mapDTO(d)));
+    return this.anularCita(id, 'SALDO', motivo);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -277,6 +297,9 @@ export class CitaService {
       estado_nombre:       dto.estado_nombre,
       estado_color:        dto.estado_color,
       motivo_cancelacion:  dto.motivo_cancelacion,
+      motivo_estado:       dto.motivo_estado,
+      reprogramacion_de:   dto.reprogramacion_de,
+      reprogramada_en:     dto.reprogramada_en,
       notas_previas:       dto.notas_previas,
       notas_post:          dto.notas_post,
       link_videollamada:   dto.link_videollamada,

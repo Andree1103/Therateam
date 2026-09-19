@@ -120,11 +120,19 @@
       </div>
     </div>
 
+    <!-- El numero de cita no filtra la semana: salta a la cita este donde este (ver
+         buscarCitaPorNumero). Es como se identifica una cita al telefono o en el Excel. -->
+    <label class="ctrl-lbl">N° de cita:</label>
+    <input type="text" class="filtro-buscador filtro-cita-id" inputmode="numeric" placeholder="#0000"
+           [(ngModel)]="busquedaCitaId" (keyup.enter)="buscarCitaPorNumero()">
+
     <label class="ctrl-lbl">Paciente:</label>
     <input type="text" class="filtro-buscador" placeholder="Buscar por nombre..."
            [(ngModel)]="busquedaPaciente" (keyup.enter)="buscarEnAgenda()">
 
-    <button class="btn-buscar-agenda" (click)="buscarEnAgenda()">Buscar</button>
+    <button class="btn-buscar-agenda" [disabled]="buscandoCita" (click)="buscarEnAgenda()">
+      {{ buscandoCita ? 'Buscando...' : 'Buscar' }}
+    </button>
     <button class="btn-link" *ngIf="hayFiltrosAgendaActivos" (click)="limpiarBusquedaAgenda()">Limpiar</button>
 
     <span class="filtro-badge" *ngIf="hayFiltrosAgendaActivos">Filtros de agenda activos</span>
@@ -437,7 +445,10 @@
     <div class="modal" (click)="$event.stopPropagation()">
 
       <div class="modal-hdr">
-        <h2>{{ citaEditando ? 'Editar cita' : 'Nueva cita' }}</h2>
+        <!-- El numero va en el titulo porque es como se nombra una cita al hablarla por telefono
+             o al buscarla en el historial; sin el, dos citas iguales del mismo dia no se
+             distinguen al reclamar. -->
+        <h2>{{ citaEditando ? ('Cita #' + citaEditando.id) : 'Nueva cita' }}</h2>
         <button class="modal-close" (click)="cerrarModal()">&#10005;</button>
       </div>
 
@@ -1090,13 +1101,32 @@
           <label>Estado</label>
           <div class="estado-select-wrapper">
             <div class="estado-dot" [style.background]="getEstadoColor(fEstKey)"></div>
+            <!-- Asistida, Anulada y Reprogramada NO salen en la lista: cada una tiene su camino
+                 (registrar la atención, Anular, Reprogramar) y elegirlas aquí se saltaba el pago,
+                 el motivo y la cita nueva. Solo aparece la que la cita ya tenga puesta. -->
             <select [(ngModel)]="fEstKey" class="estado-select">
-              <option *ngFor="let e of estadosCita" [value]="e.key"
-                      [disabled]="e.key === 'ASISTIDA' && citaEditando.estado !== 'ASISTIDA'">{{ e.nombre }}</option>
+              <option *ngFor="let e of estadosElegibles" [value]="e.key">{{ e.nombre }}</option>
             </select>
           </div>
           <div class="pago-hint" *ngIf="citaEditando.estado !== 'ASISTIDA'">
             "Asistida" se marca sola al registrar la atención.
+            <ng-container *ngIf="puedeReprogramar(citaEditando)"> Para anular o mover la cita, usa los botones de abajo.</ng-container>
+          </div>
+          <!-- El motivo solo se puede leer: se escribe al anular o al reprogramar y queda como
+               quedó. Editarlo reescribiría el porqué de algo que ya movió dinero o cita. -->
+          <div class="anu-motivo-ro" *ngIf="esCitaCancelada(citaEditando)">
+            <strong>Motivo de anulación:</strong>
+            {{ citaEditando.motivo_estado || 'no se registró' }}
+          </div>
+          <div class="anu-motivo-ro rep" *ngIf="esCitaReprogramada(citaEditando)">
+            <strong>Motivo de reprogramación:</strong>
+            {{ citaEditando.motivo_estado || 'no se registró' }}
+            <span *ngIf="citaEditando.reprogramada_en">
+              <br><strong>Se movió a:</strong> cita #{{ citaEditando.reprogramada_en }}
+            </span>
+          </div>
+          <div class="anu-motivo-ro rep" *ngIf="citaEditando.reprogramacion_de">
+            <strong>Cita reprogramada:</strong> viene de la cita #{{ citaEditando.reprogramacion_de }}
           </div>
         </div>
 
@@ -1244,18 +1274,109 @@
 
       </div>
 
-      <!-- Anular cita: elegir qué pasa con el dinero ya pagado -->
+      <!-- Reprogramar: la cita original se queda como constancia y nace una nueva con los mismos
+           datos. Se abre aqui, dentro del modal, para no perder de vista de que cita se habla. -->
+      <div class="edit-pago-section" *ngIf="citaEditando && mostrarReprogramar">
+        <div class="edit-pago-hdr">Reprogramar esta cita</div>
+        <p class="anu-nota">
+          La cita de ahora queda registrada como reprogramada y se crea una nueva con el mismo
+          paciente, terapia, precio y pago.
+        </p>
+
+        <!-- El mismo selector que al crear la cita: fila de dias y horarios del terapeuta. Con un
+             campo de fecha suelto habia que escribir el dia y no se veia cual se estaba mirando. -->
+        <label class="anu-label">NUEVA FECHA</label>
+        <div class="sp-fechas-row">
+          <button type="button" class="sp-nav" (click)="repFechasAnterior()" [disabled]="repFechasOffset === 0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button type="button" class="sp-fecha-pill" *ngFor="let f of repFechasVisibles"
+                  [class.selected]="repFecha === f.iso" (click)="seleccionarFechaReprogramar(f.iso)">
+            <span class="sp-fecha-mes">{{ f.mes }}</span>
+            <span class="sp-fecha-dia">{{ f.dia }}</span>
+            <span class="sp-fecha-dow">{{ f.dow }}</span>
+          </button>
+          <button type="button" class="sp-nav" (click)="repFechasSiguiente()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+        <div class="rep-grid rep-grid-2">
+          <div>
+            <label class="anu-label" for="repHora">HORA INICIO <span class="anu-libre">libre</span></label>
+            <input id="repHora" type="time" class="anu-input" [(ngModel)]="repHora"
+                   [ngModelOptions]="{standalone: true}">
+          </div>
+          <div>
+            <label class="anu-label" for="repDur">DURACIÓN (min)</label>
+            <input id="repDur" type="number" min="5" step="5" class="anu-input" [(ngModel)]="repDuracion"
+                   [ngModelOptions]="{standalone: true}" (ngModelChange)="cargarSlotsReprogramar()">
+          </div>
+        </div>
+
+        <!-- Las horas que el terapeuta tiene libres ese dia: su jornada, menos sus excepciones,
+             menos lo ya agendado. Antes habia que adivinar la hora y el choque salia al pulsar. -->
+        <label class="anu-label">HORARIOS LIBRES DE {{ citaEditando.terapeuta_nombre | uppercase }}</label>
+        <div class="sp-loading" *ngIf="repCargandoSlots">Buscando horarios disponibles...</div>
+        <div class="sp-slots" *ngIf="!repCargandoSlots">
+          <button type="button" class="sp-slot" *ngFor="let s of repSlots"
+                  [class.selected]="repHora === s" (click)="seleccionarSlotReprogramar(s)">{{ s }}–{{ repFinDe(s) }}</button>
+        </div>
+        <div class="sp-empty" *ngIf="!repCargandoSlots && repSlots.length === 0">
+          Ese día no le queda ningún bloque libre — elige otra fecha, o escribe la hora igual si
+          se trata de una excepción.
+        </div>
+
+        <label class="anu-label" for="motivoReprogramacion">MOTIVO DE REPROGRAMACIÓN <span class="anu-req">obligatorio</span></label>
+        <textarea id="motivoReprogramacion" class="anu-motivo" rows="2" maxlength="255"
+                  [(ngModel)]="motivoReprogramacion" [ngModelOptions]="{standalone: true}"
+                  placeholder="Por qué se mueve: el paciente pidió cambio, el terapeuta tiene permiso, feriado..."></textarea>
+
+        <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px; margin-top:10px">
+          <button class="hc-btn-pagar" [disabled]="reprogramando"
+                  (click)="confirmarReprogramar()">
+            {{ reprogramando ? 'Reprogramando...' : 'Reprogramar' }}
+          </button>
+          <button class="hc-btn-cancel-pago" [disabled]="reprogramando" (click)="cancelarReprogramar()">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Anular cita: el motivo siempre; el destino del dinero solo si hay algo pagado.
+           El motivo dejo de ser un estado ("cancelada por paciente" / "por clinica") y pasa a
+           escribirse: anular es un estado, el porque es otra cosa. -->
       <div class="edit-pago-section" *ngIf="citaEditando && mostrarAnularOpciones">
-        <div class="edit-pago-hdr">¿Qué hacemos con el dinero ya pagado de esta cita?</div>
+        <div class="edit-pago-hdr">Anular esta cita</div>
+
+        <label class="anu-label" for="motivoAnulacion">MOTIVO DE ANULACIÓN <span class="anu-req">obligatorio</span></label>
+        <textarea id="motivoAnulacion" class="anu-motivo" rows="2" maxlength="255"
+                  [(ngModel)]="motivoAnulacion" [ngModelOptions]="{standalone: true}"
+                  placeholder="Por qué se anula: el paciente aviso que no viene, el terapeuta falto, error de registro..."></textarea>
+
+        <p class="anu-nota" *ngIf="!anularTienePago">Esta cita no tiene ningún pago registrado.</p>
+        <div class="edit-pago-hdr" *ngIf="anularTienePago" style="margin-top:10px">
+          ¿Qué hacemos con el dinero ya pagado?
+        </div>
+
         <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px">
-          <button class="hc-btn-pagar" [disabled]="anulando" (click)="confirmarAnular('SALDO')">Queda como saldo a favor</button>
-          <button class="btn-eliminar" [disabled]="anulando" (click)="confirmarAnular('DINERO')">Devolver el dinero</button>
+          <!-- El boton NO se deshabilita por el motivo vacio: si el aviso llega como un boton
+               muerto, el usuario no sabe que le falta. Al pulsarlo sin motivo, confirmarAnular()
+               lo dice con un toast y deja el foco donde hay que escribir. -->
+          <ng-container *ngIf="anularTienePago">
+            <button class="hc-btn-pagar" [disabled]="anulando"
+                    (click)="confirmarAnular('SALDO')">Queda como saldo a favor</button>
+            <button class="btn-eliminar" [disabled]="anulando"
+                    (click)="confirmarAnular('DINERO')">Devolver el dinero</button>
+          </ng-container>
+          <button *ngIf="!anularTienePago" class="btn-eliminar" [disabled]="anulando"
+                  (click)="confirmarAnular()">Anular cita</button>
           <button class="hc-btn-cancel-pago" [disabled]="anulando" (click)="cancelarAnular()">Cancelar</button>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !mostrarAnularOpciones"
+        <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones"
+                class="btn-cancel" (click)="abrirReprogramar()">Reprogramar</button>
+        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar"
                 class="btn-eliminar" (click)="abrirAnular()">Anular</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
         <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"

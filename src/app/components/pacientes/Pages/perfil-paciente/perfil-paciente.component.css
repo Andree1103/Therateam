@@ -101,3 +101,7 @@
 .hfp-hora{font-weight:700;font-variant-numeric:tabular-nums}
 .hfp-dur{font-size:10px;font-weight:700;color:#64748b;background:#eef2f7;padding:2px 5px;border-radius:8px}
 .hfp-ter{color:#64748b}
+
+/* El numero de cita: discreto, que no compita con la fecha, pero copiable de un vistazo. */
+.cita-num{white-space:nowrap;color:#64748b;font-variant-numeric:tabular-nums}
+.cita-origen{display:block;font-size:10.5px;color:#94a3b8}

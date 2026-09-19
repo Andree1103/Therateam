@@ -499,7 +499,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.calcularBulkDates();
   }
 
-  private readonly ESTADOS_FINALES = ['ASISTIDA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA', 'NO_ASISTIO'];
+  private readonly ESTADOS_FINALES = ['ASISTIDA', 'ANULADA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA', 'NO_ASISTIO'];
 
   /** Cuántas sesiones del paquete ya tienen una cita creada. */
   get sesionesCreadasCount(): number {

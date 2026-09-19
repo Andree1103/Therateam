@@ -12,6 +12,11 @@ interface CatalogoTab {
   key: string;
   label: string;
   path: string;
+  /**
+   * Parametros solo para LISTAR. Aparte de `path` porque el alta, la edicion y el borrado lo
+   * usan como base (`${path}/${id}`) y pegarlos ahi dejaria la URL con la query en medio.
+   */
+  listaParams?: Record<string, string>;
   tipo: TabTipo;
   items: CatalogItem[];
   loading: boolean;
@@ -33,7 +38,10 @@ export class ConfiguracionesComponent implements OnInit {
     { key: 'metodos-pago',         label: 'Métodos de pago',        path: '/api/cat-metodos-pago',         tipo: 'estandar', items: [], loading: false, cargado: false },
     { key: 'modalidades',          label: 'Modalidades',            path: '/api/cat-modalidades',          tipo: 'estandar', items: [], loading: false, cargado: false },
     { key: 'monedas',              label: 'Monedas',                path: '/api/cat-monedas',              tipo: 'moneda',   items: [], loading: false, cargado: false },
-    { key: 'estados-cita',         label: 'Estados de cita',        path: '/api/cat-estados-cita',         tipo: 'estado',   items: [], loading: false, cargado: false },
+    // Los estados retirados (las dos cancelaciones que ahora son ANULADA) no se ofrecen al
+    // agendar, pero esta pantalla administra el catalogo y tiene que poder verlos.
+    { key: 'estados-cita',         label: 'Estados de cita',        path: '/api/cat-estados-cita',         tipo: 'estado',   items: [], loading: false, cargado: false,
+      listaParams: { incluirInactivos: 'true' } },
     { key: 'estados-sesion',       label: 'Estados de sesión',      path: '/api/cat-estados-sesion',       tipo: 'estado',   items: [], loading: false, cargado: false },
     { key: 'estados-tratamiento',  label: 'Estados de tratamiento', path: '/api/cat-estados-tratamiento',  tipo: 'estado',   items: [], loading: false, cargado: false },
     { key: 'paquetes',             label: 'Paquetes (catálogo)',    path: '/api/plantillas-paquete',       tipo: 'paquete',  items: [], loading: false, cargado: false },
@@ -158,7 +166,7 @@ export class ConfiguracionesComponent implements OnInit {
 
   cargarTab(tab: CatalogoTab): void {
     tab.loading = true;
-    this.api.get<CatalogItem[]>(tab.path).subscribe({
+    this.api.get<CatalogItem[]>(tab.path, tab.listaParams).subscribe({
       next: d => { tab.items = d; tab.loading = false; tab.cargado = true; },
       error: () => { tab.loading = false; tab.cargado = true; }
     });

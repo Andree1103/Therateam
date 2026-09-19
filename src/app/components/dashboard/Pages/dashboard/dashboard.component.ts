@@ -88,7 +88,7 @@ export class DashboardComponent implements OnInit {
   get tasaAsistencia(): number {
     const asistidas = this.citas.filter(c => c.estado === 'ASISTIDA').length;
     const relevantes = this.citas.filter(c =>
-      ['ASISTIDA','NO_ASISTIO','CANCELADA_PACIENTE','CANCELADA_CLINICA'].includes(c.estado)
+      ['ASISTIDA','NO_ASISTIO','ANULADA','CANCELADA_PACIENTE','CANCELADA_CLINICA'].includes(c.estado)
     ).length;
     return relevantes > 0 ? Math.round((asistidas / relevantes) * 100) : 0;
   }
@@ -106,7 +106,7 @@ export class DashboardComponent implements OnInit {
     const ahora = new Date();
     return this.citas
       .filter(c => new Date(c.fecha_inicio) >= ahora &&
-        !['CANCELADA_PACIENTE','CANCELADA_CLINICA','NO_ASISTIO'].includes(c.estado))
+        !['ANULADA','CANCELADA_PACIENTE','CANCELADA_CLINICA','NO_ASISTIO'].includes(c.estado))
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
       .slice(0, 8);
   }

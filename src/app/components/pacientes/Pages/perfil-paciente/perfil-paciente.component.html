@@ -190,6 +190,8 @@
       <table class="data-table" *ngIf="citas.length > 0">
         <thead>
           <tr>
+            <!-- El numero de cita: es como se la nombra al reclamar o al buscarla en el Excel. -->
+            <th>Cita</th>
             <th>Fecha y hora</th>
             <th>Terapeuta</th>
             <th>Tipo</th>
@@ -201,6 +203,12 @@
         </thead>
         <tbody>
           <tr *ngFor="let c of citas | slice:0:50">
+            <td class="cita-num">
+              #{{ c.id }}
+              <!-- De una reprogramacion interesa de donde viene: es lo que permite seguir el
+                   rastro de una cita que se movio sin salir de la ficha. -->
+              <span class="cita-origen" *ngIf="c.reprogramacion_de">de #{{ c.reprogramacion_de }}</span>
+            </td>
             <td>{{ formatFechaHora(c.fecha_inicio) }}</td>
             <td>{{ c.terapeuta_nombre || '—' }}</td>
             <td>{{ c.tipo_terapia_nombre || '—' }}</td>
