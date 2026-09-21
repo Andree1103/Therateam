@@ -71,6 +71,9 @@
             <th>Fecha</th>
             <th>Paciente</th>
             <th>DNI</th>
+            <!-- El numero de cita amarra el pago con la agenda: desde aqui se llega a la cita
+                 que se cobro, que es la pregunta que trae a esta pantalla. -->
+            <th>Cita</th>
             <th>Paquete</th>
             <th>Terapeuta</th>
             <th>Tipo</th>
@@ -90,6 +93,13 @@
               <div class="text-muted small" *ngIf="p.concepto">{{ p.concepto }}</div>
             </td>
             <td class="text-muted small">{{ p.paciente?.dni || '—' }}</td>
+            <td>
+              <button type="button" class="btn-link cita-link" *ngIf="p.cita?.id; else sinCita"
+                      (click)="irACita(p.cita!.id)" [title]="'Ver la cita #' + p.cita!.id + ' en la agenda'">
+                #{{ p.cita!.id }}
+              </button>
+              <ng-template #sinCita><span class="text-muted">—</span></ng-template>
+            </td>
             <td class="text-muted">{{ p.tratamiento?.nombre || '—' }}</td>
             <td class="text-muted small">{{ p.tratamiento?.terapeutaNombre || '—' }}</td>
             <td class="text-muted small">{{ p.tratamiento?.tipoTerapiaNombre || '—' }}</td>

@@ -436,13 +436,19 @@
       <div class="li"><div class="ldot verde"></div> Asistió</div>
       <div class="li"><div class="ldot rojo"></div> No asistió</div>
     </ng-template>
+    <!-- Los dos colores de la agenda que no son estados de cita. Sin esto habia que adivinar
+         por que un dia sale ambar y por que unos recuadros salen verdes. -->
+    <div class="li"><div class="lsq lsq-hoy"></div> Hoy</div>
+    <div class="li"><div class="lsq lsq-libre"></div> Horario libre</div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
        MODAL NUEVA / EDITAR CITA
   ══════════════════════════════════════════════════════════════════════ -->
+  <!-- No se cierra al clicar fuera: llenar una cita lleva varios campos y un roce fuera del
+       recuadro los borraba todos sin preguntar. Se sale por la X o por Cancelar. -->
   <div class="modal-overlay" *ngIf="modalAbierto">
-    <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal">
 
       <div class="modal-hdr">
         <!-- El numero va en el titulo porque es como se nombra una cita al hablarla por telefono
@@ -892,9 +898,14 @@
               <div class="dur-info" *ngIf="fHoraInicio">
                 Termina a las {{ horaFinSlot(fHoraInicio) }} ({{ fDur }} min)
               </div>
+              <!-- Se marca el problema y se deja todo lo demas puesto: antes se borraba el
+                   terapeuta y con el desaparecia esta seccion entera. -->
+              <div class="hora-aviso" *ngIf="avisoTerapeuta">{{ avisoTerapeuta }}</div>
             </div>
 
-            <div class="frow">
+            <!-- Fuera de area no se listan horas: son libres de verdad, pero para otras terapias.
+                 Ofrecerlas era lo que contradecia al aviso de arriba. -->
+            <div class="frow" *ngIf="!terapeutaFueraDeArea">
               <label>Horarios sugeridos <span class="opc-tag">atajo, opcional</span></label>
               <div class="sp-loading" *ngIf="fCargandoSlots">Buscando horarios disponibles...</div>
               <div class="sp-slots" *ngIf="!fCargandoSlots">
@@ -1274,6 +1285,44 @@
 
       </div>
 
+      <!-- Inasistencia: el paciente no vino. Queda como fila en Atenciones, con su motivo, y la
+           cita pasa a "No asistio". No cuenta como sesion atendida. -->
+      <div class="edit-pago-section" *ngIf="citaEditando && mostrarInasistencia">
+        <div class="edit-pago-hdr">El paciente no vino</div>
+        <p class="anu-nota">
+          Queda registrado en Atenciones como inasistencia y la cita pasa a "No asistió".
+          No descuenta sesión del paquete.
+        </p>
+
+        <label class="anu-label" for="motivoInasistencia">MOTIVO DE LA INASISTENCIA <span class="anu-req">obligatorio</span></label>
+        <textarea id="motivoInasistencia" class="anu-motivo" rows="2" maxlength="255"
+                  [(ngModel)]="motivoInasistencia" [ngModelOptions]="{standalone: true}"
+                  placeholder="Avisó tarde, no contestó, se enfermó, olvidó la cita..."></textarea>
+
+        <!-- Con pago de por medio la decision no es solo "no vino", sino que pasa con su dinero.
+             Se pregunta aqui porque es el momento en que se sabe: al hablar con el paciente. -->
+        <div class="edit-pago-hdr" *ngIf="inasistenciaTienePago" style="margin-top:10px">
+          ¿Qué hacemos con lo que ya pagó?
+        </div>
+        <p class="anu-nota" *ngIf="!inasistenciaTienePago">Esta cita no tiene ningún pago registrado.</p>
+
+        <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px; margin-top:10px">
+          <ng-container *ngIf="inasistenciaTienePago">
+            <button class="btn-eliminar" [disabled]="marcandoInasistencia" (click)="confirmarInasistencia(false)">
+              Sin devolución — se cobra igual
+            </button>
+            <button class="hc-btn-pagar" [disabled]="marcandoInasistencia" (click)="confirmarInasistencia(true)">
+              Con devolución — queda a favor
+            </button>
+          </ng-container>
+          <button *ngIf="!inasistenciaTienePago" class="btn-eliminar"
+                  [disabled]="marcandoInasistencia" (click)="confirmarInasistencia(false)">
+            {{ marcandoInasistencia ? 'Guardando...' : 'Marcar inasistencia' }}
+          </button>
+          <button class="hc-btn-cancel-pago" [disabled]="marcandoInasistencia" (click)="cancelarInasistencia()">Cancelar</button>
+        </div>
+      </div>
+
       <!-- Reprogramar: la cita original se queda como constancia y nace una nueva con los mismos
            datos. Se abre aqui, dentro del modal, para no perder de vista de que cita se habla. -->
       <div class="edit-pago-section" *ngIf="citaEditando && mostrarReprogramar">
@@ -1374,9 +1423,11 @@
       </div>
 
       <div class="modal-footer">
-        <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones"
+        <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
+                class="btn-cancel" (click)="abrirInasistencia()">No vino</button>
+        <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones && !mostrarInasistencia"
                 class="btn-cancel" (click)="abrirReprogramar()">Reprogramar</button>
-        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar"
+        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar && !mostrarInasistencia"
                 class="btn-eliminar" (click)="abrirAnular()">Anular</button>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
         <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"

@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 import { NgForm } from '@angular/forms';
@@ -150,7 +151,8 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     private catalogService: CatalogService,
     private toast: ToastService,
     private authService: AuthService,
-    private excelExportService: ExcelExportService
+    private excelExportService: ExcelExportService,
+    private router: Router
   ) {}
 
   /** Exporta TODOS los pagos que cumplen los filtros activos (no solo la página visible). */
@@ -202,6 +204,16 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   get puedeCrear(): boolean { return this.authService.puedeCrear('PAGOS'); }
   get puedeEditar(): boolean { return this.authService.puedeEditar('PAGOS'); }
   get puedeEliminar(): boolean { return this.authService.puedeEliminar('PAGOS'); }
+
+  /**
+   * Abre en la agenda la cita que pago este registro.
+   *
+   * Se navega con el numero en la URL y el buscador de la agenda lo resuelve: asi el amarre
+   * funciona igual escribiendolo a mano que llegando desde aqui.
+   */
+  irACita(citaId: number): void {
+    this.router.navigate(['/citas'], { queryParams: { cita: citaId } });
+  }
 
   ngOnInit(): void {
     this.cargar();

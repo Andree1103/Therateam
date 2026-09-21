@@ -28,6 +28,10 @@ export interface Cita {
   reprogramacion_de?: number;
   /** Id de la cita que sustituye a esta, cuando se reprogramo. */
   reprogramada_en?: number;
+  /** true si la inasistencia se registro devolviendo lo cobrado como saldo a favor. */
+  con_devolucion?: boolean;
+  /** Cuanto volvio al paciente por esa devolucion. */
+  monto_devuelto?: number;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;
@@ -197,6 +201,10 @@ export interface CitaApiDTO {
   reprogramacion_de?: number;
   /** Id de la cita que sustituye a esta, cuando se reprogramo. */
   reprogramada_en?: number;
+  /** true si la inasistencia se registro devolviendo lo cobrado como saldo a favor. */
+  con_devolucion?: boolean;
+  /** Cuanto volvio al paciente por esa devolucion. */
+  monto_devuelto?: number;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;

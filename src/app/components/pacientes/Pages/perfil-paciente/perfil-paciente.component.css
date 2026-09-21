@@ -105,3 +105,5 @@
 /* El numero de cita: discreto, que no compita con la fecha, pero copiable de un vistazo. */
 .cita-num{white-space:nowrap;color:#64748b;font-variant-numeric:tabular-nums}
 .cita-origen{display:block;font-size:10.5px;color:#94a3b8}
+/* Inasistencias: ambar, ni alarma roja ni dato neutro. */
+.pstat--warn .pstat-val{color:#b45309}

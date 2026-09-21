@@ -38,7 +38,8 @@ thead{position:sticky;top:0;z-index:10}
 thead tr{background:#1c2f52}
 .th-hora{width:var(--hora-w);padding:8px 4px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7ca3d0;border-right:1px solid rgba(255,255,255,.1);text-align:center;vertical-align:middle}
 .th-dia{padding:7px 4px 9px;text-align:center;border-right:1px solid rgba(255,255,255,.08)}
-.th-dia.hoy-th{background:rgba(249,115,22,.2)}
+.th-dia.hoy-th{background:rgba(249,115,22,.45);box-shadow:inset 2px 0 0 #f97316,inset -2px 0 0 #f97316}
+.th-dia.hoy-th .dn,.th-dia.hoy-th .dm{color:#ffe6d0}
 .dn{display:block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#7ca3d0;margin-bottom:3px}
 .dd{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:14px;font-weight:700;color:#fff}
 .dd.hoy-dd{background:#f97316;box-shadow:0 2px 8px rgba(249,115,22,.4)}
@@ -48,10 +49,26 @@ tbody tr{height:var(--slot-h)}
 .td-hora{width:var(--hora-w);padding:0 6px 0 0;text-align:right;font-size:11px;font-weight:600;color:#9ba8bc;border-right:2px solid #d0dae8;vertical-align:top;padding-top:5px;white-space:nowrap;user-select:none}
 .td-dia{padding:0 3px;border-right:0.5px solid #e8edf4;vertical-align:top;transition:background .1s;position:relative;overflow:visible}
 .td-dia:hover{background:#f0f6ff}
-.td-dia.hoy-col{background:#fffaf5}
-.slot-libre{position:absolute;left:2px;right:2px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;cursor:pointer;overflow:hidden}
-.slot-libre:hover{opacity:1}
-.slot-libre span{font-size:10px;color:#6b7280;background:#f8fafc;padding:2px 8px;border-radius:4px;border:0.5px solid #e2e8f2;white-space:nowrap}
+/* Columna de hoy: una banda ambar de verdad, no el #fffaf5 de antes, que junto al blanco
+   de los demas dias y al verde palido de los huecos dejaba la agenda de un solo color.
+   Los bordes laterales son lo que hace que se lea como columna y no como manchas sueltas. */
+.td-dia.hoy-col{background:#fff4e6;box-shadow:inset 2px 0 0 #fdba74,inset -2px 0 0 #fdba74}
+.td-dia.hoy-col:hover{background:#ffeed8}
+/* Hueco libre: un verde muy tenue en vez de blanco invisible.
+   El blanco no distinguia "hay sitio" de "no hay terapeuta a esa hora", y habia que pasar el
+   mouse por encima para descubrirlo. El tono es suave a proposito: la agenda tiene que seguir
+   leyendose por las citas, no por los huecos. */
+.slot-libre{position:absolute;left:2px;right:2px;display:flex;align-items:center;justify-content:center;
+            background:#dff3e6;border:1px dashed #8dc9a6;border-radius:5px;
+            opacity:1;transition:background .15s,border-color .15s;cursor:pointer;overflow:hidden}
+.slot-libre:hover{background:#c7ebd6;border-color:#4ea87a}
+/* Sobre la banda ambar de hoy el verde palido se perdia: aqui va un punto mas vivo para que
+   el hueco siga leyendose como hueco y no como parte del fondo del dia. */
+.hoy-col .slot-libre{background:#d3f0de;border-color:#6fbf93}
+.hoy-col .slot-libre:hover{background:#b9e6cb}
+.slot-libre span{font-size:10px;font-weight:600;color:#3f8e63;background:transparent;padding:2px 8px;
+                 border-radius:4px;border:0;white-space:nowrap;opacity:0;transition:opacity .15s}
+.slot-libre:hover span{opacity:1}
 .chip{position:absolute;border-radius:0;padding:0;border-left:3px solid #c7d5e8;background:#f8fafc;cursor:pointer;box-sizing:border-box;z-index:5}
 .chip:hover{z-index:6}
 .chip.azul{background:#dbeafe;border-color:#2563eb;color:#1e3a8a}
@@ -80,6 +97,9 @@ tbody tr{height:var(--slot-h)}
 .ldot.azul{background:#2563eb}
 .ldot.verde{background:#15803d}
 .ldot.rojo{background:#dc2626}
+.lsq{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.lsq-hoy{background:#fff4e6;border:1px solid #f97316}
+.lsq-libre{background:#dff3e6;border:1px dashed #8dc9a6}
 .regla-info{margin-left:auto;font-size:10px;color:#9ba8bc}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;padding-top:40px;z-index:200}
 .modal{background:#fff;border-radius:12px;border:0.5px solid #e2e8f2;width:520px;max-height:90vh;overflow-y:auto}
@@ -217,7 +237,7 @@ tbody tr{height:var(--slot-h)}
 .resumen-table tbody tr{border-bottom:0.5px solid #f1f4f9;cursor:pointer;transition:background .1s}
 .resumen-table tbody tr:hover{background:#f8fafc}
 .resumen-table tbody tr.sel-row{background:#eff6ff}
-.hoy-col-r{background:rgba(249,115,22,.2)!important}
+.hoy-col-r{background:rgba(249,115,22,.45)!important;box-shadow:inset 2px 0 0 #f97316,inset -2px 0 0 #f97316}
 .ter-cell-r{display:flex;align-items:center;gap:8px;padding:8px 10px;font-weight:600;color:#111827;white-space:nowrap}
 .ter-ini-r{width:26px;height:26px;border-radius:50%;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 .cnt-cell{text-align:center;padding:8px 6px;font-size:13px;font-weight:700}
@@ -564,3 +584,6 @@ tbody tr{height:var(--slot-h)}
 @media (max-width:560px){ .rep-grid.rep-grid-2{grid-template-columns:1fr} }
 /* El numero de cita es corto: no necesita el ancho de un buscador de nombres. */
 .filtro-cita-id{max-width:92px;font-variant-numeric:tabular-nums}
+/* Aviso junto a la hora: corrige, no bloquea. */
+.hora-aviso{margin-top:6px;padding:7px 10px;border-left:3px solid #f59e0b;background:#fffbeb;
+            border-radius:0 6px 6px 0;font-size:11.5px;color:#92400e;line-height:1.45}

@@ -279,6 +279,8 @@
                     <span class="h-bloque-nivel" *ngIf="turnoNivel(h) > 0">N{{ turnoNivel(h) }}</span>
                   </div>
                   <div class="h-bloque-horas">{{ h.horaInicio }}–{{ h.horaFin }}</div>
+                  <!-- Dicho con todas las letras: el bloque se ve, pero la agenda no lo usa. -->
+                  <span class="h-bloque-off-tag" *ngIf="h.activo === false">Inactivo · no se agenda</span>
                   <div class="h-bloque-acts">
                     <button class="h-act-btn" (click)="abrirEditarBloque(h)" title="Editar">✏️</button>
                     <button class="h-act-btn h-act-btn--del" (click)="pedirEliminarBloque(h)" title="Eliminar">🗑</button>

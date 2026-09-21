@@ -34,6 +34,12 @@
           <span class="pstat-val">{{ citas.length }}</span>
           <span class="pstat-lbl">Citas</span>
         </div>
+        <!-- Las inasistencias solo aparecen si las hay: un cero permanente es ruido. -->
+        <div class="pstat pstat--warn" *ngIf="inasistencias.length > 0"
+             [title]="devueltoPorInasistencias > 0 ? ('Se le devolvieron S/ ' + devueltoPorInasistencias.toFixed(2) + ' por inasistencias') : 'Ninguna tuvo devolución'">
+          <span class="pstat-val">{{ inasistencias.length }}</span>
+          <span class="pstat-lbl">{{ inasistencias.length === 1 ? 'Inasistencia' : 'Inasistencias' }}</span>
+        </div>
         <div class="pstat" [class.pstat--danger]="deudaTotal > 0">
           <span class="pstat-val">S/ {{ deudaTotal.toFixed(2) }}</span>
           <span class="pstat-lbl">Deuda total</span>

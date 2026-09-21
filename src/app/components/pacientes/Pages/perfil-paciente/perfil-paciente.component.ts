@@ -136,6 +136,20 @@ export class PerfilPacienteComponent implements OnInit {
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 
+  /**
+   * Cuantas veces no vino, y cuanto se le devolvio por eso.
+   *
+   * Va en la cabecera junto a paquetes y deuda porque es lo que se mira antes de agendarle otra
+   * vez: tres inasistencias seguidas cambian la conversacion con el paciente.
+   */
+  get inasistencias(): Cita[] {
+    return this.citas.filter(c => c.estado === 'NO_ASISTIO');
+  }
+
+  get devueltoPorInasistencias(): number {
+    return this.inasistencias.reduce((t, c) => t + (c.con_devolucion ? (c.monto_devuelto ?? 0) : 0), 0);
+  }
+
   diaCorto(d: number): string { return DIAS_CORTOS[d]; }
   soloHora(h?: string | null): string { return soloHoraYMinuto(h); }
   terapeutaDeHorario(h: HorarioFijo): string { return nombreTerapeutaDeHorario(h); }

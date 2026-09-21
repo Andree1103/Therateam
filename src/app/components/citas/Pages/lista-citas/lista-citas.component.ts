@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CitaService } from '../../Services/cita.service';
@@ -397,6 +397,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private catalogService: CatalogService,
     private toast: ToastService,
     private router: Router,
+    private route: ActivatedRoute,
     private atencionService: AtencionClinicaService,
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
@@ -468,6 +469,11 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // ?cita=123 abre esa cita al entrar. Es lo que permite saltar desde Pagos a la cita que se
+    // cobro, y que un enlace pegado en un chat lleve a la cita exacta.
+    const pedida = this.route.snapshot.queryParamMap.get('cita');
+    if (pedida) { this.busquedaCitaId = pedida; setTimeout(() => this.buscarCitaPorNumero(), 800); }
+
     this.generarSlots();
     this.irHoy();
     this.cargarCatalogos();
@@ -616,19 +622,86 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.onFTerChange();
   }
 
-  /** Se llama al cambiar fecha/hora/duración/tipo en el modal: si el terapeuta elegido dejó de estar disponible, se limpia la selección. */
+  /**
+   * Por que el terapeuta elegido no encaja con lo que hay puesto ahora mismo. Vacio = todo bien.
+   *
+   * Se avisa al lado de la hora en vez de borrar la seleccion. Borrarla era peor que el
+   * problema: al quedarse sin terapeuta desaparecia toda la seccion de fecha, hora y horarios
+   * (cuelga de *ngIf="fTer"), asi que un dedazo en la hora obligaba a cerrar el modal y empezar
+   * de cero. Ahora se queda todo puesto y solo se marca lo que hay que corregir.
+   *
+   * El texto dice el motivo REAL. Antes se miraba solo si el terapeuta seguia en la lista de
+   * disponibles y se culpaba siempre a la hora, pero de esa lista se cae por tres razones
+   * distintas. El caso que lo delato: un terapeuta de otra area salia con "no atiende a esa
+   * hora" mientras justo debajo se le ofrecian sus horarios libres de esa misma hora. Los
+   * horarios venian del backend, que solo mira su jornada y tenia razon: quien mentia era el aviso.
+   */
+  avisoTerapeuta = '';
+
+  /** Se llama al cambiar fecha/hora/duracion/tipo en el modal. */
   onDatosCitaChange(): void {
-    // Solo se vuelve a pedir si cambió la semana visible: dentro del mismo modal se reutiliza
+    // Solo se vuelve a pedir si cambio la semana visible: dentro del mismo modal se reutiliza
     // lo ya cargado. La frescura la garantiza el refresco forzado al abrir el modal, que es
     // cuando puede haber cambiado el horario de un terapeuta.
     this.cargarDisponibilidadSemana();
-    if (!this.fTer) return;
-    const sigueDisponible = this.terapeutasDisponiblesModal.some(t => terapeutaNombre(t) === this.fTer);
-    if (!sigueDisponible) {
-      this.fTer = '';
-      this.terapeutaBusqueda = '';
-      this.toast.warning('El terapeuta seleccionado ya no está disponible en ese horario, elige otro.');
+    this.avisoTerapeuta = this.calcularAvisoTerapeuta();
+  }
+
+  /**
+   * El terapeuta elegido no pertenece al area que atiende el tipo de terapia elegido.
+   *
+   * Cuando pasa esto no tiene sentido ensenar sus horarios libres: son reales, pero para OTRAS
+   * terapias. Ofrecerlos era lo que hacia que la pantalla se contradijera sola — un aviso
+   * diciendo que no puede y debajo una fila de horas invitando a elegir una.
+   */
+  get terapeutaFueraDeArea(): boolean {
+    const t = this.terapeutas.find(x => terapeutaNombre(x) === this.fTer);
+    const tipo = this.tipoSeleccionado;
+    if (!t || !tipo || tipo.area_id == null) return false;
+    return t.area?.id !== tipo.area_id;
+  }
+
+  /** El primer motivo por el que este terapeuta no encaja, en el orden en que hay que resolverlos. */
+  private calcularAvisoTerapeuta(): string {
+    if (!this.fTer || !this.fHoraInicio || !this.fFecha) return '';
+    const t = this.terapeutas.find(x => terapeutaNombre(x) === this.fTer);
+    const tipo = this.tipoSeleccionado;
+    if (!t || !tipo) return '';
+
+    // 1. Area: no es cosa de la hora — con ese tipo de terapia no encaja a ninguna.
+    if (this.terapeutaFueraDeArea) {
+      const areaTer = t.area?.nombre ? `es de ${t.area.nombre}` : 'no tiene area asignada';
+      const areaTipo = tipo.area_nombre ? `la atiende ${tipo.area_nombre}` : 'es de otra area';
+      return `${this.fTer} ${areaTer} y "${tipo.nombre}" ${areaTipo}. `
+           + `Cambia de terapeuta arriba o elige otro tipo de terapia.`;
     }
+
+    // Al editar, la cita se contaria a si misma en todo lo que sigue. El backend revalida con
+    // excluirCitaId al guardar.
+    if (this.citaEditando && this.fTer === this.citaEditando.terapeuta_nombre) return '';
+
+    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const dur = Number(this.fDur) || tipo.duracion_minutos;
+    const fin = new Date(inicio);
+    fin.setMinutes(fin.getMinutes() + dur);
+
+    // 2. Cupo: si atiende a esa hora, pero ya esta lleno.
+    const solapadas = this.citasSolapadas(this.fTer, inicio, fin, this.citaEditando?.id);
+    if (solapadas.length >= tipo.max_pacientes) {
+      return `${this.fTer} ya tiene el cupo completo a esa hora `
+           + `(${solapadas.length} de ${tipo.max_pacientes}). Elige uno de los horarios de abajo o cambia de terapeuta.`;
+    }
+
+    // 3. Jornada: la hora cae fuera de su horario o dentro de un bloqueo.
+    if (t.id != null) {
+      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
+      const finMin    = fin.getHours()    * 60 + fin.getMinutes();
+      if (!this.cubreFranja(t.id, this.fechaToISO(inicio), inicioMin, finMin)) {
+        return `${this.fTer} no atiende a esa hora. Elige uno de los horarios de abajo, `
+             + `escribe otra hora, o cambia de terapeuta arriba.`;
+      }
+    }
+    return '';
   }
 
   /**
@@ -1708,8 +1781,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** Deja anular y reprogramar como recien llegados: cerrados y sin lo que se escribio antes. */
   private cerrarPanelesDeEstado(): void {
+    this.avisoTerapeuta = '';
     this.mostrarAnularOpciones = false;
     this.mostrarReprogramar = false;
+    this.mostrarInasistencia = false;
+    this.motivoInasistencia = '';
+    this.marcandoInasistencia = false;
     this.motivoAnulacion = '';
     this.motivoReprogramacion = '';
     // La fecha y la hora las vuelve a poner abrirReprogramar() con las de la cita, pero se
@@ -2554,6 +2631,72 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   private enfocar(id: string): void {
     const campo = document.getElementById(id) as HTMLTextAreaElement | null;
     campo?.focus();
+  }
+
+  // ── Inasistencia ──────────────────────────────────────────────
+
+  mostrarInasistencia = false;
+  marcandoInasistencia = false;
+  motivoInasistencia = '';
+
+  /** Se puede anotar mientras la cita siga viva y no tenga ya una atencion registrada. */
+  puedeMarcarInasistencia(cita: Cita | null): boolean {
+    return !!cita && cita.estado !== 'ASISTIDA'
+        && !this.esCitaCancelada(cita) && !this.esCitaReprogramada(cita);
+  }
+
+  abrirInasistencia(): void {
+    if (!this.puedeMarcarInasistencia(this.citaEditando)) return;
+    this.motivoInasistencia = '';
+    this.mostrarAnularOpciones = false;
+    this.mostrarReprogramar = false;
+    this.mostrarInasistencia = true;
+  }
+
+  cancelarInasistencia(): void { this.mostrarInasistencia = false; this.motivoInasistencia = ''; }
+
+  /**
+   * Anota que el paciente no vino: crea la fila en Atenciones y deja la cita en No asistio.
+   *
+   * No cuenta como sesion atendida ni descuenta del paquete. Si se decide cobrarla igual, eso se
+   * resuelve por Registrar pago, que es donde se decide el dinero.
+   */
+  /** La cita tiene dinero cobrado, asi que hay que decidir si se le devuelve al paciente. */
+  get inasistenciaTienePago(): boolean {
+    const k = this.citaEditando?.estado_pago_key;
+    return !!k && k !== 'SIN_PAGO';
+  }
+
+  /**
+   * @param devolver true = lo cobrado vuelve como saldo a favor del paciente;
+   *                 false = se queda como ingreso de la clinica y la cita sigue pagada.
+   */
+  confirmarInasistencia(devolver = false): void {
+    const cita = this.citaEditando;
+    if (!cita) return;
+    const motivo = this.motivoEscrito('motivoInasistencia', this.motivoInasistencia);
+    if (!motivo) {
+      this.toast.warning('Escribe el motivo de la inasistencia.');
+      this.enfocar('motivoInasistencia');
+      return;
+    }
+    this.marcandoInasistencia = true;
+    this.atencionService.registrarInasistencia(Number(cita.id), motivo, devolver).subscribe({
+      next: () => {
+        this.toast.success(devolver
+          ? 'Inasistencia registrada — el pago quedo como saldo a favor'
+          : 'Inasistencia registrada');
+        this.marcandoInasistencia = false;
+        this.mostrarInasistencia = false;
+        this.motivoInasistencia = '';
+        this.cerrarModal();
+        this.recargarSilencioso();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al registrar la inasistencia');
+        this.marcandoInasistencia = false;
+      }
+    });
   }
 
   // ── Reprogramar cita ────────────────────────────────────────

@@ -377,7 +377,12 @@ export class ListaTerapeutasComponent implements OnInit {
         this.cargarHorario(id);
         this.guardandoBloque = false;
       },
-      error: () => { this.toast.error('Error al guardar el bloque'); this.guardandoBloque = false; }
+      // El backend explica el choque (ya hay un bloque ese dia y turno). Tragarselo y poner
+      // un texto generico dejaba al usuario sin saber que lo que toca es editar, no crear otro.
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al guardar el bloque');
+        this.guardandoBloque = false;
+      }
     });
   }
 

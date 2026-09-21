@@ -71,3 +71,16 @@
 .btn-primary:hover:not(:disabled){background:#134b83}
 .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:768px){.corr-row{grid-template-columns:1fr}}
+
+/* La tabla es mas ancha que la tarjeta en pantallas chicas: que se pueda llegar a las ultimas
+   columnas en vez de quedar recortadas. */
+.tabla-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+.tabla-scroll .data-table{min-width:980px}
+
+/* Resultado de la cita: atendida o inasistencia, con el motivo a la vista. */
+.res-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.res-atendida{background:#dcfce7;color:#15803d}
+.res-novino{background:#fee2e2;color:#b91c1c}
+.res-motivo{display:block;margin-top:3px;font-size:11px;color:#64748b;max-width:220px}
+.res-dev{display:block;margin-top:3px;font-size:10.5px;font-weight:700;color:#b45309}
+.res-dev-no{color:#64748b;font-weight:600}

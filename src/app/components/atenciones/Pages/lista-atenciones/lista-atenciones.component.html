@@ -38,7 +38,10 @@
       <p>{{ hayFiltrosActivos ? 'Ninguna atención coincide con estos filtros.' : 'Todavía no hay citas atendidas.' }}</p>
     </div>
 
+    <!-- La tabla es ancha y la tarjeta recorta: sin este contenedor las ultimas columnas
+         quedaban fuera de la pantalla sin forma de llegar a ellas. -->
     <div class="card" *ngIf="!loading && atenciones.length > 0">
+      <div class="tabla-scroll">
       <table class="data-table">
         <thead>
           <tr>
@@ -50,6 +53,7 @@
             <th class="th-sort" (click)="ordenarPorColumna('estadoPago.key')">Estado de pago {{ iconoOrden('estadoPago.key') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('metodoPago')">Medio de pago {{ iconoOrden('metodoPago') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('estado.key')">Estado de cita {{ iconoOrden('estado.key') }}</th>
+            <th>Resultado</th>
             <th></th>
           </tr>
         </thead>
@@ -71,15 +75,32 @@
                 {{ c.estado_nombre || c.estado }}
               </span>
             </td>
+            <td>
+              <ng-container *ngIf="c.estado === 'NO_ASISTIO'; else fueAtendida">
+                <span class="res-badge res-novino">No asistió</span>
+                <!-- El motivo va aquí y no en un detalle aparte: es lo primero que se pregunta al
+                     ver una inasistencia, y sin el la fila solo repite el estado. -->
+                <span class="res-motivo" *ngIf="c.motivo_estado">{{ c.motivo_estado }}</span>
+                <!-- El destino del dinero sale de su propio campo, no de leer el motivo. -->
+                <!-- El importe solo si se sabe: las inasistencias anotadas antes de que existiera
+                     el campo llevan el flag pero no la cifra, y "S/ 0.00" seria mentir. -->
+                <span class="res-dev" *ngIf="c.con_devolucion">
+                  {{ c.monto_devuelto ? ('Devuelto S/ ' + (c.monto_devuelto | number:'1.2-2') + ' a favor') : 'Devuelto a favor' }}
+                </span>
+                <span class="res-dev res-dev-no" *ngIf="c.con_devolucion === false">Se cobró igual</span>
+              </ng-container>
+              <ng-template #fueAtendida><span class="res-badge res-atendida">Atendida</span></ng-template>
+            </td>
             <td class="td-acciones">
-              <button type="button" class="btn-link" (click)="verDetalle(c)">Ver atención</button>
+              <button type="button" class="btn-link" *ngIf="c.estado !== 'NO_ASISTIO'" (click)="verDetalle(c)">Ver atención</button>
               <!-- Corregir una carga mal hecha: permiso por rol, y por un endpoint aparte del
                    PUT normal (que sigue prohibiendo tocar una cita atendida). -->
-              <button type="button" class="btn-link" *ngIf="puedeCorregir" (click)="abrirCorreccion(c, $event)">Corregir</button>
+              <button type="button" class="btn-link" *ngIf="puedeCorregir && c.estado !== 'NO_ASISTIO'" (click)="abrirCorreccion(c, $event)">Corregir</button>
             </td>
           </tr>
         </tbody>
       </table>
+      </div>
 
       <div class="pagination" *ngIf="totalPaginas > 1">
         <button type="button" (click)="irAPagina(paginaActual - 1)" [disabled]="paginaActual === 0">‹</button>

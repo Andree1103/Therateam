@@ -7,6 +7,10 @@ export interface AtencionMetrica {
 }
 
 export interface AtencionClinica {
+  /** ATENDIDA = la sesion se dio; INASISTENCIA = el paciente no vino. */
+  tipo?: 'ATENDIDA' | 'INASISTENCIA';
+  /** Por que no vino. Solo con valor cuando tipo es INASISTENCIA. */
+  motivo?: string | null;
   id?: number;
   citaId: number;
   fechaInicioReal: string;

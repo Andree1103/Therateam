@@ -155,7 +155,9 @@ export class ListaAtencionesComponent implements OnInit {
 
   private buildFiltros() {
     return {
-      estadoKey: 'ASISTIDA',
+      // Tambien las inasistencias: son parte de lo que paso con las citas del dia, y verlas junto
+      // a las atendidas es lo que permite contarlas y hablar con el paciente.
+      estadoKey: 'ASISTIDA,NO_ASISTIO',
       paciente: this.filtroPaciente || undefined,
       terapeuta: this.filtroTerapeuta || undefined,
       areaId: this.filtroAreaId,
@@ -263,6 +265,10 @@ export class ListaAtencionesComponent implements OnInit {
           'Estado de pago': c.estado_pago_nombre ?? '',
           'Medio de pago': c.metodo_pago_nombre ?? '',
           'Estado de cita': c.estado_nombre ?? c.estado ?? '',
+          'Resultado': c.estado === 'NO_ASISTIO' ? 'No asistio' : 'Atendida',
+          'Motivo de inasistencia': c.estado === 'NO_ASISTIO' ? (c.motivo_estado ?? '') : '',
+          'Hubo devolución': c.estado === 'NO_ASISTIO' ? (c.con_devolucion ? 'Sí' : 'No') : '',
+          'Devuelto (S/)': c.con_devolucion ? (c.monto_devuelto ?? 0) : '',
           'Paquete': c.tratamiento_nombre ?? '',
           'Usuario creación': c.usuario_creacion_nombre ?? '',
         }));
