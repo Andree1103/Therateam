@@ -3,7 +3,8 @@
   <div class="page-header">
     <div class="header-left">
       <h1>Atenciones</h1>
-      <p>Citas ya atendidas — con su nota clínica registrada</p>
+      <p>Citas atendidas y no asistidas — ordenadas por cuándo se registraron, lo más reciente primero.
+         <span class="orden-hint" *ngIf="ordenarPor !== 'ac.createdAt'">Ordenado por {{ ordenarPor === 'fechaInicio' ? 'fecha de la cita' : 'la columna elegida' }}.</span></p>
     </div>
     <button *ngIf="puedeExportar" type="button" class="btn-secondary" (click)="exportarExcel()" [disabled]="exportando || atenciones.length === 0">
       {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
@@ -45,7 +46,10 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th class="th-sort" (click)="ordenarPorColumna('fechaInicio')">Fecha {{ iconoOrden('fechaInicio') }}</th>
+            <!-- Registrada primero: es por lo que se ordena, y verla al lado de la fecha de la
+                 cita explica sola por que una cita de diciembre puede encabezar la lista. -->
+            <th class="th-sort" (click)="ordenarPorColumna('ac.createdAt')">Registrada {{ iconoOrden('ac.createdAt') }}</th>
+            <th class="th-sort" (click)="ordenarPorColumna('fechaInicio')">Fecha de la cita {{ iconoOrden('fechaInicio') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('paciente.nombre')">Paciente {{ iconoOrden('paciente.nombre') }}</th>
             <th class="th-sort" (click)="ordenarPorColumna('terapeuta.usuario.nombre')">Terapeuta {{ iconoOrden('terapeuta.usuario.nombre') }}</th>
             <th>Tipo de terapia</th>
@@ -59,6 +63,10 @@
         </thead>
         <tbody>
           <tr *ngFor="let c of atenciones">
+            <td>
+              <span *ngIf="c.fecha_registro">{{ c.fecha_registro | date:'d MMM yyyy, HH:mm' }}</span>
+              <span class="sin-registro" *ngIf="!c.fecha_registro" title="Se marcó antes de que existiera el registro de atenciones">—</span>
+            </td>
             <td>{{ c.fecha_inicio | date:'d MMM yyyy, HH:mm' }}</td>
             <td>{{ c.paciente_nombre }} {{ c.paciente_apellido }}</td>
             <td>{{ c.terapeuta_nombre }}</td>

@@ -32,6 +32,8 @@ export interface Cita {
   con_devolucion?: boolean;
   /** Cuanto volvio al paciente por esa devolucion. */
   monto_devuelto?: number;
+  /** Cuando se registro la atencion o la inasistencia. Null en las marcadas antes del registro. */
+  fecha_registro?: string | null;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;
@@ -205,6 +207,8 @@ export interface CitaApiDTO {
   con_devolucion?: boolean;
   /** Cuanto volvio al paciente por esa devolucion. */
   monto_devuelto?: number;
+  /** Cuando se registro la atencion o la inasistencia. Null en las marcadas antes del registro. */
+  fecha_registro?: string | null;
   notas_previas?: string;
   notas_post?: string;
   link_videollamada?: string;

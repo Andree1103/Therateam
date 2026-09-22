@@ -29,7 +29,11 @@
 .spinner{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden}
+/* flex-shrink:0: la tarjeta es un item de .page-body (flex en columna) y su overflow:hidden
+   anula el tamano minimo automatico, asi que el navegador la encoge hasta el alto de la
+   pantalla y recorta lo que sobra — incluido el paginador, que va detras de la tabla.
+   Quien debe hacer scroll es .page-body, que ya es overflow:auto. */
+.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;flex-shrink:0}
 .data-table{width:100%;border-collapse:collapse}
 .data-table thead th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
 .data-table tbody td{padding:11px 16px;border-top:1px solid #f1f5f9;font-size:13px;color:#334155}

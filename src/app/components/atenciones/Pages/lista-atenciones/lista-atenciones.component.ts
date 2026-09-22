@@ -52,7 +52,19 @@ export class ListaAtencionesComponent implements OnInit {
   // ── Ordenamiento personalizado (server-side, vía Pageable de Spring) ───────
   // 'metodoPago' no es un campo de Cita sino del ultimo pago: el backend lo traduce al
   // alias del JOIN para poder ordenar en servidor (y no solo la pagina visible).
-  ordenarPor: 'fechaInicio' | 'paciente.nombre' | 'terapeuta.usuario.nombre' | 'estadoPago.key' | 'precio' | 'metodoPago' | 'estado.key' = 'fechaInicio';
+  /**
+   * Por defecto se ordena por lo ULTIMO REGISTRADO, no por la fecha de la cita.
+   *
+   * Ordenar por fecha de cita ponia arriba las citas FUTURAS ya marcadas (esta pantalla lista
+   * citas atendidas y no asistidas, y nada impide marcar una de la semana que viene), asi que
+   * lo que acababas de registrar hoy quedaba enterrado entre fechas de otros meses.
+   *
+   * Se ordena por ac.createdAt, la fecha en que se anoto la atencion o la inasistencia. Las
+   * citas marcadas antes de que existiera ese registro no tienen fila en atencion_clinica y
+   * quedan en NULL; el backend las manda al final (ver conNulosAlFinal en CitaController),
+   * porque Postgres por defecto las pondria justo delante en orden descendente.
+   */
+  ordenarPor: 'ac.createdAt' | 'fechaInicio' | 'paciente.nombre' | 'terapeuta.usuario.nombre' | 'estadoPago.key' | 'precio' | 'metodoPago' | 'estado.key' = 'ac.createdAt';
   direccionOrden: 'asc' | 'desc' = 'desc';
 
   // ── Modal de detalle de atención (solo lectura) ─────────────────────────────
@@ -255,7 +267,9 @@ export class ListaAtencionesComponent implements OnInit {
         this.exportando = false;
         if (res.content.length === 0) { this.toast.warning('No hay atenciones para exportar con el filtro actual'); return; }
         const filas = res.content.map(c => ({
-          'Fecha': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
+          // El Excel sigue el mismo orden y las mismas columnas que la pantalla.
+          'Registrada': c.fecha_registro ? new Date(c.fecha_registro).toLocaleString('es-PE') : '',
+          'Fecha de la cita': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
           'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
           'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
           'DNI': c.paciente_dni ?? '',

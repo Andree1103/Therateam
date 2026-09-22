@@ -302,6 +302,7 @@ export class CitaService {
       reprogramada_en:     dto.reprogramada_en,
       con_devolucion:      dto.con_devolucion,
       monto_devuelto:      dto.monto_devuelto,
+      fecha_registro:      dto.fecha_registro,
       notas_previas:       dto.notas_previas,
       notas_post:          dto.notas_post,
       link_videollamada:   dto.link_videollamada,
