@@ -503,6 +503,43 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** Tipos de terapia del área seleccionada en el modal — reemplaza las pestañas fijas Regular/Kids/Consultas. */
   get tiposDeArea(): TipoTerapia[] { return this.tiposTerapia.filter(t => t.area_id === this.fAreaId); }
+  // ── Autocompletar del tipo de terapia ───────────────────────────────────────
+  // Con 20 tipos en produccion, el <select> obligaba a recorrer la lista entera para encontrar
+  // "OCUPACIONAL EVALUACION" entre nombres que empiezan casi todos igual. Mismo patron que el
+  // buscador de terapeuta: se escribe un trozo del nombre y se elige de lo que queda.
+  tipoBusqueda = '';
+  tipoDropdownAbierto = false;
+
+  /** Lo que se ensena en la caja cuando no se esta escribiendo: el tipo ya elegido. */
+  get tipoElegidoTexto(): string {
+    const t = this.tipoSeleccionado;
+    return t ? `${t.nombre} (${t.duracion_minutos}min)` : '';
+  }
+
+  get tiposFiltradosBusqueda(): TipoTerapia[] {
+    const q = this.tipoBusqueda.toLowerCase().trim();
+    const lista = this.tiposDeArea;
+    return !q ? lista : lista.filter(t => (t.nombre ?? '').toLowerCase().includes(q));
+  }
+
+  abrirTipoDropdown(): void {
+    // Se vacia al enfocar para poder teclear directo, sin borrar antes lo que habia.
+    this.tipoBusqueda = '';
+    this.tipoDropdownAbierto = true;
+  }
+
+  /** Diferido, o el click en una opcion se perderia con el blur del input. */
+  cerrarTipoDropdownDiferido(): void {
+    setTimeout(() => { this.tipoDropdownAbierto = false; this.tipoBusqueda = ''; }, 150);
+  }
+
+  seleccionarTipo(t: TipoTerapia): void {
+    this.fTipoId = t.id;
+    this.tipoBusqueda = '';
+    this.tipoDropdownAbierto = false;
+    this.onTipoChange();
+  }
+
   /** Fecha de hoy en formato ISO (yyyy-MM-dd). */
   get hoyISO(): string { return this.fechaToISO(new Date()); }
 
@@ -1443,6 +1480,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   onAreaChange(): void {
     const primerTipo = this.tiposDeArea[0];
     this.fTipoId = primerTipo?.id ?? '';
+    this.tipoBusqueda = '';
+    this.tipoDropdownAbierto = false;
     this.onTipoChange();
   }
 
@@ -2647,7 +2686,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirInasistencia(): void {
     if (!this.puedeMarcarInasistencia(this.citaEditando)) return;
-    this.motivoInasistencia = '';
+    // Al reabrir una que ya esta marcada se trae lo que se escribio: el boton dice "Editar
+    // inasistencia", y un cuadro en blanco obligaba a reescribir el motivo entero para cambiarle
+    // una palabra — o a guardarlo vacio sin querer.
+    this.motivoInasistencia = this.yaEsInasistencia ? (this.citaEditando?.motivo_estado ?? '') : '';
     this.mostrarAnularOpciones = false;
     this.mostrarReprogramar = false;
     this.mostrarInasistencia = true;
@@ -2661,6 +2703,26 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * No cuenta como sesion atendida ni descuenta del paquete. Si se decide cobrarla igual, eso se
    * resuelve por Registrar pago, que es donde se decide el dinero.
    */
+  /** Esta cita ya esta anotada como inasistencia: se esta corrigiendo, no creando. */
+  get yaEsInasistencia(): boolean {
+    return this.citaEditando?.estado === 'NO_ASISTIO';
+  }
+
+  /**
+   * Ya se le devolvio el dinero en su momento.
+   *
+   * Importa ensenarlo al editar: la cita quedo en SIN_PAGO al devolver, asi que el panel diria
+   * "esta cita no tiene ningun pago registrado" y pareceria que nunca se cobro. El backend
+   * tampoco deja deshacer la devolucion desde aqui, y el aviso lo dice en vez de callarlo.
+   */
+  get inasistenciaYaDevuelta(): boolean {
+    return this.yaEsInasistencia && !!this.citaEditando?.con_devolucion;
+  }
+
+  get inasistenciaMontoDevuelto(): number {
+    return this.citaEditando?.monto_devuelto ?? 0;
+  }
+
   /** La cita tiene dinero cobrado, asi que hay que decidir si se le devuelve al paciente. */
   get inasistenciaTienePago(): boolean {
     const k = this.citaEditando?.estado_pago_key;
@@ -2719,10 +2781,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * Estados con puerta propia: no se eligen a mano, cada uno tiene su boton.
    *
    * ASISTIDA la marca el registro de la atencion; ANULADA, el boton Anular (resuelve el pago y
-   * pide motivo); REPROGRAMADA, el boton Reprogramar (crea la cita nueva). Ponerlos desde el
-   * desplegable se saltaba todo eso.
+   * pide motivo); REPROGRAMADA, el boton Reprogramar (crea la cita nueva); NO_ASISTIO, el boton
+   * "No vino". Ponerlos desde el desplegable se saltaba todo eso.
+   *
+   * NO_ASISTIO es el que mas dolia: elegirlo a mano dejaba la cita en "No asistio" y nada mas —
+   * sin fila en Atenciones, sin motivo y sin decidir que pasaba con lo ya cobrado. Justo lo que
+   * hacian los dos estados "INASISTENCIA CON/SIN DESCUENTO" que se crearon a mano en produccion.
    */
-  private readonly ESTADOS_CON_FLUJO_PROPIO = ['ASISTIDA', 'ANULADA', 'REPROGRAMADA'];
+  private readonly ESTADOS_CON_FLUJO_PROPIO = ['ASISTIDA', 'ANULADA', 'REPROGRAMADA', 'NO_ASISTIO'];
 
   /**
    * Lo que se ofrece en el desplegable: los estados de puro tramite.

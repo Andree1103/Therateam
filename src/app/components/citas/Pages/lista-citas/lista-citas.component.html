@@ -751,12 +751,30 @@
             <label>Terapeuta</label>
             <input type="text" [value]="fTer" disabled class="date-inp">
           </div>
-          <div class="frow">
+          <!-- Con 20 tipos, el desplegable obligaba a recorrerlos todos. Se escribe y se filtra,
+               igual que el buscador de terapeuta. Con el paquete fijado no se puede cambiar. -->
+          <div class="frow autocomplete-wrap" *ngIf="fTratamientoExistenteId === null">
+            <label>Tipo de terapia <span class="opc-tag">escribe para buscar</span></label>
+            <input type="text" name="tipoBusqueda"
+                   [ngModel]="tipoDropdownAbierto ? tipoBusqueda : tipoElegidoTexto"
+                   (ngModelChange)="tipoBusqueda = $event"
+                   (focus)="abrirTipoDropdown()" (blur)="cerrarTipoDropdownDiferido()"
+                   placeholder="Buscar tipo de terapia..." autocomplete="off">
+            <div class="autocomplete-dropdown" *ngIf="tipoDropdownAbierto && tiposFiltradosBusqueda.length > 0">
+              <div class="autocomplete-item" *ngFor="let t of tiposFiltradosBusqueda"
+                   [class.ac-item-sel]="t.id === fTipoId" (mousedown)="seleccionarTipo(t)">
+                <span class="ac-nombre">{{ t.nombre }}</span>
+                <span class="ac-sub">{{ t.duracion_minutos }} min · {{ t.max_pacientes }} paciente{{ t.max_pacientes !== 1 ? 's' : '' }}</span>
+              </div>
+            </div>
+            <div class="dur-info" *ngIf="tipoDropdownAbierto && tiposFiltradosBusqueda.length === 0">
+              {{ tiposDeArea.length === 0 ? 'Esta área no tiene tipos de terapia configurados.' : 'Ningún tipo coincide con lo escrito.' }}
+            </div>
+            <div class="dur-info" *ngIf="!tipoDropdownAbierto && tiposDeArea.length === 0">Esta área no tiene tipos de terapia configurados.</div>
+          </div>
+          <div class="frow" *ngIf="fTratamientoExistenteId !== null">
             <label>Tipo de terapia</label>
-            <select [(ngModel)]="fTipoId" (ngModelChange)="onTipoChange()" [disabled]="fTratamientoExistenteId !== null">
-              <option *ngFor="let t of tiposDeArea" [value]="t.id">{{ t.nombre }} ({{ t.duracion_minutos }}min)</option>
-            </select>
-            <div class="dur-info" *ngIf="tiposDeArea.length === 0">Esta área no tiene tipos de terapia configurados.</div>
+            <input type="text" [value]="tipoElegidoTexto" disabled class="date-inp">
           </div>
         </div>
         <p class="pago-hint" *ngIf="fTratamientoExistenteId !== null">
@@ -1288,10 +1306,19 @@
       <!-- Inasistencia: el paciente no vino. Queda como fila en Atenciones, con su motivo, y la
            cita pasa a "No asistio". No cuenta como sesion atendida. -->
       <div class="edit-pago-section" *ngIf="citaEditando && mostrarInasistencia">
-        <div class="edit-pago-hdr">El paciente no vino</div>
-        <p class="anu-nota">
+        <div class="edit-pago-hdr">{{ yaEsInasistencia ? 'Corregir la inasistencia' : 'El paciente no vino' }}</div>
+        <p class="anu-nota" *ngIf="!yaEsInasistencia">
           Queda registrado en Atenciones como inasistencia y la cita pasa a "No asistió".
           No descuenta sesión del paquete.
+        </p>
+        <p class="anu-nota" *ngIf="yaEsInasistencia">
+          Ya está anotada. Puedes corregir el motivo; lo demás se mantiene.
+        </p>
+        <!-- La cita quedo en SIN_PAGO al devolver, asi que sin este aviso el panel diria que
+             nunca se cobro. La devolucion tampoco se deshace desde aqui. -->
+        <p class="anu-nota anu-nota--dev" *ngIf="inasistenciaYaDevuelta">
+          Ya se devolvieron S/ {{ inasistenciaMontoDevuelto | number:'1.2-2' }} como saldo a favor
+          del paciente. Eso no se deshace desde aquí.
         </p>
 
         <label class="anu-label" for="motivoInasistencia">MOTIVO DE LA INASISTENCIA <span class="anu-req">obligatorio</span></label>
@@ -1304,7 +1331,7 @@
         <div class="edit-pago-hdr" *ngIf="inasistenciaTienePago" style="margin-top:10px">
           ¿Qué hacemos con lo que ya pagó?
         </div>
-        <p class="anu-nota" *ngIf="!inasistenciaTienePago">Esta cita no tiene ningún pago registrado.</p>
+        <p class="anu-nota" *ngIf="!inasistenciaTienePago && !inasistenciaYaDevuelta">Esta cita no tiene ningún pago registrado.</p>
 
         <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px; margin-top:10px">
           <ng-container *ngIf="inasistenciaTienePago">
@@ -1317,7 +1344,7 @@
           </ng-container>
           <button *ngIf="!inasistenciaTienePago" class="btn-eliminar"
                   [disabled]="marcandoInasistencia" (click)="confirmarInasistencia(false)">
-            {{ marcandoInasistencia ? 'Guardando...' : 'Marcar inasistencia' }}
+            {{ marcandoInasistencia ? 'Guardando...' : (yaEsInasistencia ? 'Guardar motivo' : 'Marcar inasistencia') }}
           </button>
           <button class="hc-btn-cancel-pago" [disabled]="marcandoInasistencia" (click)="cancelarInasistencia()">Cancelar</button>
         </div>
@@ -1423,12 +1450,29 @@
       </div>
 
       <div class="modal-footer">
-        <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
-                class="btn-cancel" (click)="abrirInasistencia()">No vino</button>
-        <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones && !mostrarInasistencia"
-                class="btn-cancel" (click)="abrirReprogramar()">Reprogramar</button>
-        <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar && !mostrarInasistencia"
-                class="btn-eliminar" (click)="abrirAnular()">Anular</button>
+        <!-- Las tres acciones que cambian el estado de la cita, agrupadas a la izquierda y
+             separadas de Cancelar/Actualizar: no son "guardar lo escrito", son decisiones sobre
+             lo que paso con la cita. Cada una con el color de lo que significa. -->
+        <div class="acciones-estado">
+          <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
+                  class="btn-accion btn-accion--novino" (click)="abrirInasistencia()"
+                  title="El paciente no vino: pide el motivo y que hacer con lo pagado">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            {{ citaEditando?.estado === 'NO_ASISTIO' ? 'Editar inasistencia' : 'No vino' }}
+          </button>
+          <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones && !mostrarInasistencia"
+                  class="btn-accion btn-accion--reprogramar" (click)="abrirReprogramar()"
+                  title="Mover la cita a otra fecha: crea una nueva y deja esta como constancia">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Reprogramar
+          </button>
+          <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar && !mostrarInasistencia"
+                  class="btn-accion btn-accion--anular" (click)="abrirAnular()"
+                  title="La cita no va: pide el motivo y resuelve el pago">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            Anular
+          </button>
+        </div>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
         <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"
                 *ngIf="citaEditando ? puedeEditarCitas : puedeCrearCitas">
