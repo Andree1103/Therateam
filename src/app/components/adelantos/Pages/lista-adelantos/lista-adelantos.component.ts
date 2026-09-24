@@ -4,6 +4,7 @@ import { Paciente, SaldoMovimiento } from '../../../pacientes/Models/paciente.mo
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 
 @Component({
   selector: 'app-lista-adelantos',
@@ -121,7 +122,7 @@ export class ListaAdelantosComponent implements OnInit {
           'Correo': p.correo ?? '',
           'Motivo del saldo': p.saldoUltimoMotivo ?? '',
           'Terapeuta': p.saldoUltimoTerapeuta ?? '',
-          'Fecha del movimiento': p.saldoUltimaFecha ? new Date(p.saldoUltimaFecha).toLocaleDateString('es-PE') : '',
+          'Fecha del movimiento': fechaHoraAmPm(p.saldoUltimaFecha),
           'Saldo a favor (S/)': p.saldoAFavor ?? '',
           'Usuario creación': p.usuarioCreacionNombre ?? '',
         }));

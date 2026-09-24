@@ -1202,6 +1202,24 @@
               Pagado S/ {{ (citaEditando.monto_pagado ?? 0) | number:'1.2-2' }} ·
               <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>
             </div>
+            <!-- El paciente ya tiene dinero adelantado. Sin esto se le cobraba otra vez en
+                 efectivo y su saldo se quedaba parado. -->
+            <div class="hc-pago-saldo" *ngIf="pacienteSaldoAFavor > 0 && pagoDeudaRestante > 0">
+              <div class="hc-pago-saldo-txt">
+                Tiene <strong>S/ {{ pacienteSaldoAFavor | number:'1.2-2' }}</strong> a favor
+                <ng-container *ngIf="saldoCubreTodaLaCita">— cubre toda la deuda.</ng-container>
+                <ng-container *ngIf="!saldoCubreTodaLaCita">
+                  — cubre S/ {{ saldoCubreDeCita | number:'1.2-2' }}; faltarían
+                  S/ {{ (pagoDeudaRestante - saldoCubreDeCita) | number:'1.2-2' }}.
+                </ng-container>
+              </div>
+              <button type="button" class="hc-btn-saldo" [disabled]="guardandoPago"
+                      (click)="pagarConSaldo(citaEditando)">
+                {{ saldoCubreTodaLaCita
+                    ? 'Cobrar con su saldo'
+                    : ('Usar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo') }}
+              </button>
+            </div>
             <div class="hc-pago-row">
               <div class="hc-pago-monto-display" *ngIf="pagoEsPaquete">
                 <span class="hc-pago-lbl">Monto a cobrar</span>
@@ -1472,6 +1490,15 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             Anular
           </button>
+          <!-- La nota solo se podia sacar desde la tarjeta flotante de una cita suelta. En una
+               hora con varias citas esa tarjeta no existe (sale "N citas · Ver detalle"), asi que
+               habia pacientes cuya nota no habia forma de descargar. -->
+          <button *ngIf="citaEditando" class="btn-accion btn-accion--nota"
+                  (click)="descargarNotaCita(citaEditando, $event)"
+                  title="Descargar la nota de atención en PDF para enviarla por WhatsApp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Nota PDF
+          </button>
         </div>
         <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
         <button class="btn-save" (click)="guardarCita()" [disabled]="guardando"
@@ -1568,6 +1595,11 @@
           <div class="multi-cita-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
           <div class="multi-cita-hora">{{ c.fecha_inicio | date:'HH:mm' }}–{{ c.fecha_fin | date:'HH:mm' }} · {{ c.duracion_minutos }}min</div>
         </div>
+        <button class="multi-cita-nota" (click)="descargarNotaCita(c, $event)"
+                title="Descargar la nota de atención en PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          PDF
+        </button>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="multi-cita-arrow"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>

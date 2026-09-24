@@ -17,6 +17,7 @@ import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model
 import { AuthService } from '../../../auth/Services/auth.service';
 import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
   from '../../Models/horario-fijo.model';
+import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 
 type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
@@ -214,7 +215,7 @@ export class PerfilPacienteComponent implements OnInit {
     if (!this.paciente) return;
     this.exportando = true;
 
-    const f = (v?: string | Date | null) => v ? new Date(v).toLocaleString('es-PE') : '';
+    const f = (v?: string | Date | null) => fechaHoraAmPm(v);
     const soloFecha = (v?: string | Date | null) => v ? new Date(v).toLocaleDateString('es-PE') : '';
     const citaDe = (citaId: number) => this.citas.find(c => Number(c.id) === Number(citaId));
 
@@ -299,8 +300,8 @@ export class PerfilPacienteComponent implements OnInit {
           .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio))
           .map(h => ({
             'Día': DIAS_SEMANA[h.diaSemana],
-            'Hora inicio': this.soloHora(h.horaInicio),
-            'Hora fin': h.horaFin ? this.soloHora(h.horaFin) : '',
+            'Hora inicio': horaAmPm(h.horaInicio),
+            'Hora fin': h.horaFin ? horaAmPm(h.horaFin) : '',
             'Duración (min)': this.duracionHorario(h) ?? '',
             'Terapeuta': this.terapeutaDeHorario(h),
             'Terapia': h.tipoTerapia?.nombre ?? '',

@@ -15,6 +15,7 @@ import { Paciente } from '../../../pacientes/Models/paciente.model';
 import { Cita } from '../../../citas/Models/cita.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 
 @Component({
   selector: 'app-lista-pagos',
@@ -173,7 +174,7 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
         this.exportando = false;
         if (res.content.length === 0) { this.toast.warning('No hay pagos para exportar con los filtros actuales'); return; }
         const filas = res.content.map(p => ({
-          'Fecha': p.fechaPago ? new Date(p.fechaPago).toLocaleString('es-PE') : '',
+          'Fecha': fechaHoraAmPm(p.fechaPago),
           'Paciente': p.paciente ? `${p.paciente.nombre} ${p.paciente.apellido}` : '',
           'DNI': p.paciente?.dni ?? '',
           'Paquete': p.tratamiento?.nombre ?? '',

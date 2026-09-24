@@ -15,6 +15,7 @@ import { Terapeuta } from '../../../terapeutas/Models/terapeuta.model';
 import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
 import { HorarioFijo, HorarioFijoRequest, HorarioFijoResumen, DIAS_SEMANA, DIAS_CORTOS,
          soloHoraYMinuto, resumirHorarioFijo, duracionHorarioFijo } from '../../Models/horario-fijo.model';
+import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 
 @Component({
   selector: 'app-lista-pacientes',
@@ -147,8 +148,8 @@ export class ListaPacientesComponent implements OnInit {
             'DNI': h.dni ?? '',
             'Sede': h.sede ?? '',
             'Día': DIAS_SEMANA[h.diaSemana],
-            'Hora inicio': soloHoraYMinuto(h.horaInicio),
-            'Hora fin': h.horaFin ? soloHoraYMinuto(h.horaFin) : '',
+            'Hora inicio': horaAmPm(h.horaInicio),
+            'Hora fin': h.horaFin ? horaAmPm(h.horaFin) : '',
             'Duración (min)': duracionHorarioFijo(h) ?? '',
             'Terapeuta': h.terapeuta ?? '',
             'Terapia': h.tipoTerapia ?? '',

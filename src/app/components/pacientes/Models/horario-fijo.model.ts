@@ -1,3 +1,4 @@
+import { rangoHoraAmPm } from '../../../core/utils/formato-hora';
 
 
 /**
@@ -82,9 +83,14 @@ export interface HorarioFijoResumen {
   notas?: string | null;
 }
 
-/** "Lu 09:00-09:45 · Ana Quispe · KIDS" — una línea legible para resumir en una celda. */
+/**
+ * "Lu 09:00 a. m. – 09:45 a. m. · Ana Quispe · KIDS" — una línea legible para resumir en una celda.
+ *
+ * Solo la usa la exportación de pacientes, y va en am/pm como el resto de los archivos: antes
+ * esta columna salía en 24 h mientras la hoja de al lado, la de citas, salía en 12 h.
+ */
 export function resumirHorarioFijo(h: HorarioFijoResumen): string {
-  const rango = soloHoraYMinuto(h.horaInicio) + (h.horaFin ? '-' + soloHoraYMinuto(h.horaFin) : '');
+  const rango = rangoHoraAmPm(h.horaInicio, h.horaFin);
   return [`${DIAS_CORTOS[h.diaSemana]} ${rango}`, h.terapeuta || null, h.tipoTerapia || null]
     .filter(Boolean).join(' · ');
 }

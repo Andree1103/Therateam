@@ -11,6 +11,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
 import { TerapeutaService } from '../../../terapeutas/Services/terapeuta.service';
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { TipoTerapia } from '../../../citas/Models/cita.model';
+import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 
 @Component({
   selector: 'app-lista-atenciones',
@@ -268,9 +269,9 @@ export class ListaAtencionesComponent implements OnInit {
         if (res.content.length === 0) { this.toast.warning('No hay atenciones para exportar con el filtro actual'); return; }
         const filas = res.content.map(c => ({
           // El Excel sigue el mismo orden y las mismas columnas que la pantalla.
-          'Registrada': c.fecha_registro ? new Date(c.fecha_registro).toLocaleString('es-PE') : '',
+          'Registrada': fechaHoraAmPm(c.fecha_registro),
           'Fecha de la cita': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
-          'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+          'Hora': horaAmPm(c.fecha_inicio),
           'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
           'DNI': c.paciente_dni ?? '',
           'Terapeuta': c.terapeuta_nombre ?? '',

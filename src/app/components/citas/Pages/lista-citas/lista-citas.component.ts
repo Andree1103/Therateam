@@ -26,6 +26,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
+import { horaAmPm } from '../../../../core/utils/formato-hora';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -441,7 +442,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         // fila a otra: sin el, dos citas del mismo paciente el mismo dia son indistinguibles.
         'Cita #': c.id,
         'Fecha': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),
-        'Hora': new Date(c.fecha_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        'Hora': horaAmPm(c.fecha_inicio),
         'Paciente': `${c.paciente_nombre ?? ''} ${c.paciente_apellido ?? ''}`.trim(),
         'DNI': c.paciente_dni ?? '',
         // El backend ya redacta el telefono para quien no tiene el permiso de verlo
@@ -1148,6 +1149,17 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirPagoCita(cita: Cita, e: Event): void {
     e.stopPropagation();
+    // El saldo a favor solo se cargaba al elegir paciente en el formulario de NUEVA cita. Si el
+    // adelanto entro despues de crear la cita, aqui valia 0 y el panel cobraba el precio entero
+    // como si el paciente no tuviera nada a favor — que es justo lo que reportaron.
+    this.pacienteSaldoAFavor = 0;
+    const idPac = Number(cita.paciente_id);
+    if (idPac) {
+      this.pacienteService.getById(idPac).subscribe({
+        next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+        error: () => {}
+      });
+    }
     this.citaPagandoId     = cita.id;
     this.pagoMonto         = null;
     this.pagoTratamientoId = null;
@@ -1197,6 +1209,32 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Cuanto del saldo a favor del paciente cubre la deuda de ESTA cita.
+   *
+   * El backend ya lo aplica solo — al cobrar suma saldo a favor + lo recibido y con eso tapa la
+   * deuda (ver PagoService: montoDisponible = montoRecibido + saldoPrevio). Lo que faltaba era
+   * decirlo en pantalla: sin verlo, se cobraba en efectivo un dinero que el paciente ya habia
+   * adelantado, y su saldo se quedaba ahi parado.
+   */
+  get saldoCubreDeCita(): number {
+    return Math.min(this.pacienteSaldoAFavor, this.pagoDeudaRestante);
+  }
+
+  /** El saldo alcanza para toda la deuda: se puede cerrar la cita sin cobrar nada nuevo. */
+  get saldoCubreTodaLaCita(): boolean {
+    return this.pagoDeudaRestante > 0 && this.pacienteSaldoAFavor >= this.pagoDeudaRestante;
+  }
+
+  /**
+   * Cobra la cita usando solo el saldo a favor: se manda monto recibido 0 y el backend descuenta
+   * del saldo lo que haga falta. No entra dinero en caja, porque ya entro el dia del adelanto.
+   */
+  pagarConSaldo(cita: Cita): void {
+    if (this.saldoCubreDeCita <= 0) return;
+    this.confirmarPagoCita(cita, true);
+  }
+
   /** Yape/Plin necesitan el N° de operación para poder rastrear el pago; efectivo u otros métodos no. */
   metodoRequiereReferencia(metodoId: number | null): boolean {
     const nombre = this.metodosPago.find(m => m.id === metodoId)?.nombre?.toLowerCase() ?? '';
@@ -1205,8 +1243,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   cancelarPagoCita(): void { this.citaPagandoId = null; this.pagoReferencia = ''; }
 
-  confirmarPagoCita(cita: Cita): void {
-    if (!this.pagoMonto || this.pagoMonto <= 0) {
+  /** @param soloSaldo true = no se recibe dinero nuevo; lo cubre el saldo a favor del paciente. */
+  confirmarPagoCita(cita: Cita, soloSaldo = false): void {
+    if (!soloSaldo && (!this.pagoMonto || this.pagoMonto <= 0)) {
       this.toast.warning('Ingresa un monto válido'); return;
     }
     if (this.pagoEsPaquete && !this.pagoTratamientoId) {
@@ -1225,11 +1264,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const body: any = {
       paciente:      { id: pacienteId },
       cita:          { id: citaId },
-      montoRecibido: this.pagoMonto,
-      montoAplicado: this.pagoMonto,
+      montoRecibido: soloSaldo ? 0 : this.pagoMonto,
+      montoAplicado: soloSaldo ? 0 : this.pagoMonto,
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
-      notas:         this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta',
+      notas:         soloSaldo ? 'Cobrado con su saldo a favor'
+                              : (this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta'),
     };
     if (this.pagoEsPaquete) body.tratamiento = { id: this.pagoTratamientoId };
     if (this.pagoMetodoId) body.metodo = { id: this.pagoMetodoId };
