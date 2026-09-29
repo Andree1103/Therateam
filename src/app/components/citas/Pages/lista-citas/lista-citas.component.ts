@@ -2313,6 +2313,22 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }
     if (!this.fTer)    { this.toast.warning('Selecciona un terapeuta');        return; }
     if (!this.fTipoId) { this.toast.warning('Selecciona un tipo de terapia'); return; }
+    // El precio es obligatorio y tiene que ser mayor que 0 en las citas sueltas.
+    //
+    // Once de los tipos de terapia no traen precio recomendado, asi que el campo llegaba vacio y
+    // era facil crear la cita sin el. Una cita en 0 no se puede cobrar de ninguna forma: no hay
+    // deuda contra la que aplicar, ni en efectivo ni con el saldo a favor, y el interruptor de
+    // PAGADO no hacia nada aunque se marcara. Antes se permitia un 0 escrito a proposito para
+    // las cortesias; ahora no se admite ninguna cita sin importe.
+    //
+    // Las citas de un paquete no entran: ahi el precio lo pone el paquete y el campo ni aparece.
+    if (!this.citaEditando && this.fTratamientoExistenteId === null
+        && (this.fPrecio === null || this.fPrecio === undefined
+            || (this.fPrecio as any) === '' || this.fPrecio <= 0)) {
+      this.toast.warning('El precio de la cita es obligatorio y debe ser mayor que 0.');
+      this.enfocar('precioCita');
+      return;
+    }
     // Marcar "pagado" (sesión única) o dejar sesiones a pagar (programación múltiple) sin método
     // de pago hacía que el registro del pago fallara en silencio (el backend lo exige) — se corta
     // acá con un aviso claro en vez de dejar la cita creada pero el cobro perdido.
@@ -2636,6 +2652,11 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const precio = this.fPrecio ?? 0;
     if (!this.usarSaldoAFavor) return precio;
     return Math.max(0, precio - Math.min(this.pacienteSaldoAFavor, precio));
+  }
+
+  /** El nombre del método elegido, para que el interruptor diga en qué se va a cobrar. */
+  get nombreMetodoPago(): string {
+    return this.metodosPago.find(m => m.id === this.fMetodoPagoId)?.nombre ?? '';
   }
 
   /** Cuánto de su saldo a favor se le descuenta a esta cita (puede no alcanzar para cubrirla entera). */

@@ -1066,12 +1066,15 @@
           <div class="pago-section-hdr">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             Precio y pago
-            <span class="opc-tag">(opcional)</span>
           </div>
           <div class="frow-2">
             <div class="frow">
-              <label>Precio por sesión (S/)</label>
-              <input type="number" min="0" step="0.01" [(ngModel)]="fPrecio" placeholder="0.00" class="precio-inp">
+              <label>Precio por sesión (S/) <span class="req-tag">obligatorio</span></label>
+              <input type="number" min="0.01" step="0.01" id="precioCita" [(ngModel)]="fPrecio"
+                     placeholder="0.00" class="precio-inp">
+              <p class="pago-hint pago-hint--req" *ngIf="!fPrecio || fPrecio <= 0">
+                Toda cita tiene que llevar importe: sin él no se puede cobrar, ni en efectivo ni con su saldo a favor.
+              </p>
             </div>
             <div class="frow" *ngIf="fPrecio && fPrecio > 0">
               <label>Método de pago</label>
@@ -1105,14 +1108,25 @@
           </div>
           <!-- Toggle solo para sesión única -->
           <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
+            <!-- "Marcar como PAGADO" no decia que crea un pago de verdad y mete el dinero en la
+                 caja del dia. Ahora lo dice, con el importe y el metodo delante. -->
             <label class="toggle-label" (click)="fPagado = !fPagado">
               <div class="toggle-box" [class.on]="fPagado">
                 <div class="toggle-knob"></div>
               </div>
-              <span>{{ fPagado ? 'Marcar como PAGADO' : 'Dejar como PENDIENTE' }}</span>
+              <span *ngIf="!fPagado">Dejar pendiente de cobro</span>
+              <span *ngIf="fPagado">
+                Cobrar ahora S/ {{ montoACobrarAhora | number:'1.2-2' }}{{ nombreMetodoPago ? ' en ' + nombreMetodoPago : '' }}
+              </span>
             </label>
-            <p class="pago-hint" *ngIf="fPagado && usarSaldoAFavor">
-              Se cobra S/ {{ montoACobrarAhora | number:'1.2-2' }} ahora — el resto sale de su saldo a favor.
+            <p class="pago-hint" *ngIf="fPagado">
+              Se registra el pago y ese dinero entra a la caja de hoy.
+              <ng-container *ngIf="usarSaldoAFavor && saldoAplicadoAhora > 0">
+                Los otros S/ {{ saldoAplicadoAhora | number:'1.2-2' }} salen de su saldo a favor.
+              </ng-container>
+            </p>
+            <p class="pago-hint" *ngIf="!fPagado">
+              No se cobra nada ahora. La cita queda sin pago y se cobra después con "Registrar pago".
             </p>
           </div>
           <!-- Control de pago parcial para programación múltiple -->
