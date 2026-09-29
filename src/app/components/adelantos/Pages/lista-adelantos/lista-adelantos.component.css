@@ -8,6 +8,9 @@
 .btn-secondary{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-secondary:hover:not(:disabled){background:#e2e8f0}
 .btn-secondary:disabled{opacity:.6;cursor:not-allowed}
+.header-acciones{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn-primary{background:#185FA5;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-primary:hover{background:#14507f}
 .btn-link{background:none;border:none;color:#185FA5;font-size:13px;font-weight:600;cursor:pointer;padding:0;font-family:inherit}
 .btn-link:hover{text-decoration:underline}
 

@@ -1153,6 +1153,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // adelanto entro despues de crear la cita, aqui valia 0 y el panel cobraba el precio entero
     // como si el paciente no tuviera nada a favor — que es justo lo que reportaron.
     this.pacienteSaldoAFavor = 0;
+    this.saldoAAplicar = null;
     const idPac = Number(cita.paciente_id);
     if (idPac) {
       this.pacienteService.getById(idPac).subscribe({
@@ -1218,12 +1219,56 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * adelantado, y su saldo se quedaba ahi parado.
    */
   get saldoCubreDeCita(): number {
-    return Math.min(this.pacienteSaldoAFavor, this.pagoDeudaRestante);
+    return this.saldoAplicadoEfectivo;
+  }
+
+  /**
+   * Lo que hay que cobrar por esta cita.
+   *
+   * Con precio puesto es la deuda que queda. Sin precio —pasa a menudo: solo un admin puede
+   * fijarlo al crear y la mayoria de tipos no trae precio recomendado— es lo que se teclee en
+   * el monto, que es justo lo que pasara a ser su precio. Sin esta segunda rama, una cita sin
+   * precio daba deuda 0 y el boton de saldo no aparecia nunca.
+   */
+  get montoACobrarDeLaCita(): number {
+    if (this.pagoDeudaRestante > 0) return this.pagoDeudaRestante;
+    return this.pagoEsPaquete ? 0 : Math.max(0, Number(this.pagoMonto) || 0);
+  }
+
+  /** La cita no tiene precio: lo que se cobre ahora pasara a serlo. */
+  get citaSinPrecio(): boolean {
+    return !this.pagoEsPaquete && this.pagoPrecioCita <= 0;
+  }
+
+  /**
+   * Cuanto de su saldo se descuenta. null = lo maximo que se pueda, que es lo habitual.
+   *
+   * Se deja editable porque el paciente puede querer guardarse el resto: con S/ 150 a favor y
+   * una cita de 60, hay quien prefiere descontar solo 20 y pagar 40 en efectivo. El reparto no
+   * necesita nada especial del backend — lo que sale del saldo es justo la parte del precio que
+   * no se cubre en efectivo.
+   */
+  saldoAAplicar: number | null = null;
+
+  /** El tope: ni mas de lo que tiene, ni mas de lo que cuesta. */
+  get saldoMaximoAplicable(): number {
+    return Math.min(this.pacienteSaldoAFavor, this.montoACobrarDeLaCita);
+  }
+
+  /** Lo que de verdad se va a descontar, ya acotado. */
+  get saldoAplicadoEfectivo(): number {
+    const pedido = this.saldoAAplicar == null ? this.saldoMaximoAplicable : Number(this.saldoAAplicar) || 0;
+    return Math.max(0, Math.min(pedido, this.saldoMaximoAplicable));
+  }
+
+  /** Lo que queda por cobrar en efectivo despues de usar el saldo. */
+  get efectivoTrasSaldo(): number {
+    return Math.max(0, this.montoACobrarDeLaCita - this.saldoAplicadoEfectivo);
   }
 
   /** El saldo alcanza para toda la deuda: se puede cerrar la cita sin cobrar nada nuevo. */
   get saldoCubreTodaLaCita(): boolean {
-    return this.pagoDeudaRestante > 0 && this.pacienteSaldoAFavor >= this.pagoDeudaRestante;
+    return this.montoACobrarDeLaCita > 0 && this.efectivoTrasSaldo === 0;
   }
 
   /**
@@ -1264,11 +1309,17 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const body: any = {
       paciente:      { id: pacienteId },
       cita:          { id: citaId },
-      montoRecibido: soloSaldo ? 0 : this.pagoMonto,
-      montoAplicado: soloSaldo ? 0 : this.pagoMonto,
+      montoRecibido: soloSaldo ? this.efectivoTrasSaldo : this.pagoMonto,
+      // Con saldo se manda lo que se PRETENDE cobrar, no lo que el saldo alcanza a cubrir. En una
+      // cita sin precio ese importe pasa a ser su precio, y el backend aplica solo hasta donde
+      // llegue el saldo: cobrar 80 con 30 a favor deja la cita en 80 y PARCIAL, no en 80 saldada
+      // ni —peor— con precio 30 como si hubiera costado eso.
+      montoAplicado: soloSaldo ? this.montoACobrarDeLaCita : this.pagoMonto,
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
-      notas:         soloSaldo ? 'Cobrado con su saldo a favor'
+      notas:         soloSaldo ? (this.efectivoTrasSaldo > 0
+                                    ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)}) y efectivo`
+                                    : 'Cobrado con su saldo a favor')
                               : (this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta'),
     };
     if (this.pagoEsPaquete) body.tratamiento = { id: this.pagoTratamientoId };

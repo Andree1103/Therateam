@@ -173,3 +173,18 @@
 
 @media(max-width:1024px){.stats-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.stats-row{grid-template-columns:repeat(2,1fr)}.page-header{flex-direction:column;align-items:flex-start}.frow-2{grid-template-columns:1fr}}
+
+/* Saldo a favor dentro del panel de abono al paquete. Mismo lenguaje visual que en Citas:
+   verde, porque es dinero que el paciente ya puso y se puede usar ahora. */
+.saldo-abono{margin-top:10px;padding:9px 11px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;
+             display:flex;flex-direction:column;gap:8px}
+.saldo-abono-txt{font-size:12px;color:#065f46;line-height:1.4}
+.saldo-abono-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.saldo-abono-ctrl label{font-size:10.5px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.03em}
+.saldo-abono-ctrl input{width:110px;padding:5px 8px;border:1px solid #a7f3d0;border-radius:6px;font-family:inherit;font-size:13px}
+.saldo-abono-ctrl span{font-size:11.5px;color:#047857}
+.btn-saldo-abono{align-self:flex-start;padding:6px 12px;border-radius:6px;border:1px solid #34d399;background:#fff;
+                 color:#047857;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+                 transition:background .13s,border-color .13s}
+.btn-saldo-abono:hover{background:#d1fae5;border-color:#059669}
+.btn-saldo-abono:disabled{opacity:.5;cursor:not-allowed}

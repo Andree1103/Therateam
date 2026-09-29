@@ -67,6 +67,9 @@ export class PerfilPacienteComponent implements OnInit {
   ,
     private authService: AuthService) {}
 
+  /** Modal para registrar un adelanto de este paciente. Ver AgregarSaldoComponent. */
+  modalSaldo = false;
+
   ngOnInit(): void {
     this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
     this.cargar();
@@ -387,4 +390,7 @@ export class PerfilPacienteComponent implements OnInit {
 
   volver(): void { this.router.navigate(['/pacientes']); }
   irTratamiento(id?: number): void { if (id) this.router.navigate(['/tratamientos', id]); }
+
+  /** Tenia deuda: mejor cobrarla desde Pagos que aparcar el dinero a favor. */
+  irAPagos(): void { this.router.navigate(['/pagos']); }
 }

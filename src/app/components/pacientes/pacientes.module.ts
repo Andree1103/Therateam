@@ -6,12 +6,13 @@ import { PacientesRoutingModule } from './pacientes-routing.module';
 import { ListaPacientesComponent } from './Pages/lista-pacientes/lista-pacientes.component';
 import { PerfilPacienteComponent } from './Pages/perfil-paciente/perfil-paciente.component';
 import { PaginatorComponent } from '../../core/components/paginator/paginator.component';
+import { AgregarSaldoComponent } from '../../core/components/agregar-saldo/agregar-saldo.component';
 
 @NgModule({
   declarations: [
     ListaPacientesComponent,
     PerfilPacienteComponent,
   ],
-  imports: [CommonModule, FormsModule, RouterModule, PacientesRoutingModule, PaginatorComponent]
+  imports: [CommonModule, FormsModule, RouterModule, PacientesRoutingModule, PaginatorComponent, AgregarSaldoComponent]
 })
 export class PacientesModule {}

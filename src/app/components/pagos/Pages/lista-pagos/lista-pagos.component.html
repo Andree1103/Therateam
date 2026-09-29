@@ -169,7 +169,26 @@
           <span class="err-msg" *ngIf="pacienteRef.invalid && pacienteRef.touched">Requerido</span>
         </div>
 
+        <!-- Antes el adelanto se producia por OMISION: no elegias paquete ni cita y el importe
+             entero caia a saldo a favor. Nadie lo adivinaba, y al reves era peor: si querias
+             cobrar una cita y olvidabas seleccionarla, el dinero se iba a saldo en silencio.
+             Ahora hay que decir que se cobra. -->
         <div class="frow" *ngIf="formData.pacienteId">
+          <label>¿Qué estás cobrando? *</label>
+          <div class="concepto-tabs">
+            <button type="button" [class.act]="conceptoPago === 'cita'" (click)="elegirConcepto('cita')">Una cita</button>
+            <button type="button" [class.act]="conceptoPago === 'paquete'" (click)="elegirConcepto('paquete')">Un paquete</button>
+            <button type="button" [class.act]="conceptoPago === 'adelanto'" (click)="elegirConcepto('adelanto')">Adelanto a cuenta</button>
+          </div>
+          <p class="concepto-hint" *ngIf="conceptoPago === 'adelanto'">
+            El dinero queda a favor del paciente. No cubre ninguna cita ni paquete todavía.
+          </p>
+          <p class="concepto-hint concepto-hint--pide" *ngIf="!conceptoPago">
+            Elige el concepto para continuar.
+          </p>
+        </div>
+
+        <div class="frow" *ngIf="formData.pacienteId && conceptoPago === 'paquete'">
           <label>Paquete pendiente</label>
           <select [(ngModel)]="formData.tratamientoId" name="tratamientoId"
                   (ngModelChange)="onTratamientoChange()" [disabled]="cargandoTratamientos">
@@ -219,7 +238,7 @@
         </div>
 
         <!-- Citas individuales (fuera de un paquete) también pueden tener pago pendiente -->
-        <div class="frow" *ngIf="formData.pacienteId && !formData.tratamientoId">
+        <div class="frow" *ngIf="formData.pacienteId && conceptoPago === 'cita'">
           <label>Cita individual pendiente</label>
           <select [(ngModel)]="formData.citaId" name="citaId"
                   (ngModelChange)="onCitaChange()" [disabled]="cargandoCitas">

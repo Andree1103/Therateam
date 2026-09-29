@@ -262,6 +262,38 @@
                         Pagado S/ {{ (c.monto_pagado ?? 0) | number:'1.2-2' }} ·
                         <strong>Deuda S/ {{ pagoDeudaRestante | number:'1.2-2' }}</strong>
                       </div>
+                      <div class="hc-pago-saldo" *ngIf="pacienteSaldoAFavor > 0">
+                        <div class="hc-pago-saldo-txt">
+                          Tiene <strong>S/ {{ pacienteSaldoAFavor | number:'1.2-2' }}</strong> a favor
+                          <ng-container *ngIf="citaSinPrecio && montoACobrarDeLaCita <= 0">
+                            — escribe abajo cuánto cobrar y podrás descontarlo de ahí.
+                          </ng-container>
+                          <ng-container *ngIf="montoACobrarDeLaCita > 0 && saldoCubreTodaLaCita">— cubre los
+                            S/ {{ montoACobrarDeLaCita | number:'1.2-2' }}{{ citaSinPrecio ? ' que vas a cobrar' : ' de deuda' }}.
+                          </ng-container>
+                          <ng-container *ngIf="montoACobrarDeLaCita > 0 && !saldoCubreTodaLaCita">
+                            — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }} y quedan
+                            S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar.
+                          </ng-container>
+                        </div>
+                        <div class="hc-saldo-ctrl" *ngIf="montoACobrarDeLaCita > 0">
+                          <label class="hc-saldo-lbl">Descontar de su saldo</label>
+                          <input type="number" min="0" [max]="saldoMaximoAplicable" step="0.01"
+                                 class="hc-pago-inp hc-saldo-inp"
+                                 [ngModel]="saldoAplicadoEfectivo" (ngModelChange)="saldoAAplicar = $event"
+                                 [ngModelOptions]="{standalone: true}">
+                          <span class="hc-saldo-de">de S/ {{ saldoMaximoAplicable | number:'1.2-2' }}</span>
+                          <button type="button" class="btn-link" *ngIf="saldoAplicadoEfectivo !== saldoMaximoAplicable"
+                                  (click)="saldoAAplicar = null">Usar el máximo</button>
+                        </div>
+                        <button type="button" class="hc-btn-saldo"
+                                [disabled]="guardandoPago || saldoCubreDeCita <= 0"
+                                (click)="pagarConSaldo(c)">
+                          {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
+                             : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
+                             : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + ' en efectivo') }}
+                        </button>
+                      </div>
                       <div class="hc-pago-row">
                         <div class="hc-pago-monto-display" *ngIf="pagoEsPaquete">
                           <span class="hc-pago-lbl">Monto a cobrar</span>
@@ -1204,20 +1236,38 @@
             </div>
             <!-- El paciente ya tiene dinero adelantado. Sin esto se le cobraba otra vez en
                  efectivo y su saldo se quedaba parado. -->
-            <div class="hc-pago-saldo" *ngIf="pacienteSaldoAFavor > 0 && pagoDeudaRestante > 0">
+            <div class="hc-pago-saldo" *ngIf="pacienteSaldoAFavor > 0">
               <div class="hc-pago-saldo-txt">
                 Tiene <strong>S/ {{ pacienteSaldoAFavor | number:'1.2-2' }}</strong> a favor
-                <ng-container *ngIf="saldoCubreTodaLaCita">— cubre toda la deuda.</ng-container>
-                <ng-container *ngIf="!saldoCubreTodaLaCita">
-                  — cubre S/ {{ saldoCubreDeCita | number:'1.2-2' }}; faltarían
-                  S/ {{ (pagoDeudaRestante - saldoCubreDeCita) | number:'1.2-2' }}.
+                <ng-container *ngIf="citaSinPrecio && montoACobrarDeLaCita <= 0">
+                  — escribe abajo cuánto cobrar y podrás descontarlo de ahí.
+                </ng-container>
+                <ng-container *ngIf="montoACobrarDeLaCita > 0 && saldoCubreTodaLaCita">— cubre los
+                  S/ {{ montoACobrarDeLaCita | number:'1.2-2' }}{{ citaSinPrecio ? ' que vas a cobrar' : ' de deuda' }}.
+                </ng-container>
+                <ng-container *ngIf="montoACobrarDeLaCita > 0 && !saldoCubreTodaLaCita">
+                  — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }} y quedan
+                  S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar
+                  {{ pacienteSaldoAFavor < montoACobrarDeLaCita ? '(su saldo no alcanza para todo)' : '' }}.
                 </ng-container>
               </div>
-              <button type="button" class="hc-btn-saldo" [disabled]="guardandoPago"
+              <!-- Editable: puede querer guardarse el resto del saldo y pagar el resto en efectivo. -->
+              <div class="hc-saldo-ctrl" *ngIf="montoACobrarDeLaCita > 0">
+                <label class="hc-saldo-lbl">Descontar de su saldo</label>
+                <input type="number" min="0" [max]="saldoMaximoAplicable" step="0.01"
+                       class="hc-pago-inp hc-saldo-inp"
+                       [ngModel]="saldoAplicadoEfectivo" (ngModelChange)="saldoAAplicar = $event"
+                       [ngModelOptions]="{standalone: true}">
+                <span class="hc-saldo-de">de S/ {{ saldoMaximoAplicable | number:'1.2-2' }}</span>
+                <button type="button" class="btn-link" *ngIf="saldoAplicadoEfectivo !== saldoMaximoAplicable"
+                        (click)="saldoAAplicar = null">Usar el máximo</button>
+              </div>
+              <button type="button" class="hc-btn-saldo"
+                      [disabled]="guardandoPago || saldoCubreDeCita <= 0"
                       (click)="pagarConSaldo(citaEditando)">
-                {{ saldoCubreTodaLaCita
-                    ? 'Cobrar con su saldo'
-                    : ('Usar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo') }}
+                {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
+                   : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
+                   : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + ' en efectivo') }}
               </button>
             </div>
             <div class="hc-pago-row">

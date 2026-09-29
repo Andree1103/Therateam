@@ -107,3 +107,10 @@
 .cita-origen{display:block;font-size:10.5px;color:#94a3b8}
 /* Inasistencias: ambar, ni alarma roja ni dato neutro. */
 .pstat--warn .pstat-val{color:#b45309}
+
+/* Atajo para dejar un adelanto sin salir de la ficha. Verde, como el resto de lo que habla de
+   saldo a favor en el sistema. */
+.btn-saldo-hdr{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;
+               border:1px solid #34d399;background:#ecfdf5;color:#047857;font-size:13px;
+               font-weight:700;font-family:inherit;cursor:pointer;transition:background .13s,border-color .13s}
+.btn-saldo-hdr:hover{background:#d1fae5;border-color:#059669}

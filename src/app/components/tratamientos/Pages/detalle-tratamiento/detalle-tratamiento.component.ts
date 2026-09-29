@@ -13,6 +13,7 @@ import { CatalogItem } from '../../../../core/models/catalog.model';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { PacienteService } from '../../../pacientes/Services/paciente.service';
 
 @Component({
   selector: 'app-detalle-tratamiento',
@@ -58,7 +59,8 @@ export class DetalleTratamientoComponent implements OnInit {
     private toast: ToastService,
     private configuracionService: ConfiguracionService,
     private notaAtencionPdfService: NotaAtencionPdfService,
-    private authService: AuthService
+    private authService: AuthService,
+    private pacienteService: PacienteService
   ) {}
 
   /** Registrar un pago usa el permiso del módulo Pagos, igual que en Citas — el backend lo
@@ -172,6 +174,76 @@ export class DetalleTratamientoComponent implements OnInit {
     return this.tratamiento?.totalCobrado ?? 0;
   }
 
+  // ── Saldo a favor del paciente ────────────────────────────────────────────
+  // El backend ya lo descuenta antes de pedir dinero nuevo (montoDisponible = recibido + saldo),
+  // pero esta pantalla no lo mostraba: se le cobraba el paquete entero en efectivo a alguien que
+  // ya tenia dinero adelantado, y su saldo se quedaba parado.
+  pacienteSaldoAFavor = 0;
+  saldoAAplicar: number | null = null;
+
+  private cargarSaldoDelPaciente(): void {
+    this.pacienteSaldoAFavor = 0;
+    const id = this.tratamiento?.pacienteId ?? (this.tratamiento as any)?.paciente?.id;
+    if (!id) return;
+    this.pacienteService.getById(id).subscribe({
+      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+      error: () => {}
+    });
+  }
+
+  /** Lo que se pretende cobrar ahora: el abono escrito, o la deuda si aun no se escribio nada. */
+  get cargoDelAbono(): number {
+    const escrito = Number(this.abonoMonto) || 0;
+    return escrito > 0 ? escrito : this.deuda;
+  }
+
+  get saldoMaximoAplicable(): number {
+    return Math.min(this.pacienteSaldoAFavor, this.cargoDelAbono);
+  }
+
+  get saldoAplicadoEfectivo(): number {
+    const pedido = this.saldoAAplicar == null ? this.saldoMaximoAplicable : Number(this.saldoAAplicar) || 0;
+    return Math.max(0, Math.min(pedido, this.saldoMaximoAplicable));
+  }
+
+  get efectivoTrasSaldo(): number {
+    return Math.max(0, this.cargoDelAbono - this.saldoAplicadoEfectivo);
+  }
+
+  /**
+   * Cobra el paquete usando el saldo: se manda solo el efectivo que falta y el backend completa
+   * con lo que el paciente tenia a favor.
+   */
+  pagarAbonoConSaldo(): void {
+    if (this.saldoAplicadoEfectivo <= 0 || !this.pagoMetodoId) {
+      if (!this.pagoMetodoId) this.toast.warning('Selecciona el método de pago');
+      return;
+    }
+    const pacienteId = this.tratamiento!.pacienteId ?? (this.tratamiento as any)?.paciente?.id;
+    this.guardandoPago = true;
+    this.pagoService.create({
+      tratamiento:   { id: this.tratamiento!.id },
+      paciente:      pacienteId ? { id: pacienteId } : undefined,
+      metodo:        { id: this.pagoMetodoId },
+      montoRecibido: this.efectivoTrasSaldo,
+      notas:         this.efectivoTrasSaldo > 0
+                       ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)}) y efectivo`
+                       : 'Cobrado con su saldo a favor',
+      fechaPago:     new Date().toISOString(),
+    } as any).subscribe({
+      next: () => {
+        this.toast.success('Pago registrado con su saldo a favor');
+        this.cerrarPago();
+        this.cargar();
+        this.guardandoPago = false;
+      },
+      error: (err: any) => {
+        this.toast.error(err?.error?.error || 'No se pudo registrar el pago');
+        this.guardandoPago = false;
+      }
+    });
+  }
+
   get deuda(): number {
     const montoTotal = this.tratamiento?.montoTotal ?? 0;
     const cobrado = this.tratamiento?.totalCobrado ?? 0;
@@ -214,6 +286,8 @@ export class DetalleTratamientoComponent implements OnInit {
     this.pagoReferencia = '';
     this.modoPago       = 'citas';
     this.abonoMonto     = null;
+    this.saldoAAplicar  = null;
+    this.cargarSaldoDelPaciente();
     this.modalPago      = true;
   }
 

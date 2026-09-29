@@ -17,6 +17,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         {{ exportando ? 'Exportando...' : 'Exportar historial' }}
       </button>
+      <!-- Con el paciente ya delante no hay que buscarlo, y el modal puede avisar de su deuda. -->
+      <button *ngIf="paciente && !loading" type="button" class="btn-saldo-hdr" (click)="modalSaldo = true"
+              title="Registrar dinero que el paciente deja a cuenta">
+        + Saldo a favor
+      </button>
     </div>
 
     <div class="perfil-hdr" *ngIf="paciente">
@@ -342,3 +347,11 @@
 
   </div>
 </div>
+
+<app-agregar-saldo *ngIf="modalSaldo && paciente"
+                   [pacienteId]="paciente.id!"
+                   [pacienteNombre]="paciente.nombre + ' ' + paciente.apellido"
+                   (cerrar)="modalSaldo = false"
+                   (guardado)="modalSaldo = false; cargar()"
+                   (irACobrar)="modalSaldo = false; irAPagos()">
+</app-agregar-saldo>

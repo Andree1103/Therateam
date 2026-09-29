@@ -1,0 +1,95 @@
+<div class="as-overlay">
+  <div class="as-modal">
+    <div class="as-hdr">
+      <div>
+        <h2>Agregar saldo a favor</h2>
+        <p>Dinero que el paciente deja a cuenta. Queda a su favor hasta que se use en una cita o un paquete.</p>
+      </div>
+      <button type="button" class="as-close" (click)="cerrar.emit()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="as-body">
+      <!-- Desde la ficha el paciente ya viene fijado; desde Adelantos hay que buscarlo. -->
+      <div class="as-row" *ngIf="!pacienteId">
+        <label>Paciente *</label>
+        <input type="text" [(ngModel)]="busqueda" (ngModelChange)="seleccionadoId = null; buscarPaciente()"
+               placeholder="Buscar por nombre o apellido..." autocomplete="off">
+        <div class="as-resultados" *ngIf="resultados.length > 0">
+          <button type="button" class="as-resultado" *ngFor="let p of resultados" (click)="elegirPaciente(p)">
+            <span class="as-res-nom">{{ p.nombre }} {{ p.apellido }}</span>
+            <span class="as-res-dni" *ngIf="p.dni">{{ p.dni }}</span>
+          </button>
+        </div>
+        <p class="as-hint" *ngIf="buscando">Buscando...</p>
+      </div>
+      <div class="as-row" *ngIf="pacienteId">
+        <label>Paciente</label>
+        <input type="text" [value]="seleccionadoNombre" disabled>
+      </div>
+
+      <!-- Con el paciente elegido: lo que ya tiene y lo que debe, antes de decidir. -->
+      <div class="as-estado" *ngIf="seleccionadoId">
+        <span class="as-chip as-chip--saldo">Saldo actual: S/ {{ saldoActual | number:'1.2-2' }}</span>
+        <span class="as-chip as-chip--ok" *ngIf="!cargandoDeuda && deudaTotal === 0">Sin deuda pendiente</span>
+        <span class="as-chip as-chip--deuda" *ngIf="deudaTotal > 0">Debe S/ {{ deudaTotal | number:'1.2-2' }}</span>
+      </div>
+
+      <!-- Aparcar dinero de alguien que debía pagar algo es casi siempre un error: se avisa y se
+           ofrece el camino correcto en vez de dejar que pase en silencio. -->
+      <div class="as-aviso" *ngIf="deudaTotal > 0">
+        <div>
+          Tiene <strong>S/ {{ deudaTotal | number:'1.2-2' }}</strong> sin pagar
+          <ng-container *ngIf="deudaCitas > 0 && deudaPaquetes > 0">
+            (S/ {{ deudaCitas | number:'1.2-2' }} en citas y S/ {{ deudaPaquetes | number:'1.2-2' }} en paquetes)</ng-container>
+          <ng-container *ngIf="deudaCitas > 0 && deudaPaquetes === 0"> en citas</ng-container>
+          <ng-container *ngIf="deudaPaquetes > 0 && deudaCitas === 0"> en paquetes</ng-container>.
+          Si lo que quieres es cobrar eso, hazlo desde Pagos: el adelanto deja el dinero parado.
+        </div>
+        <button type="button" class="as-btn-cobrar" (click)="irACobrar.emit(seleccionadoId!)">
+          Ir a cobrar su deuda
+        </button>
+      </div>
+
+      <div class="as-row-2">
+        <div class="as-row">
+          <label>Monto del adelanto (S/) *</label>
+          <input type="number" min="0.01" step="0.01" [(ngModel)]="monto" placeholder="Ej: 150.00">
+        </div>
+        <div class="as-row">
+          <label>Método de pago *</label>
+          <select [(ngModel)]="metodoId">
+            <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="as-row" *ngIf="requiereReferencia">
+        <label>N° de operación *</label>
+        <input type="text" [(ngModel)]="referencia" placeholder="Ej: 123456789">
+      </div>
+
+      <div class="as-row">
+        <label>Nota <span class="as-opc">(opcional)</span></label>
+        <input type="text" [(ngModel)]="notas" placeholder="Por qué deja el adelanto...">
+      </div>
+
+      <p class="as-nota-caja">
+        El dinero entra a la caja de hoy. Cuando después se use en una cita o un paquete, la caja
+        no se vuelve a mover: ya quedó contado aquí.
+      </p>
+    </div>
+
+    <div class="as-ftr">
+      <span class="as-resumen" *ngIf="(monto ?? 0) > 0 && seleccionadoId">
+        Quedará a favor de {{ seleccionadoNombre }}:
+        <strong>S/ {{ ((saldoActual) + (monto ?? 0)) | number:'1.2-2' }}</strong>
+      </span>
+      <button type="button" class="as-btn-cancel" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="as-btn-save" [disabled]="!puedeGuardar" (click)="guardar()">
+        {{ guardando ? 'Guardando...' : 'Agregar saldo' }}
+      </button>
+    </div>
+  </div>
+</div>

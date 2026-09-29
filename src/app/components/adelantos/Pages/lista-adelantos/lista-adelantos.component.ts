@@ -5,6 +5,7 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-lista-adelantos',
@@ -23,6 +24,9 @@ export class ListaAdelantosComponent implements OnInit {
   movimientos: SaldoMovimiento[] = [];
   cargandoMovimientos = false;
   loading = false;
+  /** Modal para registrar un adelanto. Ver AgregarSaldoComponent. */
+  modalSaldo = false;
+
   exportando = false;
 
   filtroPaciente = '';
@@ -36,7 +40,8 @@ export class ListaAdelantosComponent implements OnInit {
   constructor(
     private pacienteService: PacienteService,
     private excelExportService: ExcelExportService,
-    private toast: ToastService
+    private toast: ToastService,
+    private router: Router
   ,
     private authService: AuthService) {}
 
@@ -131,4 +136,7 @@ export class ListaAdelantosComponent implements OnInit {
       error: () => { this.exportando = false; this.toast.error('Error al exportar los adelantos'); }
     });
   }
+
+  /** El paciente tenia deuda: mejor cobrarla que aparcar el dinero a favor. */
+  irAPagos(): void { this.router.navigate(['/pagos']); }
 }

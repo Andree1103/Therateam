@@ -118,6 +118,20 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   // El backend siempre descuenta el saldo antes de pedir dinero nuevo, pero esta pantalla no lo
   // mostraba ni lo restaba del monto sugerido: al cobrar una cita ya creada proponía el precio
   // completo, así que se le volvía a cobrar al paciente y el saldo se quedaba sin usar.
+  /**
+   * Que se esta cobrando. null hasta que se elige, a proposito: el adelanto era antes el
+   * resultado de NO elegir nada, y asi se creaban saldos sin querer.
+   */
+  conceptoPago: 'cita' | 'paquete' | 'adelanto' | null = null;
+
+  elegirConcepto(c: 'cita' | 'paquete' | 'adelanto'): void {
+    this.conceptoPago = c;
+    // Cambiar de concepto limpia el anterior: son excluyentes y dejar el id viejo colgando
+    // mandaba el cobro al sitio equivocado.
+    if (c !== 'paquete') { this.formData.tratamientoId = null; }
+    if (c !== 'cita')    { this.formData.citaId = null; }
+  }
+
   pacienteSaldoAFavor = 0;
 
   /** Lo que el saldo puede cubrir del concepto elegido. */

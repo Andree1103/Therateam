@@ -360,6 +360,31 @@
           Se reparte automáticamente entre las sesiones en orden — completa la que ya tenía algo pagado y
           deja PARCIAL la siguiente si no alcanza para una sesión entera. Deuda pendiente: S/ {{ deuda.toFixed(2) }}.
         </p>
+        <!-- El paciente ya tiene dinero adelantado: sin esto se le cobraba otra vez en efectivo. -->
+        <div class="saldo-abono" *ngIf="pacienteSaldoAFavor > 0">
+          <div class="saldo-abono-txt">
+            Tiene <strong>S/ {{ pacienteSaldoAFavor.toFixed(2) }}</strong> a favor
+            <ng-container *ngIf="efectivoTrasSaldo === 0">— cubre los S/ {{ cargoDelAbono.toFixed(2) }} que vas a cobrar.</ng-container>
+            <ng-container *ngIf="efectivoTrasSaldo > 0">— se descuentan S/ {{ saldoAplicadoEfectivo.toFixed(2) }}
+              y quedan S/ {{ efectivoTrasSaldo.toFixed(2) }} por cobrar.</ng-container>
+          </div>
+          <div class="saldo-abono-ctrl">
+            <label>Descontar de su saldo</label>
+            <input type="number" min="0" [max]="saldoMaximoAplicable" step="0.01"
+                   [ngModel]="saldoAplicadoEfectivo" (ngModelChange)="saldoAAplicar = $event"
+                   [ngModelOptions]="{standalone: true}">
+            <span>de S/ {{ saldoMaximoAplicable.toFixed(2) }}</span>
+            <button type="button" class="btn-link" *ngIf="saldoAplicadoEfectivo !== saldoMaximoAplicable"
+                    (click)="saldoAAplicar = null">Usar el máximo</button>
+          </div>
+          <button type="button" class="btn-saldo-abono"
+                  [disabled]="guardandoPago || saldoAplicadoEfectivo <= 0"
+                  (click)="pagarAbonoConSaldo()">
+            {{ efectivoTrasSaldo === 0
+                ? ('Cobrar S/ ' + saldoAplicadoEfectivo.toFixed(2) + ' de su saldo')
+                : ('Cobrar: S/ ' + saldoAplicadoEfectivo.toFixed(2) + ' del saldo + S/ ' + efectivoTrasSaldo.toFixed(2) + ' en efectivo') }}
+          </button>
+        </div>
       </div>
 
       <!-- Método y referencia -->
