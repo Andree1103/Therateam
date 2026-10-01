@@ -772,7 +772,7 @@
         <!-- ── DATOS DE LA CITA ──────────────────────────────────────── -->
         <div class="frow-2" style="margin-top:4px">
           <div class="frow autocomplete-wrap" *ngIf="fTratamientoExistenteId === null && (!citaEditando || puedeEditarCitas)">
-            <label>Terapeuta <span class="opc-tag">{{ terapeutasDisponiblesModal.length }} disponible{{ terapeutasDisponiblesModal.length !== 1 ? 's' : '' }}</span>
+            <label>Terapeuta <span class="opc-tag">{{ etiquetaConteoTerapeutas }}</span>
               <button type="button" class="btn-link" *ngIf="fTer" (mousedown)="limpiarTerapeuta()" style="margin-left:8px">Quitar</button>
             </label>
             <input type="text" [(ngModel)]="terapeutaBusqueda" name="terapeutaBusqueda"
@@ -782,7 +782,9 @@
             <div class="autocomplete-dropdown" *ngIf="terapeutaDropdownAbierto && terapeutasFiltradosBusqueda.length > 0">
               <div class="autocomplete-item" *ngFor="let t of terapeutasFiltradosBusqueda" (mousedown)="seleccionarTerapeuta(t)">
                 <span class="ac-nombre">{{ getNombreTerapeuta(t) }}</span>
-                <span class="ac-sub" *ngIf="t.area?.nombre">{{ t.area?.nombre }}</span>
+                <!-- Editando se ofrecen todos; los que no tienen jornada a esa hora van marcados. -->
+                <span class="ac-sub ac-sub--off" *ngIf="fueraDeJornada(t)">fuera de su horario</span>
+                <span class="ac-sub" *ngIf="!fueraDeJornada(t) && t.area?.nombre">{{ t.area?.nombre }}</span>
               </div>
             </div>
             <div class="dur-info" *ngIf="terapeutaDropdownAbierto && terapeutasFiltradosBusqueda.length === 0">

@@ -622,6 +622,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
     const finMin     = fin.getHours()  * 60 + fin.getMinutes();
 
+    // Editando: se ofrecen todos los del área, sin filtrar por jornada ni por cupo. Mover una
+    // cita a una hora fuera del horario habitual ya no es un error (ni aquí ni en el backend),
+    // así que esconder a quien podría tomarla solo obligaba a anular y rehacer la cita. Los que
+    // quedan fuera de su jornada se marcan en la lista, no se ocultan.
+    if (this.citaEditando) {
+      return this.terapeutas.filter(t => tipo.area_id == null || t.area?.id === tipo.area_id);
+    }
+
     return this.terapeutas.filter(t => {
       const nombre = terapeutaNombre(t);
 
@@ -644,6 +652,40 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
       return this.cubreFranja(t.id, fecha, inicioMin, finMin);
     });
+  }
+
+  /**
+   * Este terapeuta no tiene jornada a la hora elegida — se puede elegir igual, pero avisando.
+   *
+   * Solo se usa editando, que es donde la lista los incluye a todos. Es la contrapartida de no
+   * ocultarlos: si se ofrecen sin distinguir, se agenda sin querer con alguien que ese día no
+   * viene; con la marca, quien agenda sabe que está forzando y lo hace a sabiendas.
+   */
+  fueraDeJornada(t: Terapeuta): boolean {
+    if (!this.citaEditando || t.id == null) return false;
+    if (!this.fFecha || !this.fHoraInicio) return false;
+    const tipo = this.tipoSeleccionado;
+    if (!tipo) return false;
+    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const fin = new Date(inicio);
+    fin.setMinutes(fin.getMinutes() + (Number(this.fDur) || tipo.duracion_minutos));
+    const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
+    const finMin    = fin.getHours()    * 60 + fin.getMinutes();
+    return !this.cubreFranja(t.id, this.fechaToISO(inicio), inicioMin, finMin);
+  }
+
+  /**
+   * Lo que dice la etiqueta junto a "Terapeuta".
+   *
+   * Creando, la lista solo trae a quien puede: "3 disponibles" es exacto. Editando trae a todos
+   * los del area, asi que "8 disponibles" seria falso — siete no lo estan, solo son elegibles a
+   * la fuerza. Se dice cuantos hay y cuantos de verdad tienen jornada a esa hora.
+   */
+  get etiquetaConteoTerapeutas(): string {
+    const n = this.terapeutasDisponiblesModal.length;
+    if (!this.citaEditando) return `${n} disponible${n !== 1 ? 's' : ''}`;
+    const enHorario = this.terapeutasDisponiblesModal.filter(t => !this.fueraDeJornada(t)).length;
+    return `${n} en el area · ${enHorario} en su horario`;
   }
 
   /** Terapeutas disponibles (ya filtrados por área/horario) que además calzan con lo buscado en el texto. */
@@ -719,6 +761,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    */
   get motivoPocosTerapeutas(): string {
     if (this.fTratamientoExistenteId !== null || this.modoProgramacion === 'multiple') return '';
+    // Editando se ofrecen todos: no falta nadie que explicar, cada uno lleva su propia marca.
+    if (this.citaEditando) return '';
     if (!this.fFecha || !this.fHoraInicio) return '';
     const tipo = this.tipoSeleccionado;
     if (!tipo) return '';
@@ -738,7 +782,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
     let porCupo = 0;
     for (const t of fuera) {
-      const solapadas = this.citasSolapadas(terapeutaNombre(t), inicio, fin, this.citaEditando?.id);
+      // Aquí no se está editando (hay un return arriba), así que no hay cita que excluir.
+      const solapadas = this.citasSolapadas(terapeutaNombre(t), inicio, fin, undefined);
       // El cupo solo cuenta como motivo si ademas SI tiene jornada a esa hora; si no la tiene,
       // el motivo de fondo es la jornada y decir "cupo lleno" seria enganoso.
       const tieneJornada = t.id == null || this.cubreFranja(t.id, fecha, inicioMin, finMin);
@@ -2502,12 +2547,19 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       && terapeutaSel?.id != null
       && String(terapeutaSel.id) === this.citaEditando.terapeuta_id
       && fechaSlot.getTime() === new Date(this.citaEditando.fecha_inicio).getTime();
+    //
+    // Al EDITAR esto ya no bloquea, solo avisa (el backend tampoco lo exige en el PUT): la cita
+    // ya existe y moverla a una hora que el terapeuta acepta puntualmente es una decisión de la
+    // clínica. Al CREAR sigue bloqueando, que es donde el horario de verdad protege.
     if (terapeutaSel?.id != null && !sinCambioDeHorario) {
       const inicioMin = fechaSlot.getHours() * 60 + fechaSlot.getMinutes();
       const finMin    = fechaFin.getHours()  * 60 + fechaFin.getMinutes();
       if (!this.cubreFranja(terapeutaSel.id, this.fFecha, inicioMin, finMin)) {
-        this.toast.error('El terapeuta no atiende en ese horario (fuera de su horario habitual o bloqueado por una excepción).');
-        return;
+        if (!this.citaEditando) {
+          this.toast.error('El terapeuta no atiende en ese horario (fuera de su horario habitual o bloqueado por una excepción).');
+          return;
+        }
+        this.toast.warning(`${this.fTer} no atiende a esa hora según su horario — la cita se guarda igual.`);
       }
     }
 
