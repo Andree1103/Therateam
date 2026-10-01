@@ -556,6 +556,8 @@ tbody tr{height:var(--slot-h)}
 .pago-total-lbl{font-size:14px;font-weight:700;color:#185FA5;padding:7px 10px;background:#fff;border:0.5px solid #e2e8f2;border-radius:8px;display:block}
 .pago-hint{font-size:11px;color:#6b7280;margin-top:8px;line-height:1.4}
 
+.paquete-aviso{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px;padding:8px 11px;border-radius:8px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;font-size:12px;line-height:1.45}
+.paquete-aviso svg{flex-shrink:0;margin-top:1px}
 .paquete-banner{
   display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:12px;
   background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e40af;

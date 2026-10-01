@@ -18,6 +18,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
 import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
   from '../../Models/horario-fijo.model';
 import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
+import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 
 type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
 
@@ -65,12 +66,33 @@ export class PerfilPacienteComponent implements OnInit {
     private excelExportService: ExcelExportService,
     private toast: ToastService
   ,
-    private authService: AuthService) {}
+    private authService: AuthService,
+    private configuracionService: ConfiguracionService
+  ) {}
 
   /** Modal para registrar un adelanto de este paciente. Ver AgregarSaldoComponent. */
   modalSaldo = false;
 
+  /**
+   * A cuantas sesiones restantes se avisa de que el paquete se acaba. Configurable en
+   * Configuraciones > Datos del negocio; 2 si no se ha tocado nunca.
+   */
+  avisoSesiones = 2;
+
+  /** Sesiones del paquete que todavia no se han atendido. */
+  sesionesRestantes(t: { totalSesiones?: number; sesionesAtendidas?: number }): number {
+    return Math.max(0, (t.totalSesiones ?? 0) - (t.sesionesAtendidas ?? 0));
+  }
+
+  /** El paquete esta por acabarse: queda algo, pero poco. Si ya esta a 0 no hay nada que avisar. */
+  paquetePorAcabarse(t: { totalSesiones?: number; sesionesAtendidas?: number }): boolean {
+    const quedan = this.sesionesRestantes(t);
+    return quedan > 0 && quedan <= this.avisoSesiones;
+  }
+
   ngOnInit(): void {
+    this.configuracionService.avisoSesionesRestantes()
+        .subscribe(n => this.avisoSesiones = n);
     this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
     this.cargar();
   }

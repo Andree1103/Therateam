@@ -54,8 +54,8 @@ export class ConfiguracionesComponent implements OnInit {
   mostrandoNegocio = false;
   cargandoNegocio = false;
   guardandoNegocio = false;
-  negocio: { nombre_negocio: string; telefono: string; direccion: string } = {
-    nombre_negocio: '', telefono: '', direccion: '',
+  negocio: { nombre_negocio: string; telefono: string; direccion: string; paquete_aviso_sesiones: string } = {
+    nombre_negocio: '', telefono: '', direccion: '', paquete_aviso_sesiones: '2',
   };
 
   modalAbierto  = false;
@@ -150,6 +150,8 @@ export class ConfiguracionesComponent implements OnInit {
           nombre_negocio: d['nombre_negocio'] ?? '',
           telefono:       d['telefono']       ?? '',
           direccion:      d['direccion']      ?? '',
+          // Vacio = nunca se configuro: se asume 2, que es el valor con el que arranca el aviso.
+          paquete_aviso_sesiones: d['paquete_aviso_sesiones'] || '2',
         };
         this.cargandoNegocio = false;
       },

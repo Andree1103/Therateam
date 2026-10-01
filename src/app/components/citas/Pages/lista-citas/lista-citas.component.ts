@@ -470,6 +470,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.configuracionService.avisoSesionesRestantes()
+        .subscribe(n => this.avisoSesiones = n);
     // ?cita=123 abre esa cita al entrar. Es lo que permite saltar desde Pagos a la cita que se
     // cobro, y que un enlace pegado en un chat lleve a la cita exacta.
     const pedida = this.route.snapshot.queryParamMap.get('cita');
@@ -2692,6 +2694,28 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   /** El nombre del método elegido, para que el interruptor diga en qué se va a cobrar. */
   get nombreMetodoPago(): string {
     return this.metodosPago.find(m => m.id === this.fMetodoPagoId)?.nombre ?? '';
+  }
+
+  /** A cuantas sesiones restantes se avisa. Configurable en Configuraciones; 2 por defecto. */
+  avisoSesiones = 2;
+
+  /**
+   * Sesiones que le quedan al paquete contando esta.
+   *
+   * Se usa numero_sesion y total_sesiones, que ya vienen en la cita: si esta es la 9 de 10,
+   * quedan 2 contando la de hoy. Es la lectura util en recepcion — "con esta se le acaban".
+   */
+  get sesionesQueLeQuedan(): number {
+    const n = this.citaEditando?.numero_sesion;
+    const total = this.citaEditando?.total_sesiones;
+    if (!n || !total) return 0;
+    return Math.max(0, total - n + 1);
+  }
+
+  /** El paquete de esta cita esta por acabarse. */
+  get paquetePorAcabarse(): boolean {
+    const quedan = this.sesionesQueLeQuedan;
+    return quedan > 0 && quedan <= this.avisoSesiones;
   }
 
   /** Cuánto de su saldo a favor se le descuenta a esta cita (puede no alcanzar para cubrirla entera). */

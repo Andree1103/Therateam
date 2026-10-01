@@ -60,6 +60,16 @@
             <input [(ngModel)]="negocio.direccion" name="direccionNegocio"
                    placeholder="Ej: Av. Siempre Viva 123, Lima" [disabled]="!puedeEditar">
           </div>
+          <div class="frow">
+            <label>Avisar cuando a un paquete le queden</label>
+            <input type="number" min="1" max="20" step="1"
+                   [(ngModel)]="negocio.paquete_aviso_sesiones" name="paqueteAvisoSesiones"
+                   placeholder="2" [disabled]="!puedeEditar">
+            <p class="hint-msg" style="margin:4px 0 0">
+              Sesiones o menos. Sale un aviso en la ficha del paciente y al abrir una cita de ese
+              paquete, para poder ofrecer la renovación antes de que se acabe.
+            </p>
+          </div>
         </div>
         <p class="hint-msg" *ngIf="!puedeEditar">🔒 Solo un administrador puede editar los datos del negocio.</p>
         <div class="modal-footer" *ngIf="puedeEditar" style="padding:0; margin-top:12px">

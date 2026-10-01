@@ -515,6 +515,16 @@
           </span>
           <span class="paquete-banner-link">Ver paquete →</span>
         </div>
+        <!-- Avisar antes de que se acabe es lo que permite ofrecer la renovacion con el paciente
+             todavia delante, en vez de descubrirlo cuando ya no le quedan sesiones. -->
+        <div class="paquete-aviso" *ngIf="citaEditando && citaEditando.sesion_id && paquetePorAcabarse">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          <span>
+            Este paquete se está acabando: con esta cita le
+            {{ sesionesQueLeQuedan === 1 ? 'queda 1 sesión' : 'quedan ' + sesionesQueLeQuedan + ' sesiones' }}.
+            Buen momento para ofrecerle la renovación.
+          </span>
+        </div>
 
         <!-- Cita agrupada (lote de "citas masivas") — solo informativo, no es un paquete -->
         <div class="paquete-banner" *ngIf="citaEditando && citaEditando.lote_masivo_id && !citaEditando.sesion_id">
