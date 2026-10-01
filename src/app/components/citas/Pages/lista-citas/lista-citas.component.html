@@ -291,7 +291,7 @@
                                 (click)="pagarConSaldo(c)">
                           {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
                              : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
-                             : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + ' en efectivo') }}
+                             : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + (nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '')) }}
                         </button>
                       </div>
                       <div class="hc-pago-row">
@@ -867,11 +867,16 @@
           <div class="frow-2">
             <div class="frow">
               <label>Fecha</label>
-              <input type="date" [(ngModel)]="fFecha" [min]="minFechaISO" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="date-inp">
+              <input type="date" [(ngModel)]="fFecha" [min]="minFechaISO" (ngModelChange)="onDatosCitaChange()" class="date-inp">
             </div>
             <div class="frow">
               <label>Hora inicio <span class="opc-tag">libre</span></label>
-              <input type="time" [(ngModel)]="fHoraInicio" [disabled]="citaEditando.estado === 'ASISTIDA'" (ngModelChange)="onDatosCitaChange()" class="time-inp">
+              <input type="time" [(ngModel)]="fHoraInicio" (ngModelChange)="onDatosCitaChange()" class="time-inp">
+              <!-- Ya no se bloquea: casi siempre es corregir una carga mal hecha, y prohibirlo
+                   obligaba a deshacer la atencion entera por un dedazo. Queda en el historial. -->
+              <p class="pago-hint" *ngIf="citaEditando && citaEditando.estado === 'ASISTIDA'">
+                Esta cita ya fue atendida. Si cambias el horario o el tipo, quedará anotado en su historial.
+              </p>
             </div>
           </div>
 
@@ -1261,7 +1266,7 @@
                 </ng-container>
                 <ng-container *ngIf="montoACobrarDeLaCita > 0 && !saldoCubreTodaLaCita">
                   — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }} y quedan
-                  S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar
+                  S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar{{ nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '' }}
                   {{ pacienteSaldoAFavor < montoACobrarDeLaCita ? '(su saldo no alcanza para todo)' : '' }}.
                 </ng-container>
               </div>
@@ -1281,7 +1286,7 @@
                       (click)="pagarConSaldo(citaEditando)">
                 {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
                    : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
-                   : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + ' en efectivo') }}
+                   : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + (nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '')) }}
               </button>
             </div>
             <div class="hc-pago-row">

@@ -37,6 +37,10 @@ export interface Tratamiento {
   totalSesiones?: number;
   sesionesAtendidas?: number;
   sesionesPendientes?: number;
+  /** Citas reales del paquete: no es lo mismo que sesiones (una puede no estar agendada aun). */
+  citasTotal?: number;
+  citasAtendidas?: number;
+  citasNoAsistidas?: number;
 
   usuarioCreacionNombre?: string;
 }

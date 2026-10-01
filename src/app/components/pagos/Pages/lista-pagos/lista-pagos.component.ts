@@ -99,6 +99,21 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     return this.citasPendientes.find(c => String(c.id) === String(this.formData.citaId)) ?? null;
   }
 
+  /** Lo que le falta por cobrar a un paquete. Sin esto no se podia filtrar la lista. */
+  deudaPaquete(t: { montoTotal?: number; totalCobrado?: number }): number {
+    return Math.max(0, (t.montoTotal ?? 0) - (t.totalCobrado ?? 0));
+  }
+
+  /** Lo que le falta por cobrar a una cita suelta: el precio menos lo ya abonado. */
+  deudaCita(c: { precio?: number | null; monto_pagado?: number | null }): number {
+    return Math.max(0, (c.precio ?? 0) - (c.monto_pagado ?? 0));
+  }
+
+  /** true si la cita ya tiene algo abonado — se marca para no confundirla con una sin pagar. */
+  esPagoParcial(c: { precio?: number | null; monto_pagado?: number | null }): boolean {
+    return (c.monto_pagado ?? 0) > 0 && this.deudaCita(c) > 0;
+  }
+
   /** Lo que falta para cubrir el paquete completo (monto total - ya cobrado - saldo a favor disponible). */
   get restantePaquete(): number {
     const t = this.tratamientoSeleccionado;
@@ -389,7 +404,12 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
 
     this.cargandoTratamientos = true;
     this.pagoService.getTratamientosByPaciente(this.formData.pacienteId).subscribe({
-      next: data => { this.tratamientos = data; this.cargandoTratamientos = false; },
+      // Solo los que deben algo: la lista mezclaba paquetes ya saldados y habia que saberse cual
+      // estaba pendiente. Cobrar contra uno pagado no descuenta nada y el dinero se va a saldo.
+      next: data => {
+        this.tratamientos = (data ?? []).filter(t => this.deudaPaquete(t) > 0);
+        this.cargandoTratamientos = false;
+      },
       error: ()   => { this.cargandoTratamientos = false; }
     });
 

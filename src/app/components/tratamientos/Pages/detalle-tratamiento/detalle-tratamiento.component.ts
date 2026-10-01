@@ -206,6 +206,11 @@ export class DetalleTratamientoComponent implements OnInit {
     return Math.max(0, Math.min(pedido, this.saldoMaximoAplicable));
   }
 
+  /** El metodo elegido para lo que no cubre el saldo. El boton decia "en efectivo" a pelo. */
+  get nombreMetodoDelCobro(): string {
+    return this.metodosPago.find(m => m.id === this.pagoMetodoId)?.nombre ?? '';
+  }
+
   get efectivoTrasSaldo(): number {
     return Math.max(0, this.cargoDelAbono - this.saldoAplicadoEfectivo);
   }
@@ -227,7 +232,8 @@ export class DetalleTratamientoComponent implements OnInit {
       metodo:        { id: this.pagoMetodoId },
       montoRecibido: this.efectivoTrasSaldo,
       notas:         this.efectivoTrasSaldo > 0
-                       ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)}) y efectivo`
+                       ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)})`
+                         + ` y ${this.nombreMetodoDelCobro || 'el resto en otro medio'}`
                        : 'Cobrado con su saldo a favor',
       fechaPago:     new Date().toISOString(),
     } as any).subscribe({

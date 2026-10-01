@@ -181,6 +181,11 @@ export class ListaTratamientosComponent implements OnInit {
           'Sesiones totales': t.totalSesiones ?? '',
           'Sesiones atendidas': t.sesionesAtendidas ?? '',
           'Sesiones pendientes': t.sesionesPendientes ?? '',
+          // Las sesiones son el plan; las citas, lo que de verdad paso. Una sesion puede no
+          // estar agendada aun, y una reprogramada deja dos citas sobre la misma sesion.
+          'Citas agendadas': t.citasTotal ?? 0,
+          'Citas atendidas': t.citasAtendidas ?? 0,
+          'Citas no asistidas': t.citasNoAsistidas ?? 0,
           'Precio por sesión (S/)': t.precioPorSesion ?? '',
           'Monto total (S/)': t.montoTotal ?? '',
           'Total cobrado (S/)': t.totalCobrado ?? '',

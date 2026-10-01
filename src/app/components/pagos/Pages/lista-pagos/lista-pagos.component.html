@@ -193,10 +193,13 @@
           <select [(ngModel)]="formData.tratamientoId" name="tratamientoId"
                   (ngModelChange)="onTratamientoChange()" [disabled]="cargandoTratamientos">
             <option [ngValue]="null">
-              {{ cargandoTratamientos ? 'Cargando...' : (tratamientos.length ? 'Sin paquete específico' : 'Sin paquetes pendientes') }}
+              {{ cargandoTratamientos ? 'Cargando...' : (tratamientos.length ? 'Elige el paquete a cobrar' : 'No tiene paquetes con deuda') }}
             </option>
+            <!-- Terapeuta y deuda real: el precio por sesion solo no dice cuanto falta cobrar. -->
             <option *ngFor="let t of tratamientos" [ngValue]="t.id">
-              {{ t.nombre }} · S/ {{ t.precioPorSesion | number:'1.2-2' }}/sesión
+              {{ t.nombre }}{{ t.terapeutaNombre ? ' · ' + t.terapeutaNombre : '' }}
+              · debe S/ {{ deudaPaquete(t) | number:'1.2-2' }}
+              (S/ {{ t.precioPorSesion | number:'1.2-2' }}/sesión)
             </option>
           </select>
         </div>
@@ -243,10 +246,14 @@
           <select [(ngModel)]="formData.citaId" name="citaId"
                   (ngModelChange)="onCitaChange()" [disabled]="cargandoCitas">
             <option [ngValue]="null">
-              {{ cargandoCitas ? 'Cargando...' : (citasPendientes.length ? 'Sin cita específica' : 'Sin citas individuales pendientes') }}
+              {{ cargandoCitas ? 'Cargando...' : (citasPendientes.length ? 'Elige la cita a cobrar' : 'No tiene citas sueltas por cobrar') }}
             </option>
+            <!-- Se muestra lo que FALTA, no el precio: en una cita a medias el precio hacia creer
+                 que habia que cobrarlo entero otra vez. Y el terapeuta, para distinguir dos citas
+                 de la misma terapia el mismo dia. -->
             <option *ngFor="let c of citasPendientes" [ngValue]="c.id">
-              {{ c.tipo_terapia_nombre }} · {{ c.fecha_inicio | date:'dd/MM HH:mm' }} · S/ {{ c.precio | number:'1.2-2' }}
+              {{ c.tipo_terapia_nombre }} · {{ c.fecha_inicio | date:'dd/MM HH:mm' }}{{ c.terapeuta_nombre ? ' · ' + c.terapeuta_nombre : '' }}
+              · debe S/ {{ deudaCita(c) | number:'1.2-2' }}{{ esPagoParcial(c) ? ' (parcial, de S/ ' + (c.precio | number:'1.2-2') + ')' : '' }}
             </option>
           </select>
         </div>

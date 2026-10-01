@@ -366,7 +366,7 @@
             Tiene <strong>S/ {{ pacienteSaldoAFavor.toFixed(2) }}</strong> a favor
             <ng-container *ngIf="efectivoTrasSaldo === 0">— cubre los S/ {{ cargoDelAbono.toFixed(2) }} que vas a cobrar.</ng-container>
             <ng-container *ngIf="efectivoTrasSaldo > 0">— se descuentan S/ {{ saldoAplicadoEfectivo.toFixed(2) }}
-              y quedan S/ {{ efectivoTrasSaldo.toFixed(2) }} por cobrar.</ng-container>
+              y quedan S/ {{ efectivoTrasSaldo.toFixed(2) }} por cobrar{{ nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '' }}.</ng-container>
           </div>
           <div class="saldo-abono-ctrl">
             <label>Descontar de su saldo</label>
@@ -382,7 +382,7 @@
                   (click)="pagarAbonoConSaldo()">
             {{ efectivoTrasSaldo === 0
                 ? ('Cobrar S/ ' + saldoAplicadoEfectivo.toFixed(2) + ' de su saldo')
-                : ('Cobrar: S/ ' + saldoAplicadoEfectivo.toFixed(2) + ' del saldo + S/ ' + efectivoTrasSaldo.toFixed(2) + ' en efectivo') }}
+                : ('Cobrar: S/ ' + saldoAplicadoEfectivo.toFixed(2) + ' del saldo + S/ ' + efectivoTrasSaldo.toFixed(2) + (nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '')) }}
           </button>
         </div>
       </div>

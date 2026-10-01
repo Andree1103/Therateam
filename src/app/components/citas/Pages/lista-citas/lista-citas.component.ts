@@ -1020,11 +1020,25 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.citaService.getCitasAgenda(f).subscribe({
       next: citas => {
         if (miPeticion !== this.peticionCitasVigente) return;  // llegó tarde: ya hay otra más nueva
-        this.citas = citas;
+        this.citas = this.sinAnuladas(citas);
         this.loading = false;
       },
       error: () => { if (miPeticion === this.peticionCitasVigente) this.loading = false; }
     });
+  }
+
+  /**
+   * La agenda no pinta las citas anuladas.
+   *
+   * Una anulada no ocupa hora ni cupo: solo ensuciaba la cuadricula y hacia parecer llena una
+   * franja libre. No se borran ni se pierden — se llega a ellas por numero de cita y desde la
+   * ficha del paciente, que es donde se consulta el porque de una anulacion. Tambien quedan
+   * fuera del Excel de la agenda, que exporta justo lo que se ve.
+   */
+  private sinAnuladas(citas: Cita[]): Cita[] {
+    return citas.filter(c => c.estado !== 'ANULADA'
+                          && c.estado !== 'CANCELADA_PACIENTE'
+                          && c.estado !== 'CANCELADA_CLINICA');
   }
 
   private recargarSilencioso(): void {
@@ -1032,7 +1046,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     if (!f) return;
     const miPeticion = ++this.peticionCitasVigente;
     this.citaService.getCitasAgenda(f).subscribe({
-      next: citas => { if (miPeticion === this.peticionCitasVigente) this.citas = citas; }
+      next: citas => { if (miPeticion === this.peticionCitasVigente) this.citas = this.sinAnuladas(citas); }
     });
   }
 
@@ -1261,6 +1275,17 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return Math.max(0, Math.min(pedido, this.saldoMaximoAplicable));
   }
 
+  /**
+   * El metodo elegido para la parte que no cubre el saldo.
+   *
+   * El boton decia "en efectivo" a pelo aunque arriba estuviera elegido Yape. El cobro SI
+   * respetaba el metodo del desplegable —siempre lo mando en el pago—, pero el texto hacia creer
+   * lo contrario, y en algo de dinero un rotulo que miente vale tan poco como un fallo de verdad.
+   */
+  get nombreMetodoDelCobro(): string {
+    return this.metodosPago.find(m => m.id === this.pagoMetodoId)?.nombre ?? '';
+  }
+
   /** Lo que queda por cobrar en efectivo despues de usar el saldo. */
   get efectivoTrasSaldo(): number {
     return Math.max(0, this.montoACobrarDeLaCita - this.saldoAplicadoEfectivo);
@@ -1277,6 +1302,15 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    */
   pagarConSaldo(cita: Cita): void {
     if (this.saldoCubreDeCita <= 0) return;
+    // Si el saldo no cubre todo, el resto entra por algun medio y hay que decir cual: antes se
+    // podia guardar el pago sin metodo y luego no habia forma de saber como se cobro.
+    if (this.efectivoTrasSaldo > 0 && !this.pagoMetodoId) {
+      this.toast.warning('Elige el método de pago para la parte que falta.'); return;
+    }
+    if (this.efectivoTrasSaldo > 0 && this.metodoRequiereReferencia(this.pagoMetodoId)
+        && !this.pagoReferencia.trim()) {
+      this.toast.warning('Este método necesita el N° de operación.'); return;
+    }
     this.confirmarPagoCita(cita, true);
   }
 
@@ -1318,7 +1352,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
       notas:         soloSaldo ? (this.efectivoTrasSaldo > 0
-                                    ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)}) y efectivo`
+                                    ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)})`
+                                       + ` y ${this.nombreMetodoDelCobro || 'el resto en otro medio'}`
                                     : 'Cobrado con su saldo a favor')
                               : (this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta'),
     };
