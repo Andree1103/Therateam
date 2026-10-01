@@ -788,6 +788,8 @@
             <div class="dur-info" *ngIf="terapeutaDropdownAbierto && terapeutasFiltradosBusqueda.length === 0">
               {{ terapeutasDisponiblesModal.length === 0 ? 'Ningún terapeuta disponible en ese horario.' : 'Sin resultados.' }}
             </div>
+            <!-- Explica por qué la lista sale corta, en vez de dejar un "1 disponible" que parece una avería. -->
+            <div class="ter-faltan" *ngIf="motivoPocosTerapeutas">{{ motivoPocosTerapeutas }}</div>
           </div>
           <div class="frow" *ngIf="fTratamientoExistenteId !== null || (citaEditando && !puedeEditarCitas)">
             <label>Terapeuta</label>

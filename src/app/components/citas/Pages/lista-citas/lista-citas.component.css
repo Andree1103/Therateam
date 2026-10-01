@@ -651,3 +651,10 @@ tbody tr{height:var(--slot-h)}
 /* Aviso junto a la hora: corrige, no bloquea. */
 .hora-aviso{margin-top:6px;padding:7px 10px;border-left:3px solid #f59e0b;background:#fffbeb;
             border-radius:0 6px 6px 0;font-size:11.5px;color:#92400e;line-height:1.45}
+
+/* Aclaración bajo el buscador de terapeuta: cuántos quedan fuera y por qué. No es un error
+   (la lista corta suele ser correcta), así que va en gris informativo y no en rojo. */
+.ter-faltan{
+  margin-top:4px; font-size:11.5px; line-height:1.35; color:#64748b;
+  background:#f8fafc; border-left:3px solid #cbd5e1; border-radius:0 4px 4px 0; padding:4px 8px;
+}

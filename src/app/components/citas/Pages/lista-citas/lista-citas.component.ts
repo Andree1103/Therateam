@@ -708,6 +708,58 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return t.area?.id !== tipo.area_id;
   }
 
+  /**
+   * Por que la lista de terapeutas sale tan corta.
+   *
+   * El desplegable dice "1 disponible" y se lee como una averia: la clinica tiene ocho de Fisica
+   * y aparece uno. No esta fallando — a las 07:00 de un martes solo uno tiene jornada — pero la
+   * pantalla no lo contaba, asi que cada vez que pasa hay que ir a abrir los horarios de los
+   * ocho para entenderlo. Esto lo dice en una linea, separando las dos razones, que se arreglan
+   * en sitios distintos: la jornada se corrige en Terapeutas y el cupo moviendo la hora.
+   */
+  get motivoPocosTerapeutas(): string {
+    if (this.fTratamientoExistenteId !== null || this.modoProgramacion === 'multiple') return '';
+    if (!this.fFecha || !this.fHoraInicio) return '';
+    const tipo = this.tipoSeleccionado;
+    if (!tipo) return '';
+
+    const delArea = this.terapeutas.filter(t => tipo.area_id == null || t.area?.id === tipo.area_id);
+    const disponibles = new Set(this.terapeutasDisponiblesModal.map(t => terapeutaNombre(t)));
+    const fuera = delArea.filter(t => !disponibles.has(terapeutaNombre(t)));
+    if (fuera.length === 0) return '';
+
+    const inicio = this.parseFechaHora(this.fFecha, this.fHoraInicio);
+    const dur = Number(this.fDur) || tipo.duracion_minutos;
+    const fin = new Date(inicio);
+    fin.setMinutes(fin.getMinutes() + dur);
+    const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
+    const finMin    = fin.getHours()    * 60 + fin.getMinutes();
+    const fecha = this.fechaToISO(inicio);
+
+    let porCupo = 0;
+    for (const t of fuera) {
+      const solapadas = this.citasSolapadas(terapeutaNombre(t), inicio, fin, this.citaEditando?.id);
+      // El cupo solo cuenta como motivo si ademas SI tiene jornada a esa hora; si no la tiene,
+      // el motivo de fondo es la jornada y decir "cupo lleno" seria enganoso.
+      const tieneJornada = t.id == null || this.cubreFranja(t.id, fecha, inicioMin, finMin);
+      if (tieneJornada && solapadas.length >= tipo.max_pacientes) porCupo++;
+    }
+    const porJornada = fuera.length - porCupo;
+
+    // "los sabado" suena a traduccion automatica: sabado y domingo pluralizan, el resto ya acaba en -s.
+    const diaBase = inicio.toLocaleDateString('es-PE', { weekday: 'long' });
+    const dia = diaBase.endsWith('s') ? diaBase : `${diaBase}s`;
+    const areaTxt = tipo.area_nombre ? ` de ${tipo.area_nombre}` : '';
+    const cabecera = `${fuera.length} de ${delArea.length} terapeutas${areaTxt} no aparece${fuera.length > 1 ? 'n' : ''}`;
+    const sinJornada = `no atiende${porJornada > 1 ? 'n' : ''} los ${dia} a las ${this.fHoraInicio}`;
+    const sinCupo    = `ya tiene${porCupo > 1 ? 'n' : ''} el cupo lleno`;
+
+    // Con un solo motivo no hace falta repetir la cifra: "6 de 8 ... no aparecen: no atienden...".
+    if (porCupo === 0)    return `${cabecera}: ${sinJornada}.`;
+    if (porJornada === 0) return `${cabecera}: ${sinCupo}.`;
+    return `${cabecera}: ${porJornada} ${sinJornada} y ${porCupo} ${sinCupo}.`;
+  }
+
   /** El primer motivo por el que este terapeuta no encaja, en el orden en que hay que resolverlos. */
   private calcularAvisoTerapeuta(): string {
     if (!this.fTer || !this.fHoraInicio || !this.fFecha) return '';
