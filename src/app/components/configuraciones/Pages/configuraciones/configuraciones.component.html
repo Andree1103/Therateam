@@ -5,10 +5,19 @@
       <h1>Configuraciones</h1>
       <p>Gestión de catálogos del sistema</p>
     </div>
-    <button class="btn-primary" *ngIf="puedeCrear && !mostrandoNegocio" (click)="abrirNuevo()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nuevo elemento
-    </button>
+    <div class="header-acciones">
+      <!-- Salida manual: la aplicacion ya avisa sola cuando hay version nueva, pero si alguien
+           se queda atascado en una vieja esto lo saca sin explicarle que es la cache. -->
+      <button class="btn-secondary" (click)="actualizarApp()" [disabled]="actualizandoApp"
+              title="Trae la última versión publicada del sistema y recarga">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        {{ actualizandoApp ? 'Actualizando...' : 'Actualizar aplicación' }}
+      </button>
+      <button class="btn-primary" *ngIf="puedeCrear && !mostrandoNegocio" (click)="abrirNuevo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo elemento
+      </button>
+    </div>
   </div>
 
   <div class="page-body">

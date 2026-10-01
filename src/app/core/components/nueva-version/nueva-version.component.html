@@ -1,0 +1,10 @@
+<div class="nv-barra" *ngIf="(version.hayNuevaVersion$ | async) && !oculto">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+  <span class="nv-txt">Hay una versión nueva del sistema.</span>
+  <button type="button" class="nv-btn" [disabled]="actualizando" (click)="actualizar()">
+    {{ actualizando ? 'Actualizando...' : 'Actualizar' }}
+  </button>
+  <button type="button" class="nv-luego" (click)="oculto = true" title="Seguir con esta versión por ahora">
+    Ahora no
+  </button>
+</div>

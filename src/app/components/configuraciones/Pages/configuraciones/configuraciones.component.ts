@@ -5,6 +5,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
+import { VersionService } from '../../../../core/services/version.service';
 
 type TabTipo = 'estandar' | 'estado' | 'moneda' | 'terapia' | 'paquete';
 
@@ -106,6 +107,7 @@ export class ConfiguracionesComponent implements OnInit {
     private toast: ToastService,
     private authService: AuthService,
     private catalogService: CatalogService,
+    private versionService: VersionService
   ) {}
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('CONFIGURACIONES'); }
@@ -301,5 +303,18 @@ export class ConfiguracionesComponent implements OnInit {
     // El resto de la app puede tener este catálogo cacheado (CatalogService) — se invalida para
     // que el próximo que lo pida traiga la versión recién guardada, no la vieja en memoria.
     this.catalogService.invalidate(tab.path);
+  }
+  /**
+   * Trae la ultima version publicada y recarga.
+   *
+   * Un boton no puede borrar la cache del navegador —no existe esa API—, pero si limpia el
+   * almacenamiento de la app y fuerza la recarga, que es lo que en la practica hacia falta.
+   * La sesion no se toca: el token vive en localStorage y borrarlo echaria fuera a todos.
+   */
+  actualizandoApp = false;
+
+  actualizarApp(): void {
+    this.actualizandoApp = true;
+    this.versionService.actualizar();
   }
 }
