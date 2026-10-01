@@ -495,12 +495,19 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   get puedeCrearCitas(): boolean {
     return this.authService.puedeCrear('CITAS') && this.authService.puedeCrearCitas();
   }
+  /**
+   * Quien puede editar una cita, puede editarla ENTERA — terapeuta y monto incluidos.
+   *
+   * Antes esos dos campos estaban reservados al rol ADMIN exacto, asi que un gerente con permiso
+   * de edicion abria el modal, cambiaba hora y tipo, y se encontraba el terapeuta en gris: una
+   * edicion a medias que obligaba a anular la cita y rehacerla. El permiso que manda es el mismo
+   * que exige el backend en el PUT (MODULO_CITAS_EDITAR); no hay ninguna comprobacion de rol del
+   * otro lado, asi que el candado de ADMIN solo vivia en esta pantalla.
+   */
   get puedeEditarCitas(): boolean { return this.authService.puedeEditar('CITAS'); }
   get puedeEliminarCitas(): boolean { return this.authService.puedeEliminar('CITAS'); }
   /** Registrar pago desde el modal de cita usa el mismo permiso que el módulo Pagos. */
   get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
-  /** Terapeuta y monto de una cita ya creada son campos sensibles (afectan cobranza) — solo el administrador los edita. */
-  get esAdmin(): boolean { return this.authService.esAdmin; }
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -1023,24 +1030,27 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       next: citas => {
         if (miPeticion !== this.peticionCitasVigente) return;  // llegó tarde: ya hay otra más nueva
         this.citas = this.sinAnuladas(citas);
+        this.resincronizarCitasAbiertas();
         this.loading = false;
       },
       error: () => { if (miPeticion === this.peticionCitasVigente) this.loading = false; }
     });
   }
 
+  private static readonly ESTADOS_ANULADOS = ['ANULADA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA'];
+
   /**
-   * La agenda no pinta las citas anuladas.
+   * La agenda no pinta las citas anuladas... salvo que sean justo las que se piden.
    *
-   * Una anulada no ocupa hora ni cupo: solo ensuciaba la cuadricula y hacia parecer llena una
-   * franja libre. No se borran ni se pierden — se llega a ellas por numero de cita y desde la
-   * ficha del paciente, que es donde se consulta el porque de una anulacion. Tambien quedan
-   * fuera del Excel de la agenda, que exporta justo lo que se ve.
+   * Una anulada no ocupa hora ni cupo: suelta en la cuadricula solo ensuciaba y hacia parecer
+   * llena una franja libre. Pero ocultarla siempre dejaba el filtro ESTADO = Anulada devolviendo
+   * una semana vacia, que es lo contrario de lo que pide quien lo marca. Asi que se esconden por
+   * defecto y aparecen en cuanto el filtro las nombra. No se borran ni se pierden: tambien se
+   * llega a ellas por numero de cita y desde la ficha del paciente.
    */
   private sinAnuladas(citas: Cita[]): Cita[] {
-    return citas.filter(c => c.estado !== 'ANULADA'
-                          && c.estado !== 'CANCELADA_PACIENTE'
-                          && c.estado !== 'CANCELADA_CLINICA');
+    if (ListaCitasComponent.ESTADOS_ANULADOS.includes(this.filtroEstado)) return citas;
+    return citas.filter(c => !ListaCitasComponent.ESTADOS_ANULADOS.includes(c.estado as string));
   }
 
   private recargarSilencioso(): void {
@@ -1048,8 +1058,36 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     if (!f) return;
     const miPeticion = ++this.peticionCitasVigente;
     this.citaService.getCitasAgenda(f).subscribe({
-      next: citas => { if (miPeticion === this.peticionCitasVigente) this.citas = this.sinAnuladas(citas); }
+      next: citas => {
+        if (miPeticion !== this.peticionCitasVigente) return;
+        this.citas = this.sinAnuladas(citas);
+        this.resincronizarCitasAbiertas();
+      }
     });
+  }
+
+  /**
+   * Vuelve a apuntar lo que hay abierto en pantalla a los objetos recién traídos.
+   *
+   * La grilla se repinta sola porque lee siempre de `citas`, pero el modal de edición y la lista
+   * de "N citas en ese horario" guardan REFERENCIAS a los objetos de la carga anterior. Al
+   * recargar, `citas` se reemplaza entero por objetos nuevos y esas dos referencias quedan
+   * huérfanas apuntando a la versión vieja: se guardaba un cambio, el modal se cerraba, y al
+   * volver a abrir la misma cita desde el clúster salían los datos de antes — la cita solo
+   * aparecía corregida después de refrescar la página. Esto las reengancha por id.
+   */
+  private resincronizarCitasAbiertas(): void {
+    const porId = new Map(this.citas.map(c => [String(c.id), c]));
+    if (this.citaEditando) {
+      const fresca = porId.get(String(this.citaEditando.id));
+      if (fresca) this.citaEditando = fresca;
+    }
+    if (this.citasMultiSeleccionadas.length) {
+      // Si alguna desapareció de la semana (se anuló, se movió de fecha) se cae de la lista.
+      this.citasMultiSeleccionadas = this.citasMultiSeleccionadas
+        .map(c => porId.get(String(c.id)))
+        .filter((c): c is Cita => !!c);
+    }
   }
 
   // ── Filtro de terapeutas ────────────────────────────────────────────────────
@@ -2501,7 +2539,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         // El monto solo lo puede tocar el administrador (ver gate en el template) — para
         // cualquier otro rol este campo ni siquiera está en el DOM, así que fPrecio queda
         // intacto con el valor cargado al abrir el modal y este envío es un no-op.
-        precio: this.esAdmin ? (this.fPrecio ?? undefined) : undefined,
+        precio: this.puedeEditarCitas ? (this.fPrecio ?? undefined) : undefined,
       };
       const actualizar$ = this.citaService.actualizarCitaLocal(this.citaEditando.id, req);
 
