@@ -1440,15 +1440,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    */
   pagarConSaldo(cita: Cita): void {
     if (this.saldoCubreDeCita <= 0) return;
-    // Si el saldo no cubre todo, el resto entra por algun medio y hay que decir cual: antes se
-    // podia guardar el pago sin metodo y luego no habia forma de saber como se cobro.
-    if (this.efectivoTrasSaldo > 0 && !this.pagoMetodoId) {
-      this.toast.warning('Elige el método de pago para la parte que falta.'); return;
-    }
-    if (this.efectivoTrasSaldo > 0 && this.metodoRequiereReferencia(this.pagoMetodoId)
-        && !this.pagoReferencia.trim()) {
-      this.toast.warning('Este método necesita el N° de operación.'); return;
-    }
+    // No se pide metodo ni referencia: no entra dinero nuevo, solo se descuenta del saldo. Si el
+    // saldo no alcanza, la cita queda PARCIAL y el resto se cobra despues con "Registrar pago",
+    // que es donde se elige el medio.
     this.confirmarPagoCita(cita, true);
   }
 
@@ -1481,7 +1475,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const body: any = {
       paciente:      { id: pacienteId },
       cita:          { id: citaId },
-      montoRecibido: soloSaldo ? this.efectivoTrasSaldo : this.pagoMonto,
+      // Usar el saldo NO cobra nada nuevo: montoRecibido 0 siempre. Antes se mandaba aqui lo
+      // que faltaba por cubrir, y el backend lo tomaba como dinero que el paciente acababa de
+      // entregar — con 30 a favor, una cita de 60 quedaba PAGADA habiendo entrado 0 en caja.
+      // Peor aun al anularla despues: devolvia los 60 al saldo, asi que cada vuelta inventaba
+      // 30 soles. Lo que falte se cobra aparte, con su metodo.
+      montoRecibido: soloSaldo ? 0 : this.pagoMonto,
       // Con saldo se manda lo que se PRETENDE cobrar, no lo que el saldo alcanza a cubrir. En una
       // cita sin precio ese importe pasa a ser su precio, y el backend aplica solo hasta donde
       // llegue el saldo: cobrar 80 con 30 a favor deja la cita en 80 y PARCIAL, no en 80 saldada
@@ -1490,8 +1489,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
       notas:         soloSaldo ? (this.efectivoTrasSaldo > 0
-                                    ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)})`
-                                       + ` y ${this.nombreMetodoDelCobro || 'el resto en otro medio'}`
+                                    ? `Se usaron S/ ${this.saldoAplicadoEfectivo.toFixed(2)} de su saldo a favor`
+                                       + ` — quedan S/ ${this.efectivoTrasSaldo.toFixed(2)} por cobrar`
                                     : 'Cobrado con su saldo a favor')
                               : (this.pagoEsPaquete ? 'Pago por cita individual' : 'Adelanto/pago de cita suelta'),
     };

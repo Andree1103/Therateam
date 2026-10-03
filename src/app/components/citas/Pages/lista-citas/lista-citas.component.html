@@ -272,8 +272,8 @@
                             S/ {{ montoACobrarDeLaCita | number:'1.2-2' }}{{ citaSinPrecio ? ' que vas a cobrar' : ' de deuda' }}.
                           </ng-container>
                           <ng-container *ngIf="montoACobrarDeLaCita > 0 && !saldoCubreTodaLaCita">
-                            — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }} y quedan
-                            S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar.
+                            — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }}; la cita queda
+                            <strong>parcial</strong>, con S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar aparte.
                           </ng-container>
                         </div>
                         <div class="hc-saldo-ctrl" *ngIf="montoACobrarDeLaCita > 0">
@@ -289,9 +289,9 @@
                         <button type="button" class="hc-btn-saldo"
                                 [disabled]="guardandoPago || saldoCubreDeCita <= 0"
                                 (click)="pagarConSaldo(c)">
-                          {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
-                             : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
-                             : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + (nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '')) }}
+                          {{ saldoCubreDeCita <= 0 ? 'Usar su saldo'
+                   : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
+                   : ('Usar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo — quedará parcial') }}
                         </button>
                       </div>
                       <div class="hc-pago-row">
@@ -1279,9 +1279,8 @@
                   S/ {{ montoACobrarDeLaCita | number:'1.2-2' }}{{ citaSinPrecio ? ' que vas a cobrar' : ' de deuda' }}.
                 </ng-container>
                 <ng-container *ngIf="montoACobrarDeLaCita > 0 && !saldoCubreTodaLaCita">
-                  — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }} y quedan
-                  S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar{{ nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '' }}
-                  {{ pacienteSaldoAFavor < montoACobrarDeLaCita ? '(su saldo no alcanza para todo)' : '' }}.
+                  — se descuentan S/ {{ saldoCubreDeCita | number:'1.2-2' }}; la cita queda
+                  <strong>parcial</strong>, con S/ {{ efectivoTrasSaldo | number:'1.2-2' }} por cobrar aparte.
                 </ng-container>
               </div>
               <!-- Editable: puede querer guardarse el resto del saldo y pagar el resto en efectivo. -->
@@ -1298,9 +1297,9 @@
               <button type="button" class="hc-btn-saldo"
                       [disabled]="guardandoPago || saldoCubreDeCita <= 0"
                       (click)="pagarConSaldo(citaEditando)">
-                {{ saldoCubreDeCita <= 0 ? 'Cobrar con su saldo'
+                {{ saldoCubreDeCita <= 0 ? 'Usar su saldo'
                    : saldoCubreTodaLaCita ? ('Cobrar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo')
-                   : ('Cobrar: S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' del saldo + S/ ' + (efectivoTrasSaldo | number:'1.2-2') + (nombreMetodoDelCobro ? ' en ' + nombreMetodoDelCobro : '')) }}
+                   : ('Usar S/ ' + (saldoCubreDeCita | number:'1.2-2') + ' de su saldo — quedará parcial') }}
               </button>
             </div>
             <div class="hc-pago-row">

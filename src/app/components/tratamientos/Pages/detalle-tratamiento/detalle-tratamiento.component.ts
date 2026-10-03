@@ -220,21 +220,25 @@ export class DetalleTratamientoComponent implements OnInit {
    * Cobra el paquete usando el saldo: se manda solo el efectivo que falta y el backend completa
    * con lo que el paciente tenia a favor.
    */
+  /**
+   * Abona al paquete usando SOLO el saldo a favor.
+   *
+   * No se pide metodo: no entra dinero nuevo. Antes se mandaba como "recibido" lo que el saldo
+   * no alcanzaba a cubrir, y el backend lo contaba como dinero recien entregado — el paquete
+   * quedaba saldado sin que entrara un sol, y al revertirlo devolvia al saldo mas de lo que
+   * habia. Lo que falte se cobra aparte, con su medio.
+   */
   pagarAbonoConSaldo(): void {
-    if (this.saldoAplicadoEfectivo <= 0 || !this.pagoMetodoId) {
-      if (!this.pagoMetodoId) this.toast.warning('Selecciona el método de pago');
-      return;
-    }
+    if (this.saldoAplicadoEfectivo <= 0) return;
     const pacienteId = this.tratamiento!.pacienteId ?? (this.tratamiento as any)?.paciente?.id;
     this.guardandoPago = true;
     this.pagoService.create({
       tratamiento:   { id: this.tratamiento!.id },
       paciente:      pacienteId ? { id: pacienteId } : undefined,
-      metodo:        { id: this.pagoMetodoId },
-      montoRecibido: this.efectivoTrasSaldo,
+      montoRecibido: 0,
       notas:         this.efectivoTrasSaldo > 0
-                       ? `Cobrado con su saldo a favor (S/ ${this.saldoAplicadoEfectivo.toFixed(2)})`
-                         + ` y ${this.nombreMetodoDelCobro || 'el resto en otro medio'}`
+                       ? `Se usaron S/ ${this.saldoAplicadoEfectivo.toFixed(2)} de su saldo a favor`
+                         + ` — quedan S/ ${this.efectivoTrasSaldo.toFixed(2)} por cobrar`
                        : 'Cobrado con su saldo a favor',
       fechaPago:     new Date().toISOString(),
     } as any).subscribe({
