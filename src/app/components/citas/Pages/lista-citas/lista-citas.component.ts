@@ -27,7 +27,7 @@ import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } f
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
 import { horaAmPm } from '../../../../core/utils/formato-hora';
-import { estaSaldada, colorEstadoPago } from '../../../../core/utils/estado-pago';
+import { estaSaldada, tieneDeuda, colorEstadoPago } from '../../../../core/utils/estado-pago';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -3421,8 +3421,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirAtencion(cita: Cita, e: Event): void {
     e.stopPropagation();
-    if (cita.estado_pago_key !== 'PAGADA') {
-      this.toast.warning('La cita debe estar pagada por completo para registrar atención'); return;
+    // Ya no se exige que este pagada: la sesion ocurrio, y no anotarla no cobra nada — solo
+    // empujaba a inventar un pago para desbloquear la pantalla. Se avisa de la deuda, que
+    // sigue viva en la cita y en Pagos, y se deja registrar.
+    if (tieneDeuda(cita.estado_pago_key)) {
+      const falta = (cita.precio ?? 0) - (cita.monto_pagado ?? 0);
+      this.toast.warning(falta > 0
+        ? `Ojo: quedan S/ ${falta.toFixed(2)} por cobrar de esta cita.`
+        : 'Ojo: esta cita todavía figura sin pago.');
     }
     this.citaParaAtencion = cita;
     this.atencionEsEdicion = false;

@@ -210,8 +210,7 @@
                     </div>
                     <button class="btn-atencion"
                             *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA' || c.estado === 'ASISTIDA'"
-                            [disabled]="c.estado_pago_key !== 'PAGADA'"
-                            [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
+                            [title]="!estaSaldada(c) ? 'Esta cita todavía tiene saldo por cobrar — se puede registrar igual' : ''"
                             (click)="abrirAtencion(c, $event)">
                       {{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}
                     </button>
@@ -332,8 +331,7 @@
                       </button>
                       <button class="hc-btn-at"
                               *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO' || c.estado === 'ASISTIDA'"
-                              [disabled]="c.estado_pago_key !== 'PAGADA'"
-                              [title]="c.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
+                              [title]="!estaSaldada(c) ? 'Esta cita todavía tiene saldo por cobrar — se puede registrar igual' : ''"
                               (click)="abrirAtencion(c, $event)">{{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}</button>
                       <button class="hc-btn-edit" title="Descargar nota de atención (PDF) para enviar por WhatsApp"
                               (click)="descargarNotaCita(c, $event)">
@@ -1228,13 +1226,13 @@
              que cerrar el modal y buscar la cita otra vez. -->
         <div class="frow" *ngIf="citaEditando && !esCitaCancelada(citaEditando)">
           <button class="hc-btn-at"
-                  [disabled]="citaEditando.estado_pago_key !== 'PAGADA'"
-                  [title]="citaEditando.estado_pago_key !== 'PAGADA' ? 'La cita debe estar pagada por completo para registrar atención' : ''"
+                  [title]="!estaSaldada(citaEditando) ? 'Esta cita todavía tiene saldo por cobrar — se puede registrar igual' : ''"
                   (click)="abrirAtencionDesdeEdicion($event)">
             {{ citaEditando.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}
           </button>
-          <div class="pago-hint" *ngIf="citaEditando.estado_pago_key !== 'PAGADA'">
-            La cita debe estar pagada por completo.
+          <div class="pago-hint" *ngIf="!estaSaldada(citaEditando)">
+            Esta cita todavía tiene saldo por cobrar. Puedes registrar la atención igual —
+            la deuda se mantiene y se cobra desde Pagos.
           </div>
         </div>
 
