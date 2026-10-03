@@ -30,6 +30,13 @@ export interface CajaResumen {
   ingresosPorConcepto: IngresoConcepto[];
   /** Qué productos se vendieron en el turno — detalle detrás de la fila "Productos". */
   ventasPorProducto: VentaProducto[];
+  /**
+   * Cobros del turno con un metodo marcado como "no es dinero en caja" (ej. "Sin pago").
+   * NO estan dentro de totalIngresos ni del saldo final: se listan aparte para que el arqueo
+   * cuadre contra el efectivo real sin que ese dinero desaparezca de la pantalla.
+   */
+  ingresosFueraDeCaja: IngresoMetodo[];
+  totalFueraDeCaja: number;
   totalIngresos: number;
   egresos: number;
   comentario: string | null;

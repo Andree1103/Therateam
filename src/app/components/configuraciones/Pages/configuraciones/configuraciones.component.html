@@ -393,6 +393,20 @@
           </select>
         </div>
 
+        <!-- Solo métodos de pago: si el dinero de este método entra o no al arqueo del cierre. -->
+        <div class="frow" *ngIf="esMetodoPago">
+          <label>¿Es dinero en caja?</label>
+          <select [(ngModel)]="formCuentaEnCaja" name="cuentaEnCaja">
+            <option [ngValue]="true">Sí — suma al cierre de caja</option>
+            <option [ngValue]="false">No — se registra, pero no suma al arqueo</option>
+          </select>
+          <small class="frow-hint">
+            Ponlo en <strong>No</strong> para métodos que no son plata que entra al cajón ese día:
+            “Sin pago” para dejar constancia de un cobro anterior, o un seguro que liquida aparte.
+            El pago sigue existiendo y la cita queda saldada; solo se lista fuera del total.
+          </small>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn-primary" [disabled]="guardando || form.invalid">

@@ -18,6 +18,11 @@ export interface CatalogItem {
   tipoTerapia?: { id: number; nombre?: string; key?: string; area?: { id: number; nombre?: string } | null } | null;
   totalSesiones?: number | null;
   precioTotal?: number | null;
+  /**
+   * Solo en Métodos de pago: si los cobros con este método suman al arqueo del cierre de caja.
+   * false deja el pago registrado y la cita saldada, pero fuera del total de caja.
+   */
+  cuentaEnCaja?: boolean;
 }
 
 export interface Sede {

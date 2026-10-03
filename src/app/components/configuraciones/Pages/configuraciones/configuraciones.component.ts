@@ -84,6 +84,8 @@ export class ConfiguracionesComponent implements OnInit {
   formTipoTerapiaId: number | null = null;
   formTotalSesiones: number | null = null;
   formPrecioTotal: number | null = null;
+  /** Métodos de pago: si los cobros con este método suman al arqueo del cierre de caja. */
+  formCuentaEnCaja = true;
 
   areas: CatalogItem[] = [];
   especialidades: CatalogItem[] = [];
@@ -95,6 +97,8 @@ export class ConfiguracionesComponent implements OnInit {
   get esTerapia() { return this.tabActivo.tipo === 'terapia'; }
   get esPaquete() { return this.tabActivo.tipo === 'paquete'; }
   get tieneKey()  { return this.tabActivo.tipo !== 'moneda' && this.tabActivo.tipo !== 'paquete'; }
+  /** Solo los métodos de pago deciden si su dinero entra o no al arqueo del cierre. */
+  get esMetodoPago() { return this.tabActivo.key === 'metodos-pago'; }
 
   /** Items del tab activo, filtrados por área si estamos en "Tipos de terapia" y hay un filtro elegido. */
   get itemsFiltrados(): CatalogItem[] {
@@ -196,6 +200,7 @@ export class ConfiguracionesComponent implements OnInit {
     this.formTipoTerapiaId = null;
     this.formTotalSesiones = null;
     this.formPrecioTotal = null;
+    this.formCuentaEnCaja = true;
     this.modalAbierto  = true;
   }
 
@@ -219,6 +224,7 @@ export class ConfiguracionesComponent implements OnInit {
     this.formTipoTerapiaId  = item.tipoTerapia?.id ?? null;
     this.formTotalSesiones  = item.totalSesiones ?? null;
     this.formPrecioTotal    = item.precioTotal ?? null;
+    this.formCuentaEnCaja   = item.cuentaEnCaja ?? true;
     this.modalAbierto     = true;
   }
 
@@ -273,6 +279,7 @@ export class ConfiguracionesComponent implements OnInit {
       activo: this.formActivo,
     };
     if (this.tieneKey && this.formKey) base['key'] = this.formKey;
+    if (this.esMetodoPago) base['cuentaEnCaja'] = this.formCuentaEnCaja;
 
     if (this.esEstado) {
       base['colorHex'] = this.formColorHex;
