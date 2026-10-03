@@ -95,33 +95,6 @@
         </table>
       </div>
 
-      <!-- Cobros registrados hoy que NO son dinero en caja: el pago existe y la cita queda
-           saldada, pero de eso no hay nada en el cajón, así que no entra en el arqueo. Se
-           muestra igual para que no desaparezca de la pantalla donde se cuadra. -->
-      <div class="card card--fuera" *ngIf="resumen.ingresosFueraDeCaja?.length">
-        <div class="card-hdr">
-          Registrado hoy, pero no es dinero en caja
-          <span class="fuera-tag">no suma al arqueo</span>
-        </div>
-        <p class="fuera-nota">
-          Cobros con un método marcado como “no es dinero en caja” (el dinero entró otro día, o
-          lo liquida un tercero). Se cambia en Configuraciones → Métodos de pago.
-        </p>
-        <table class="data-table">
-          <thead><tr><th>Método</th><th>Monto</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let m of resumen.ingresosFueraDeCaja">
-              <td>{{ m.metodoNombre }}</td>
-              <td class="monto">S/ {{ m.monto | number:'1.2-2' }}</td>
-            </tr>
-            <tr class="fila-total">
-              <td>Total fuera de caja</td>
-              <td class="monto">S/ {{ resumen.totalFueraDeCaja | number:'1.2-2' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <!-- El mismo dinero cortado por concepto. Suma lo mismo que la tabla de arriba: no es
            plata distinta, es la otra pregunta ("¿de qué vino?") sobre el mismo total. -->
       <div class="card" *ngIf="resumen.ingresosPorConcepto?.length">

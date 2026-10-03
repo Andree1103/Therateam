@@ -31,9 +31,11 @@ export interface CajaResumen {
   /** Qué productos se vendieron en el turno — detalle detrás de la fila "Productos". */
   ventasPorProducto: VentaProducto[];
   /**
-   * Cobros del turno con un metodo marcado como "no es dinero en caja" (ej. "Sin pago").
-   * NO estan dentro de totalIngresos ni del saldo final: se listan aparte para que el arqueo
-   * cuadre contra el efectivo real sin que ese dinero desaparezca de la pantalla.
+   * Cobros del turno con un método marcado como "no es dinero en caja" (ej. "Sin pago").
+   *
+   * El backend los sigue mandando, pero la pantalla de caja NO los pinta: ahí va el dinero
+   * del cajón y nada más — verlos ahí era justo lo que hacía dudar de si contaban o no.
+   * Quedan en el DTO porque siguen siendo pagos reales, consultables desde Pagos.
    */
   ingresosFueraDeCaja: IngresoMetodo[];
   totalFueraDeCaja: number;
