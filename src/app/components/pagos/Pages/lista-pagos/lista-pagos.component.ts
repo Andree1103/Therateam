@@ -16,6 +16,7 @@ import { Cita } from '../../../citas/Models/cita.model';
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
+import { tieneDeuda } from '../../../../core/utils/estado-pago';
 
 @Component({
   selector: 'app-lista-pagos',
@@ -416,7 +417,7 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     this.cargandoCitas = true;
     this.citaService.getByPaciente(this.formData.pacienteId).subscribe({
       next: data => {
-        this.citasPendientes = data.filter(c => !c.tratamiento_id && c.estado_pago_key !== 'PAGADA' && (c.precio ?? 0) > 0);
+        this.citasPendientes = data.filter(c => !c.tratamiento_id && tieneDeuda(c.estado_pago_key) && (c.precio ?? 0) > 0);
         this.cargandoCitas = false;
       },
       error: () => { this.cargandoCitas = false; }

@@ -325,7 +325,7 @@
                     <div class="hc-footer">
                       <button class="hc-btn-edit" (click)="abrirEditar(c, $event)">Editar</button>
                       <button class="hc-btn-pagar"
-                              *ngIf="c.estado_pago_key !== 'PAGADA' && citaPagandoId !== c.id && puedeRegistrarPago"
+                              *ngIf="!estaSaldada(c) && citaPagandoId !== c.id && puedeRegistrarPago"
                               (click)="abrirPagoCita(c, $event)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                         Registrar pago
@@ -1252,7 +1252,7 @@
             </span>
           </div>
           <!-- Mini-form si no está pagada y citaPagandoId apunta a esta cita -->
-          <div *ngIf="citaEditando.estado_pago_key !== 'PAGADA' && citaPagandoId !== citaEditando.id && puedeRegistrarPago && !esCitaCancelada(citaEditando)">
+          <div *ngIf="!estaSaldada(citaEditando) && citaPagandoId !== citaEditando.id && puedeRegistrarPago && !esCitaCancelada(citaEditando)">
             <button class="hc-btn-pagar" style="margin-top:6px" (click)="abrirPagoCita(citaEditando, $event)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               Registrar pago

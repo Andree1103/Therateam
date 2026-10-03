@@ -7,6 +7,7 @@ import { PacienteService } from '../../../components/pacientes/Services/paciente
 import { CatalogService } from '../../services/catalog.service';
 import { ToastService } from '../../services/toast.service';
 import { CatalogItem } from '../../models/catalog.model';
+import { tieneDeuda } from '../../utils/estado-pago';
 
 /**
  * Registrar un adelanto: dinero que el paciente deja a cuenta y queda como saldo a favor.
@@ -119,7 +120,7 @@ export class AgregarSaldoComponent {
     this.citaService.getByPaciente(id).subscribe({
       next: citas => {
         this.deudaCitas = citas
-          .filter(c => !c.tratamiento_id && c.estado_pago_key !== 'PAGADA' && (c.precio ?? 0) > 0)
+          .filter(c => !c.tratamiento_id && tieneDeuda(c.estado_pago_key) && (c.precio ?? 0) > 0)
           .reduce((t, c) => t + Math.max(0, (c.precio ?? 0) - (c.monto_pagado ?? 0)), 0);
         this.cargandoDeuda = false;
       },

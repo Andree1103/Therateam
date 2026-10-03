@@ -14,6 +14,7 @@ import { ConfiguracionService } from '../../../../core/services/configuracion.se
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { tieneDeuda } from '../../../../core/utils/estado-pago';
 
 @Component({
   selector: 'app-detalle-tratamiento',
@@ -122,7 +123,7 @@ export class DetalleTratamientoComponent implements OnInit {
 
   get sesionesParaPagar(): Sesion[] {
     return this.sesiones.filter(s =>
-      s.citaActiva && s.citaActiva.estadoPagoKey !== 'PAGADA'
+      s.citaActiva && tieneDeuda(s.citaActiva.estadoPagoKey)
     );
   }
 

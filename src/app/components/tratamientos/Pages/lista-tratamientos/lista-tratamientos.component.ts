@@ -34,6 +34,7 @@ import { Terapeuta, terapeutaNombre as nombreDeTerapeuta } from '../../../terape
 import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
+import { colorEstadoPago } from '../../../../core/utils/estado-pago';
 
 @Component({
   selector: 'app-lista-tratamientos',
@@ -1008,11 +1009,7 @@ export class ListaTratamientosComponent implements OnInit {
     }
   }
 
-  getPagoColor(key?: string): string {
-    if (key === 'PAGADA')  return '#22c55e';
-    if (key === 'PARCIAL') return '#f59e0b';
-    return '#94a3b8';
-  }
+  getPagoColor(key?: string): string { return colorEstadoPago(key); }
 
   getProgreso(t: Tratamiento): number {
     const total = t.totalSesiones ?? 0;

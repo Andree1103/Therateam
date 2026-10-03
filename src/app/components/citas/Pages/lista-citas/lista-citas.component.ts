@@ -27,6 +27,7 @@ import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } f
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
 import { horaAmPm } from '../../../../core/utils/formato-hora';
+import { estaSaldada, colorEstadoPago } from '../../../../core/utils/estado-pago';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -112,6 +113,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     { value: 'SIN_PAGO', label: 'Sin pago' },
     { value: 'PARCIAL', label: 'Pago parcial' },
     { value: 'PAGADA', label: 'Pagada' },
+    { value: 'DESCONTADA', label: 'Descontada' },
   ];
 
   get estadoOpcionesFiltradas(): CatalogItem[] {
@@ -1235,11 +1237,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return { 'border-left': `3px solid ${color}`, 'background': `${color}1a` };
   }
 
-  getPagoColor(key?: string): string {
-    if (key === 'PAGADA')  return '#22c55e';
-    if (key === 'PARCIAL') return '#f59e0b';
-    return '#94a3b8'; // SIN_PAGO
-  }
+  getPagoColor(key?: string): string { return colorEstadoPago(key); }
+
+  /** No hay nada que cobrar en esta cita: se pagó, o se descontó por inasistencia. */
+  estaSaldada(cita: Cita): boolean { return estaSaldada(cita.estado_pago_key); }
 
   isPagada(cita: Cita): boolean { return cita.estado_pago_key === 'PAGADA'; }
   isParcial(cita: Cita): boolean { return cita.estado_pago_key === 'PARCIAL'; }

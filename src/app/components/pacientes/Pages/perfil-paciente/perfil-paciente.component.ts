@@ -213,6 +213,49 @@ export class PerfilPacienteComponent implements OnInit {
    * El catálogo manda un color pleno, pensado para texto. Como fondo del chip resulta ilegible,
    * así que se usa el mismo color al 15% y el texto va en el color pleno.
    */
+  /**
+   * Cuantas citas hay de cada estado y de cada estado de pago.
+   *
+   * La tabla ya lo dice todo, pero fila por fila: para saber cuantas anuladas lleva un paciente
+   * con treinta citas habia que contarlas a ojo, y con el listado cortado a 50 ni eso. Los dos
+   * recuentos salen de TODAS sus citas, no solo de las que se ven.
+   *
+   * Se ordenan de mayor a menor y los ceros no se listan: una ficha no necesita decir que tiene
+   * cero reprogramadas. El color es el mismo que el del chip de la fila, para que el contador y
+   * la tabla se lean como lo mismo.
+   */
+  get conteoPorEstado(): { nombre: string; n: number; color: string }[] {
+    const COLORES: Record<string, string> = {
+      PROGRAMADA: '#3b82f6', CONFIRMADA: '#6366f1', EN_CURSO: '#f59e0b', ASISTIDA: '#22c55e',
+      NO_ASISTIO: '#ef4444', REPROGRAMADA: '#8b5cf6', ANULADA: '#64748b',
+    };
+    const porKey = new Map<string, number>();
+    for (const c of this.citas) {
+      const k = c.estado ?? 'SIN_ESTADO';
+      porKey.set(k, (porKey.get(k) ?? 0) + 1);
+    }
+    return [...porKey.entries()]
+      .map(([k, n]) => ({ nombre: this.estadoCitaLabel(k), n, color: COLORES[k] ?? '#64748b' }))
+      .sort((a, b) => b.n - a.n);
+  }
+
+  get conteoPorPago(): { nombre: string; n: number; color: string }[] {
+    const porKey = new Map<string, { nombre: string; color: string; n: number }>();
+    for (const c of this.citas) {
+      // El nombre y el color vienen del catalogo, con la misma cita como fuente: asi un estado
+      // nuevo (DESCONTADA, por ejemplo) aparece sin tocar esta pantalla.
+      const k = c.estado_pago_key ?? 'SIN_ESTADO';
+      const prev = porKey.get(k);
+      if (prev) prev.n++;
+      else porKey.set(k, {
+        nombre: c.estado_pago_nombre ?? 'Sin dato',
+        color:  c.estado_pago_color  ?? '#94a3b8',
+        n: 1,
+      });
+    }
+    return [...porKey.values()].sort((a, b) => b.n - a.n);
+  }
+
   colorPagoFondo(color?: string | null): string {
     return color ? `${color}26` : '#f1f5f9';
   }
