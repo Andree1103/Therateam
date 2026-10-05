@@ -292,7 +292,13 @@
         <div class="frow-2">
           <div class="frow">
             <label>Fecha de pago</label>
-            <input [(ngModel)]="formData.fechaPago" name="fechaPago" type="datetime-local">
+            <!-- Editable a proposito (cargar un cobro de ayer), pero con tope hoy: un pago
+                 fechado manana no sale en ninguna caja hasta que llegue ese dia. -->
+            <input [(ngModel)]="formData.fechaPago" name="fechaPago" type="datetime-local"
+                   [max]="ahoraParaInput">
+            <small class="hint-fecha" *ngIf="fechaDePagoEsFutura">
+              La fecha de pago no puede ser futura — ese cobro no aparecería en la caja de hoy.
+            </small>
           </div>
           <div class="frow">
             <label>Referencia / N° operación</label>

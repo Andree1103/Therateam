@@ -457,6 +457,12 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
       this.toast.warning(`Este paquete tiene ${this.sesionesFaltantesTratamiento} sesión(es) sin cita creada — complétalas primero desde el paquete antes de registrar el pago.`);
       return;
     }
+    // El `max` del input solo frena al selector: la fecha tambien se puede teclear. El back
+    // la rechaza igual, pero avisar aqui evita perder lo escrito en el formulario.
+    if (this.fechaDePagoEsFutura) {
+      this.toast.warning('La fecha de pago no puede ser futura.');
+      return;
+    }
     this.guardando = true;
     const f = this.formData;
     const body: Partial<Pago> = {
@@ -511,6 +517,14 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   private emptyForm(): PagoForm {
     return { pacienteId: null, tratamientoId: null, citaId: null, metodoId: null,
              montoRecibido: null, referencia: '', notas: '', fechaPago: this.ahoraLocalISO() };
+  }
+
+  /** Tope del campo "Fecha de pago": no se puede cobrar en el futuro. */
+  get ahoraParaInput(): string { return this.ahoraLocalISO(); }
+
+  get fechaDePagoEsFutura(): boolean {
+    const f = this.formData?.fechaPago;
+    return !!f && f > this.ahoraLocalISO();
   }
 
   /** Fecha/hora actual en formato local (no UTC) para un input datetime-local — usar
