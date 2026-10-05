@@ -212,6 +212,17 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
           'Tipo': p.tratamiento?.tipoTerapiaNombre ?? '',
           'Método de pago': p.metodo?.nombre ?? '',
           'Monto recibido (S/)': p.montoRecibido ?? '',
+          // Las tres columnas siguientes existen porque sumar "Monto recibido" NO da el arqueo,
+          // y el negocio cuadraba su Excel contra la caja sin saber por que no coincidian. Una
+          // devolucion es dinero que SALE (el Excel la sumaba, descuadrando el doble), y un
+          // metodo marcado como "no es dinero en caja" no entra al cajon. "Suma al arqueo" ya
+          // trae el signo puesto: su total es exactamente el del cierre de caja.
+          '¿Entra a caja?': p.esDevolucion ? 'No — es una devolución'
+                            : (p.metodo && p.metodo.cuentaEnCaja === false
+                                 ? 'No — ese método no es dinero' : 'Sí'),
+          'Suma al arqueo (S/)': p.esDevolucion ? -(p.montoRecibido ?? 0)
+                                 : (p.metodo && p.metodo.cuentaEnCaja === false
+                                      ? 0 : (p.montoRecibido ?? 0)),
           'Monto aplicado (S/)': p.montoAplicado ?? '',
           'Saldo generado (S/)': p.saldoGenerado ?? '',
           'Referencia': p.referencia ?? '',
