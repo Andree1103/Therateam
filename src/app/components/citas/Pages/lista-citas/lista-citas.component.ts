@@ -1297,6 +1297,22 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     }, 180);
   }
 
+  /**
+   * Relee del servidor cuanto saldo a favor le queda al paciente.
+   *
+   * Se llama al abrir el panel de cobro y otra vez despues de cobrar. Lo segundo faltaba: la
+   * cita se refrescaba y el saldo no, asi que tras descontar 40 de un adelanto de 60 la
+   * pantalla seguia diciendo "Tiene S/ 60.00 a favor" sobre un saldo que ya era 20.
+   */
+  private releerSaldoDelPaciente(idPaciente: number): void {
+    this.pacienteSaldoAFavor = 0;
+    if (!idPaciente) return;
+    this.pacienteService.getById(idPaciente).subscribe({
+      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+      error: () => {}
+    });
+  }
+
   // ── Pago individual desde hover card ──────────────────────────────────────
 
   abrirPagoCita(cita: Cita, e: Event): void {
@@ -1304,15 +1320,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     // El saldo a favor solo se cargaba al elegir paciente en el formulario de NUEVA cita. Si el
     // adelanto entro despues de crear la cita, aqui valia 0 y el panel cobraba el precio entero
     // como si el paciente no tuviera nada a favor — que es justo lo que reportaron.
-    this.pacienteSaldoAFavor = 0;
     this.saldoAAplicar = null;
-    const idPac = Number(cita.paciente_id);
-    if (idPac) {
-      this.pacienteService.getById(idPac).subscribe({
-        next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
-        error: () => {}
-      });
-    }
+    this.releerSaldoDelPaciente(Number(cita.paciente_id));
     this.citaPagandoId     = cita.id;
     this.pagoMonto         = null;
     this.pagoTratamientoId = null;
@@ -1504,6 +1513,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         this.pagoReferencia = '';
         this.guardandoPago = false;
         this.recargarSilencioso();
+        // El saldo del paciente es justo lo que acaba de moverse: si no se relee, el panel
+        // sigue anunciando los 60 que tenia antes de gastar 40 en esta cita, e invita a
+        // descontar un dinero que ya no esta.
+        this.releerSaldoDelPaciente(Number(cita.paciente_id));
         // `citaEditando` es una copia separada de `citas` — si no se resincroniza tras el pago,
         // el modal sigue mostrando el estado_pago viejo (ej. SIN_PAGO) y el botón "Registrar pago"
         // reaparece, invitando a pagar de nuevo la misma cita por error.

@@ -111,6 +111,26 @@
           </tbody>
         </table>
 
+        <!-- Detalle de la fila "Otros cobros": lo que se cobró aparte y no es producto. Sin
+             esto, al cuadrar el turno había que salir a Pagos a averiguar de qué eran. -->
+        <ng-container *ngIf="resumen.cobrosAdicionales?.length">
+          <div class="card-subhdr">Detalle de otros cobros</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Hora</th><th>Paciente</th><th>Concepto</th><th>Método</th><th>Monto</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of resumen.cobrosAdicionales">
+                <td class="text-muted">{{ a.fecha | date:'HH:mm' }}</td>
+                <td>{{ a.paciente || '—' }}</td>
+                <td>{{ a.concepto || '—' }}</td>
+                <td>{{ a.metodo || '—' }}</td>
+                <td class="monto">S/ {{ a.monto | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </ng-container>
+
         <!-- Detalle de la fila "Productos": qué se vendió, sin salir del cierre. -->
         <ng-container *ngIf="resumen.ventasPorProducto?.length">
           <div class="card-subhdr">Detalle de productos vendidos</div>

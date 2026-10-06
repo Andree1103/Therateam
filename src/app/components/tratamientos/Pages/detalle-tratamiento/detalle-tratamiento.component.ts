@@ -87,6 +87,10 @@ export class DetalleTratamientoComponent implements OnInit {
         this.sesiones = [...sesiones].sort((a, b) => a.numero - b.numero);
         this.loading = false;
         this.cargarAtenciones();
+        // El saldo solo se leia al abrir el modal de cobro. Como `cargar()` corre despues de
+        // cada pago, releerlo aqui mantiene la cifra viva: antes, tras gastar parte del saldo,
+        // la pantalla seguia ofreciendo el importe anterior.
+        this.cargarSaldoDelPaciente();
       },
       error: () => {
         this.loading = false;

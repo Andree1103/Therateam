@@ -11,6 +11,16 @@ export interface IngresoConcepto {
   monto: number;
 }
 
+/** Una fila del detalle "qué se cobró aparte": cobros adicionales sin producto detrás. */
+export interface CobroAdicional {
+  pagoId: number;
+  fecha: string;
+  paciente: string | null;
+  concepto: string | null;
+  metodo: string | null;
+  monto: number;
+}
+
 /** Una fila del detalle de productos vendidos en el turno. */
 export interface VentaProducto {
   productoId: number;
@@ -30,6 +40,8 @@ export interface CajaResumen {
   ingresosPorConcepto: IngresoConcepto[];
   /** Qué productos se vendieron en el turno — detalle detrás de la fila "Productos". */
   ventasPorProducto: VentaProducto[];
+  /** Detalle de la fila "Otros cobros": qué se cobró aparte, a quién y por cuánto. */
+  cobrosAdicionales: CobroAdicional[];
   /**
    * Cobros del turno con un método marcado como "no es dinero en caja" (ej. "Sin pago").
    *
