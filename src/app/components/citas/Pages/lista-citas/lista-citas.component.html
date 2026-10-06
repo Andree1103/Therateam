@@ -246,12 +246,6 @@
                             [title]="c.estado_pago_nombre ?? ''">
                       </span>
                     </div>
-                    <button class="btn-atencion"
-                            *ngIf="c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA' || c.estado === 'ASISTIDA'"
-                            [title]="!estaSaldada(c) ? 'Esta cita todavía tiene saldo por cobrar — se puede registrar igual' : ''"
-                            (click)="abrirAtencion(c, $event)">
-                      {{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}
-                    </button>
                   </div>
 
                   <!-- Hover card ─────────────────────────────────────────── -->

@@ -1752,6 +1752,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    */
   getCitasPosicionadas(diaIdx: number, h: number): CitaEnGrilla[] {
     const pxPorMin = this.SLOT_H / 60;
+    // Aqui si interesan solo las que EMPIEZAN en esta hora: cada cita se dibuja una vez, en la
+    // fila donde arranca, y desde ahi se estira hacia abajo lo que dure.
     const citas = this.getCitasHora(diaIdx, h)
       .slice()
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
@@ -1882,8 +1884,18 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const horaInicioMin = h * 60;
     const horaFinMin    = horaInicioMin + 60;
 
-    const citas = this.getCitasHora(diaIdx, h)
-      .slice()
+    // Las citas que PISAN esta hora, no solo las que empiezan en ella. Mirar unicamente las que
+    // empiezan era el fallo: una cita de 16:40 a 17:20 no aparecia al calcular la fila de las
+    // 17:00, asi que 17:00-17:20 se pintaba como hueco libre —verde y clicable— encima de una
+    // cita que si estaba ocupando ese rato.
+    const citas = this.citasDelDia(diaIdx)
+      .filter(c => {
+        const ini = new Date(c.fecha_inicio);
+        const fin = new Date(c.fecha_fin);
+        const iniMin = ini.getHours() * 60 + ini.getMinutes();
+        const finMin = fin.getHours() * 60 + fin.getMinutes();
+        return iniMin < horaFinMin && finMin > horaInicioMin;
+      })
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
 
     const franjas: { top: number; height: number; horaInicio: string; minutoInicio: number }[] = [];
@@ -1954,11 +1966,12 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   getChipHeight(c: Cita): number {
     const pxPorMin = this.SLOT_H / 60;
     const proporcional = c.duracion_minutos * pxPorMin - 2;
-    // En movil el chip no lleva el boton "Registrar atencion" (se usa el del modal), asi que
-    // necesita menos alto: con el minimo de escritorio, una cita de 45min se desbordaba
-    // siempre a la hora siguiente y la rejilla se veia rota.
-    const conBoton = c.estado === 'EN_CURSO' || c.estado === 'CONFIRMADA' || c.estado === 'PROGRAMADA';
-    const minimo = this.vistaDia ? (conBoton ? 46 : 40) : (conBoton ? 78 : 56);
+    // El chip ya no lleva dentro el boton "Registrar atencion" —esta en la tarjeta flotante y
+    // en el modal—, asi que deja de necesitar los 78px que pedia aquel boton. Ese minimo era
+    // mayor que lo que ocupan 40 minutos (58px) y obligaba a recortar el alto para que una cita
+    // no se metiera encima de la siguiente. Ahora el bloque mide lo que dura, que es lo que una
+    // agenda tiene que decir.
+    const minimo = 34;
     return Math.max(minimo, proporcional);
   }
 

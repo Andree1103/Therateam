@@ -214,7 +214,6 @@ tbody tr{height:var(--slot-h)}
 
   /* El boton dentro del chip obligaba a un chip alto; en movil se accede tocando
      la cita y usando el boton del modal. */
-  .chip .btn-atencion{display:none}
   .chip-body{padding:3px 5px 3px 7px}
   .chip-pac{font-size:12.5px}
 
@@ -419,10 +418,6 @@ tbody tr{height:var(--slot-h)}
 .btn-primary-at{background:#185FA5;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
 .btn-primary-at:hover:not(:disabled){background:#0e4a8a}
 .btn-primary-at:disabled{opacity:.6;cursor:not-allowed}
-.btn-atencion{padding:4px 10px;border:1px solid #16a34a40;border-radius:6px;background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;white-space:nowrap}
-.btn-atencion:hover{background:#dcfce7}
-.btn-atencion:disabled{opacity:.5;cursor:not-allowed;background:#f8fafc;color:#94a3b8;border-color:#e2e8f0}
-.btn-atencion:disabled:hover{background:#f8fafc}
 
 /* ── HOVER CARD ─────────────────────────────────────────────────────────── */
 .chip-hover-card{position:fixed;width:240px;max-height:340px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:150;padding:10px 12px;pointer-events:all;animation:hcFade .12s ease}
