@@ -1145,10 +1145,30 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   // `slots` (30 min) se usa para el cálculo de disponibilidad/capacidad (Vista Libre, sidebar).
   // `horasGrid` (1h) es solo la fila visual de la agenda semanal.
 
+  /** Horario de apertura por defecto. La rejilla se estira si hay citas fuera de esa franja. */
+  private static readonly HORA_DESDE = 7;
+  private static readonly HORA_HASTA = 22;
+
   generarSlots(): void {
     this.slots = [];
     this.horasGrid = [];
-    for (let h = 7; h < 22; h++) {
+    // La rejilla iba fija de 07:00 a 21:00, y una cita agendada fuera de esa franja no se
+    // dibujaba nunca. Peor: seguía ocupando su hora, así que el tramo que tapaba tampoco salía
+    // como libre y quedaba un hueco en blanco que no era ni cita ni sitio disponible. Ahora la
+    // rejilla se abre lo justo para que toda cita cargada tenga su fila.
+    let desde = ListaCitasComponent.HORA_DESDE;
+    let hasta = ListaCitasComponent.HORA_HASTA;
+    for (const c of this.citas) {
+      const ini = new Date(c.fecha_inicio);
+      const fin = new Date(c.fecha_fin);
+      desde = Math.min(desde, ini.getHours());
+      // Una cita que acaba en punto no necesita abrir la hora siguiente.
+      const finH = fin.getMinutes() > 0 ? fin.getHours() + 1 : fin.getHours();
+      hasta = Math.max(hasta, finH);
+    }
+    desde = Math.max(0, desde);
+    hasta = Math.min(24, hasta);
+    for (let h = desde; h < hasta; h++) {
       for (const m of [0, 30]) {
         const lbl = `${String(h).padStart(2,'0')}:${m === 0 ? '00' : '30'}`;
         this.slots.push({ h, m, lbl });
@@ -1277,6 +1297,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       next: citas => {
         if (miPeticion !== this.peticionCitasVigente) return;  // llegó tarde: ya hay otra más nueva
         this.citas = this.sinAnuladas(citas);
+        // La rejilla depende de las citas (se abre si alguna cae fuera del horario normal),
+        // así que se regenera con cada carga, no solo al arrancar.
+        this.generarSlots();
         this.resincronizarCitasAbiertas();
         this.loading = false;
       },
@@ -1308,6 +1331,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       next: citas => {
         if (miPeticion !== this.peticionCitasVigente) return;
         this.citas = this.sinAnuladas(citas);
+        this.generarSlots();
         this.resincronizarCitasAbiertas();
       }
     });
@@ -1734,64 +1758,45 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cada cita de la hora `h`, colocada en su sitio exacto dentro de la celda.
+   * Dónde va cada cita del día: su columna, cuántas comparten ese momento y hasta dónde puede
+   * estirarse sin pisar a nadie.
    *
-   * Antes esto devolvia UN bloque por hora con todas las citas dentro, y la plantilla lo pintaba
-   * como "3 citas · Ver detalle". El problema es que agrupaba por hora de RELOJ, no por tiempo
-   * ocupado: una cita de 14:00 a 14:40 y otra de 14:40 a 15:20 no se pisan en absoluto, pero
-   * caian en la misma fila y se escondian las dos. Con la agenda llena, la pantalla decia cuantas
-   * citas habia y no quien venia — habia que abrir un modal para cada franja.
+   * Se calcula sobre el DÍA ENTERO, no fila por fila. Hacerlo por hora dejaba 35 solapes de 202
+   * chips: una cita de 08:40 a 09:40 se dibuja en la fila de las 08:00 y se mete 40 minutos en
+   * la de las 09:00, donde ya hay otra cita a las 09:00 — y como cada fila se repartía las
+   * columnas por su cuenta, las dos acababan en el mismo sitio, encimadas.
    *
-   * Ahora cada cita se posiciona por su minuto real de inicio y su duracion, asi que las que van
-   * seguidas quedan apiladas a lo alto y a ancho completo, como en la agenda de siempre. Solo
-   * las que de verdad coinciden en el tiempo se reparten el ancho en columnas.
+   * El reparto es el de cualquier calendario: se agrupan las citas encadenadas por solapamiento,
+   * dentro del grupo cada una entra en la primera columna libre, y despues cada una se ENSANCHA
+   * hacia la derecha mientras no tropiece con nadie — asi un rato tranquilo ocupa todo el ancho
+   * aunque mas tarde ese mismo grupo se llene.
    *
-   * El reparto usa el algoritmo de calendario de toda la vida: cada cita entra en la primera
-   * columna cuya ultima cita ya termino. Si hiciera falta una cuarta columna no se encoge mas
-   * —a ese ancho los nombres son ilegibles—: se pintan dos y un chip "+N" que abre el listado.
+   * Se cachea por dia: se recorre en cada ciclo de deteccion de cambios y son cientos de citas.
    */
-  getCitasPosicionadas(diaIdx: number, h: number): CitaEnGrilla[] {
-    const pxPorMin = this.SLOT_H / 60;
-    // Aqui si interesan solo las que EMPIEZAN en esta hora: cada cita se dibuja una vez, en la
-    // fila donde arranca, y desde ahi se estira hacia abajo lo que dure.
-    const citas = this.getCitasHora(diaIdx, h)
-      .slice()
-      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
-    if (citas.length === 0) return [];
+  private cacheLayout = new Map<string, Map<string, { col: number; nCols: number; altoMax: number }>>();
+  private cacheLayoutCitas: Cita[] | null = null;
 
+  private layoutDia(diaIdx: number): Map<string, { col: number; nCols: number; altoMax: number }> {
+    if (this.cacheLayoutCitas !== this.citas) { this.cacheLayout.clear(); this.cacheLayoutCitas = this.citas; }
+    const clave = String(diaIdx);
+    const cacheado = this.cacheLayout.get(clave);
+    if (cacheado) return cacheado;
+
+    const pxPorMin = this.SLOT_H / 60;
     const ini = (c: Cita) => new Date(c.fecha_inicio).getTime();
     const fin = (c: Cita) => new Date(c.fecha_fin).getTime();
+    const citas = this.citasDelDia(diaIdx).slice().sort((a, b) => ini(a) - ini(b));
+    const mapa = new Map<string, { col: number; nCols: number; altoMax: number }>();
 
-    // Alto real del chip: el que pide su duracion, pero nunca tanto como para pisar a la
-    // siguiente cita del dia. Al recortarse, la plantilla deja de pintar motivo y "agendo"
-    // (van condicionados al alto), asi que el bloque encoge sin que se corte ningun texto.
-    const inicios = this.citasDelDia(diaIdx).map(ini).sort((a, b) => a - b);
-    const altoDe = (c: Cita): number => {
-      const pedido = this.getChipHeight(c);
-      const siguiente = inicios.find(t => t > ini(c));
-      if (siguiente === undefined) return pedido;
-      const hueco = ((siguiente - ini(c)) / 60000) * pxPorMin - 2;
-      return Math.max(24, Math.min(pedido, hueco));
-    };
-
-    // 1. Grupos de citas encadenadas por solapamiento real.
+    // 1. Grupos de citas encadenadas por solapamiento.
     const grupos: Cita[][] = [];
     let grupo: Cita[] = [];
-    let finDelGrupo = -Infinity;
+    let finGrupo = -Infinity;
     for (const c of citas) {
-      if (grupo.length > 0 && ini(c) < finDelGrupo) {
-        grupo.push(c);
-        finDelGrupo = Math.max(finDelGrupo, fin(c));
-      } else {
-        if (grupo.length) grupos.push(grupo);
-        grupo = [c];
-        finDelGrupo = fin(c);
-      }
+      if (grupo.length && ini(c) < finGrupo) { grupo.push(c); finGrupo = Math.max(finGrupo, fin(c)); }
+      else { if (grupo.length) grupos.push(grupo); grupo = [c]; finGrupo = fin(c); }
     }
     if (grupo.length) grupos.push(grupo);
-
-    const MAX_COLUMNAS = 3;
-    const salida: CitaEnGrilla[] = [];
 
     for (const g of grupos) {
       // 2. Columnas: la primera que ya quedo libre a esa hora.
@@ -1804,40 +1809,104 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         colDe.set(c.id, col);
       }
 
-      const seDesborda = columnas.length > MAX_COLUMNAS;
-      const nCols = seDesborda ? MAX_COLUMNAS : columnas.length;
-      const ancho = 100 / nCols;
-      const ocultas: Cita[] = [];
-
       for (const c of g) {
-        const col = colDe.get(c.id) ?? 0;
-        // Con desborde, la ultima columna la ocupa el chip "+N": las citas que caerian ahi
-        // (o mas a la derecha) no se pintan sueltas, se cuentan.
-        if (seDesborda && col >= nCols - 1) { ocultas.push(c); continue; }
-        const inicio = new Date(c.fecha_inicio);
-        const offsetMin = (inicio.getHours() * 60 + inicio.getMinutes()) - h * 60;
-        salida.push({
-          cita: c,
-          top: Math.max(0, offsetMin) * pxPorMin,
-          height: altoDe(c),
-          izquierda: col * ancho,
-          ancho,
-          ocultas: [],
-        });
+        const col = colDe.get(c.id)!;
+        // 3. Ensanchar: cuantas columnas seguidas quedan libres mientras dura esta cita.
+        let span = 1;
+        for (let k = col + 1; k < columnas.length; k++) {
+          const chocan = columnas[k].some(o => ini(o) < fin(c) && fin(o) > ini(c));
+          if (chocan) break;
+          span++;
+        }
+        // 4. Alto: hasta la siguiente de SU columna, o lo que dure si no hay ninguna.
+        const enSuColumna = columnas[col];
+        const siguiente = enSuColumna.find(o => ini(o) > ini(c));
+        const pedido = this.getChipHeight(c);
+        const altoMax = siguiente
+          ? Math.max(24, Math.min(pedido, ((ini(siguiente) - ini(c)) / 60000) * pxPorMin - 2))
+          : pedido;
+        mapa.set(c.id, { col, nCols: columnas.length, altoMax });
+        // El span se guarda multiplicando el ancho al leerlo; se anota aqui para no recalcularlo.
+        (mapa.get(c.id) as any).span = span;
+      }
+    }
+
+    // Los minutos del DIA en los que hay desborde: los chips "+N" van todos en la ultima
+    // columna, asi que tambien tienen que recortarse entre ellos — y el de las 08:40 puede
+    // chocar con el de las 09:00, que se dibuja en la fila siguiente.
+    const MAX = 3;
+    const minutosDesborde = [...new Set(
+      citas.filter(c => { const l = mapa.get(c.id); return l && l.nCols > MAX && l.col >= MAX - 1; })
+           .map(c => { const d = new Date(c.fecha_inicio); return d.getHours() * 60 + d.getMinutes(); })
+    )].sort((a, b) => a - b);
+    (mapa as any).minutosDesborde = minutosDesborde;
+
+    this.cacheLayout.set(clave, mapa);
+    return mapa;
+  }
+
+  /**
+   * Las citas que EMPIEZAN en la hora `h`, ya colocadas segun el reparto del dia.
+   *
+   * Cada cita se dibuja una sola vez, en la fila donde arranca, y desde ahi se estira hacia abajo
+   * lo que dure. Si en su grupo hacen falta mas de tres columnas no se encoge mas —a ese ancho
+   * los nombres son ilegibles—: se pintan las dos primeras y el resto se cuenta en un chip "+N".
+   */
+  getCitasPosicionadas(diaIdx: number, h: number): CitaEnGrilla[] {
+    const pxPorMin = this.SLOT_H / 60;
+    const layout = this.layoutDia(diaIdx);
+    const citas = this.getCitasHora(diaIdx, h)
+      .slice()
+      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
+    if (citas.length === 0) return [];
+
+    const MAX_COLUMNAS = 3;
+    const salida: CitaEnGrilla[] = [];
+    const desbordadas = new Map<number, Cita[]>();   // por minuto de inicio
+
+    for (const c of citas) {
+      const l = layout.get(c.id);
+      if (!l) continue;
+      const inicio = new Date(c.fecha_inicio);
+      const offsetMin = (inicio.getHours() * 60 + inicio.getMinutes()) - h * 60;
+      const top = Math.max(0, offsetMin) * pxPorMin;
+      const nCols = Math.min(l.nCols, MAX_COLUMNAS);
+
+      if (l.nCols > MAX_COLUMNAS && l.col >= MAX_COLUMNAS - 1) {
+        const k = inicio.getHours() * 60 + inicio.getMinutes();
+        if (!desbordadas.has(k)) desbordadas.set(k, []);
+        desbordadas.get(k)!.push(c);
+        continue;
       }
 
-      if (ocultas.length) {
-        const primera = new Date(ocultas[0].fecha_inicio);
-        const offsetMin = (primera.getHours() * 60 + primera.getMinutes()) - h * 60;
-        salida.push({
-          cita: ocultas[0],
-          top: Math.max(0, offsetMin) * pxPorMin,
-          height: altoDe(ocultas[0]),
-          izquierda: (nCols - 1) * ancho,
-          ancho,
-          ocultas,
-        });
-      }
+      const ancho = 100 / nCols;
+      const span = Math.min((l as any).span ?? 1, nCols - l.col);
+      salida.push({ cita: c, top, height: l.altoMax, izquierda: l.col * ancho, ancho: ancho * span, ocultas: [] });
+    }
+
+    // Un "+N" por hora de inicio: agrupar todo el desborde en uno solo mentiria sobre cuando pasa.
+    // Van todos en la ultima columna, asi que entre ellos tambien hay que recortarse — si cada
+    // uno midiera lo que dura su cita mas larga, se pisarian igual que hacian las citas sueltas.
+    const minutos = [...desbordadas.keys()].sort((a, b) => a - b);
+    for (let i = 0; i < minutos.length; i++) {
+      const minuto = minutos[i];
+      const ocultas = desbordadas.get(minuto)!;
+      const nCols = MAX_COLUMNAS;
+      const ancho = 100 / nCols;
+      let alto = Math.max(...ocultas.map(c => layout.get(c.id)?.altoMax ?? 28));
+      // El siguiente desborde se busca en todo el dia, no solo en esta fila: si no, el de las
+      // 08:40 se estira y se mete encima del de las 09:00, que se pinta en la fila de abajo.
+      const todos: number[] = (layout as any).minutosDesborde ?? minutos;
+      const siguiente = todos.find(m => m > minuto);
+      if (siguiente !== undefined) alto = Math.min(alto, (siguiente - minuto) * pxPorMin - 2);
+      salida.push({
+        cita: ocultas[0],
+        top: Math.max(0, minuto - h * 60) * pxPorMin,
+        height: Math.max(22, alto),
+        izquierda: (nCols - 1) * ancho,
+        ancho,
+        ocultas,
+      });
     }
     return salida;
   }
