@@ -4,25 +4,34 @@
   <div class="topbar">
     <div class="topbar-left">
       <h1>Agenda de Citas</h1>
-      <span class="subtitle">{{ vista === 'semana' ? 'Vista Semanal' : 'Horarios Libres' }}</span>
+      <span class="subtitle">{{ vista === 'semana' ? 'Vista Semanal' : vista === 'dia' ? 'Vista Diaria — por terapeuta' : 'Horarios Libres' }}</span>
     </div>
     <div class="topbar-right">
       <div class="vista-tabs">
-        <button class="vtab" [class.act]="vista==='semana'" (click)="vista='semana'">Semana</button>
-        <button class="vtab" [class.act]="vista==='libre'"  (click)="vista='libre'">Horarios libres</button>
+        <button class="vtab" [class.act]="vista==='semana'" (click)="cambiarVista('semana')">Semana</button>
+        <button class="vtab" [class.act]="vista==='dia'"    (click)="cambiarVista('dia')">Día</button>
+        <button class="vtab" [class.act]="vista==='libre'"  (click)="cambiarVista('libre')">Horarios libres</button>
       </div>
     </div>
   </div>
 
   <!-- ── CONTROLES ────────────────────────────────────────────────────────── -->
   <div class="controls-bar">
+    <!-- Vista Día: se navega día a día, y el rango que se pide al servidor es ese día. -->
+    <ng-container *ngIf="vista === 'dia'">
+      <button class="nb" (click)="navDiaTerapeutas(-1)" aria-label="Día anterior">&#8249;</button>
+      <span class="wlbl dlbl">{{ diaSeleccionado | date:'EEEE' }} <small>{{ diaSeleccionado | date:'d MMM y' }}</small></span>
+      <button class="nb" (click)="navDiaTerapeutas(1)" aria-label="Día siguiente">&#8250;</button>
+      <button class="btn-hoy" (click)="irAHoyEnVistaDia()">Hoy</button>
+    </ng-container>
+
     <!-- Escritorio: se navega por semana. Móvil: día a día, porque 7 columnas no entran. -->
-    <ng-container *ngIf="!vistaDia">
+    <ng-container *ngIf="vista !== 'dia' && !vistaDia">
       <button class="nb" (click)="navSemana(-1)" aria-label="Semana anterior">&#8249;</button>
       <span class="wlbl">{{ weekLabel }}</span>
       <button class="nb" (click)="navSemana(1)" aria-label="Semana siguiente">&#8250;</button>
     </ng-container>
-    <ng-container *ngIf="vistaDia">
+    <ng-container *ngIf="vista !== 'dia' && vistaDia">
       <button class="nb" (click)="navDia(-1)" aria-label="Día anterior">&#8249;</button>
       <span class="wlbl dlbl">
         {{ diaVisible?.nombre }}
@@ -30,7 +39,7 @@
       </span>
       <button class="nb" (click)="navDia(1)" aria-label="Día siguiente">&#8250;</button>
     </ng-container>
-    <button class="btn-hoy" (click)="irHoy()">Hoy</button>
+    <button class="btn-hoy" *ngIf="vista !== 'dia'" (click)="irHoy()">Hoy</button>
     <div class="sep"></div>
 
     <!-- Filtro por área -->
@@ -143,8 +152,22 @@
 
     <!-- Sidebar con checkboxes de terapeutas -->
     <div class="sidebar">
-      <div class="sidebar-hdr">Terapeutas</div>
-      <div *ngFor="let t of terapeutasFiltrados" class="ter-item"
+      <div class="sidebar-hdr">
+        Terapeutas
+        <span class="sidebar-cuenta">
+          {{ filtrosTerapeutas.length || terapeutasSidebar.length }}<small>/{{ terapeutasFiltrados.length }}</small>
+        </span>
+      </div>
+      <!-- Buscador y acciones de golpe: con veinte terapeutas, encontrar uno a scroll y
+           marcarlos de uno en uno era el cuello de botella del filtro. -->
+      <input class="sidebar-buscar" type="text" [(ngModel)]="busquedaSidebar"
+             placeholder="Buscar terapeuta..." autocomplete="off">
+      <div class="sidebar-acciones">
+        <button type="button" (click)="marcarTodosLosVisibles()">Marcar todos</button>
+        <button type="button" [disabled]="filtrosTerapeutas.length === 0"
+                (click)="limpiarTerapeutasSeleccionados()">Quitar filtro</button>
+      </div>
+      <div *ngFor="let t of terapeutasSidebar" class="ter-item"
            [class.sel]="esTerapeutaSeleccionado(getNombreTerapeuta(t))"
            (click)="toggleFiltroTerapeuta(getNombreTerapeuta(t))">
         <div class="ter-check" [class.checked]="esTerapeutaSeleccionado(getNombreTerapeuta(t))">
@@ -156,8 +179,13 @@
           <span *ngIf="t.area" class="ter-tipo-tag">{{ t.area.nombre }}</span>
           <span>{{ getLibresTerapeuta(getNombreTerapeuta(t)) }} slots libres</span>
         </div>
+        <button type="button" class="ter-solo" title="Ver solo a este terapeuta"
+                (click)="soloEsteTerapeuta(getNombreTerapeuta(t), $event)">solo</button>
       </div>
       <div class="sidebar-empty" *ngIf="terapeutas.length === 0">Sin terapeutas</div>
+      <div class="sidebar-empty" *ngIf="terapeutas.length > 0 && terapeutasSidebar.length === 0">
+        Ningún terapeuta coincide con "{{ busquedaSidebar }}".
+      </div>
     </div>
 
     <div class="cal-scroll">
@@ -383,6 +411,66 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ═══ VISTA DÍA — una columna por terapeuta ══════════════════════════════
+       La semana sirve para seguir a UN terapeuta; con los diez a la vez cada cita cae en unos
+       20 px y no entra ni el nombre. Aquí es al revés: un solo día, y el ancho se reparte entre
+       terapeutas, que son los que de verdad compiten por el espacio. Cabe la clínica entera sin
+       filtrar y sin esconder nada tras un contador. ═══════════════════════════════════════ -->
+  <div class="dia-view" *ngIf="!loading && vista === 'dia'">
+    <div class="cal-scroll">
+      <table class="agenda-table dia-table">
+        <thead>
+          <tr>
+            <th class="th-hora">HORA</th>
+            <th *ngFor="let t of terapeutasDelDia" class="th-ter">
+              <span class="th-ter-nom">{{ getNombreTerapeuta(t) }}</span>
+              <span class="th-ter-sub">
+                <em *ngIf="t.area">{{ t.area.nombre }}</em>
+                {{ contarCitasDelDia(getNombreTerapeuta(t)) }} cita{{ contarCitasDelDia(getNombreTerapeuta(t)) !== 1 ? 's' : '' }}
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of horasGrid" class="hora-mark">
+            <td class="td-hora">{{ s.lbl }}</td>
+            <td *ngFor="let t of terapeutasDelDia" class="td-dia">
+              <ng-container *ngFor="let pos of getCitasDiaTerapeuta(getNombreTerapeuta(t), s.h); trackBy: trackByPosicionada">
+                <div class="chip" [ngStyle]="getChipStyle(pos.cita)"
+                     [style.top.px]="pos.top" [style.height.px]="pos.height"
+                     [style.left]="'0%'" [style.width.%]="100"
+                     (click)="abrirEditar(pos.cita, $event)">
+                  <div class="chip-body">
+                    <div class="chip-pac">{{ pos.cita.paciente_nombre }} {{ pos.cita.paciente_apellido }}</div>
+                    <div class="chip-top">
+                      <span class="chip-badge">{{ pos.cita.tipo_terapia_nombre }}</span>
+                    </div>
+                    <div class="chip-motivo" *ngIf="pos.height >= 56 && (pos.cita.observacion || pos.cita.notas_previas)">
+                      {{ pos.cita.observacion || pos.cita.notas_previas }}
+                    </div>
+                    <div class="chip-bot">
+                      <span class="chip-hora">{{ pos.cita.fecha_inicio | date:'HH:mm' }}–{{ pos.cita.fecha_fin | date:'HH:mm' }}</span>
+                      <span class="chip-quien" *ngIf="pos.height >= 56 && pos.cita.usuario_creacion_nombre">
+                        {{ pos.cita.usuario_creacion_nombre }}
+                      </span>
+                      <span class="chip-pago-dot"
+                            *ngIf="pos.cita.estado_pago_key && pos.cita.estado_pago_key !== 'SIN_PAGO'"
+                            [style.background]="getPagoColor(pos.cita.estado_pago_key)"
+                            [title]="pos.cita.estado_pago_nombre ?? ''"></span>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="dia-vacio" *ngIf="terapeutasDelDia.length === 0">
+        No hay terapeutas que mostrar con los filtros actuales.
+      </div>
     </div>
   </div>
 

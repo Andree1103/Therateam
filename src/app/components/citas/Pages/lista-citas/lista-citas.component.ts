@@ -272,7 +272,16 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   citaHoverId: string | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-  vista: 'semana' | 'libre' = 'semana';
+  vista: 'semana' | 'dia' | 'libre' = 'semana';
+
+  /**
+   * Día que se está mirando en la vista "Día", donde las columnas son los terapeutas.
+   *
+   * La vista semanal es para seguir a UN terapeuta: con los diez a la vez, cada cita cae en
+   * unos 20 px y no entra ni el nombre. Esta es la contraria —un día, todos los terapeutas—
+   * y es donde cabe la clínica entera sin filtrar ni esconder nada tras un contador.
+   */
+  diaSeleccionado: Date = new Date();
 
   // ── Vista por día (móvil) ─────────────────────────────────────────────────
   // En pantallas chicas no entran 7 columnas legibles, así que se muestra un día
@@ -916,6 +925,124 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return [...nombres] as string[];
   }
 
+  // ── Vista Día: columnas por terapeuta ───────────────────────────────────────
+
+  /** Los terapeutas que se pintan como columnas: los marcados, o todos si no hay ninguno. */
+  get terapeutasDelDia(): Terapeuta[] {
+    const delArea = this.terapeutasFiltrados;
+    if (this.filtrosTerapeutas.length === 0) return delArea;
+    return delArea.filter(t => this.filtrosTerapeutas.includes(terapeutaNombre(t)));
+  }
+
+  /** Citas de ese terapeuta en esa hora del día elegido, ya colocadas dentro de la celda. */
+  getCitasDiaTerapeuta(nombreTerapeuta: string, h: number): CitaEnGrilla[] {
+    const pxPorMin = this.SLOT_H / 60;
+    const f = this.diaSeleccionado;
+    const delDia = this.citas.filter(c => {
+      const ini = new Date(c.fecha_inicio);
+      return ini.getFullYear() === f.getFullYear()
+          && ini.getMonth()    === f.getMonth()
+          && ini.getDate()     === f.getDate()
+          && (c.terapeuta_nombre ?? '') === nombreTerapeuta
+          && this.pasaFiltrosAgenda(c);
+    }).sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
+
+    const inicios = delDia.map(c => new Date(c.fecha_inicio).getTime());
+    const horaMin = h * 60;
+    const salida: CitaEnGrilla[] = [];
+    for (const c of delDia) {
+      const ini = new Date(c.fecha_inicio);
+      const citaMin = ini.getHours() * 60 + ini.getMinutes();
+      if (citaMin < horaMin || citaMin >= horaMin + 60) continue;
+      // Mismo recorte que en la semana: el chip no puede pisar a la siguiente del terapeuta.
+      const t0 = ini.getTime();
+      const siguiente = inicios.find(t => t > t0);
+      const pedido = this.getChipHeight(c);
+      const alto = siguiente === undefined ? pedido
+                 : Math.max(24, Math.min(pedido, ((siguiente - t0) / 60000) * pxPorMin - 2));
+      salida.push({
+        cita: c,
+        top: (citaMin - horaMin) * pxPorMin,
+        height: alto,
+        izquierda: 0,
+        ancho: 100,
+        ocultas: [],
+      });
+    }
+    return salida;
+  }
+
+  cambiarVista(v: 'semana' | 'dia' | 'libre'): void {
+    if (this.vista === v) return;
+    this.vista = v;
+    // Semana y Día piden rangos distintos al servidor, así que hay que volver a pedir.
+    if (v !== 'libre') this.cargarCitas();
+  }
+
+  /** Navega el día de la vista "Día". Distinto de `navDia`, que mueve el día visible de la
+   *  vista semanal en móvil — ahí no se cambia de rango, solo de columna. */
+  navDiaTerapeutas(delta: number): void {
+    const d = new Date(this.diaSeleccionado);
+    d.setDate(d.getDate() + delta);
+    this.diaSeleccionado = d;
+    this.cargarCitas();
+  }
+
+  irAHoyEnVistaDia(): void { this.diaSeleccionado = new Date(); this.cargarCitas(); }
+
+  /** Cuántas citas tiene ese terapeuta el día elegido — se muestra bajo su nombre. */
+  contarCitasDelDia(nombreTerapeuta: string): number {
+    const f = this.diaSeleccionado;
+    return this.citas.filter(c => {
+      const ini = new Date(c.fecha_inicio);
+      return ini.getFullYear() === f.getFullYear()
+          && ini.getMonth()    === f.getMonth()
+          && ini.getDate()     === f.getDate()
+          && (c.terapeuta_nombre ?? '') === nombreTerapeuta
+          && this.pasaFiltrosAgenda(c);
+    }).length;
+  }
+
+  // ── Filtro de terapeutas del sidebar ────────────────────────────────────────
+
+  /** Texto del buscador del sidebar. Con 20 terapeutas, encontrar uno a scroll es un suplicio. */
+  busquedaSidebar = '';
+
+  /** Los que se listan en el sidebar: los del área elegida que además calzan con lo escrito. */
+  get terapeutasSidebar(): Terapeuta[] {
+    const q = this.busquedaSidebar.toLowerCase().trim();
+    const lista = this.terapeutasFiltrados;
+    if (!q) return lista;
+    return lista.filter(t => terapeutaNombre(t).toLowerCase().includes(q));
+  }
+
+  /**
+   * Marca o desmarca de golpe los que se están viendo.
+   *
+   * Con el buscador puesto actúa solo sobre lo listado: "escribo kids, marco todos" es la
+   * forma rápida de quedarse con un área sin ir uno por uno.
+   */
+  marcarTodosLosVisibles(): void {
+    for (const t of this.terapeutasSidebar) {
+      const n = terapeutaNombre(t);
+      if (!this.filtrosTerapeutas.includes(n)) this.filtrosTerapeutas.push(n);
+    }
+    this.cargarCitas();
+  }
+
+  limpiarTerapeutasSeleccionados(): void {
+    if (this.filtrosTerapeutas.length === 0) return;
+    this.filtrosTerapeutas = [];
+    this.cargarCitas();
+  }
+
+  /** Solo ese: el caso de lejos más común — "quiero ver la semana de Mellany". */
+  soloEsteTerapeuta(nombre: string, e: Event): void {
+    e.stopPropagation();
+    this.filtrosTerapeutas = [nombre];
+    this.cargarCitas();
+  }
+
   get terapeutasFiltrados(): Terapeuta[] {
     if (!this.filtroArea) return this.terapeutas;
     return this.terapeutas.filter(t => (t.area?.nombre ?? '') === this.filtroArea);
@@ -1096,6 +1223,13 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * octubre aparecía en blanco. Además empeoraba solo: cada cita nueva adelantaba el corte.
    */
   private rangoSemanaVisible(): { desde: Date; hasta: Date } | null {
+    // En la vista Día se pide solo ese día: navegar con ‹ › puede salirse de la semana que
+    // tiene cargada la vista semanal, y sin esto la cuadrícula saldría vacía.
+    if (this.vista === 'dia') {
+      const desde = new Date(this.diaSeleccionado); desde.setHours(0, 0, 0, 0);
+      const hasta = new Date(this.diaSeleccionado); hasta.setHours(23, 59, 59, 0);
+      return { desde, hasta };
+    }
     if (this.diasSemana.length < 7) return null;
     const desde = new Date(this.diasSemana[0].fecha);
     desde.setHours(0, 0, 0, 0);

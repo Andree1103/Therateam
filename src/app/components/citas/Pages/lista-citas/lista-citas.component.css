@@ -677,3 +677,42 @@ tbody tr{height:var(--slot-h)}
 
 /* Terapeuta ofrecido al editar pero sin jornada a esa hora: elegible, con advertencia. */
 .ac-sub--off{ color:#b45309; background:#fef3c7; border-radius:3px; padding:1px 5px; font-weight:600; }
+
+/* ── Vista Día: una columna por terapeuta ─────────────────────────────────────
+   Las columnas no se reparten el ancho de la pantalla: cada terapeuta tiene el suyo fijo y la
+   tabla scrollea en horizontal. Con diez terapeutas repartir 1400px daria 140px por cabeza y
+   los nombres volverian a cortarse — que es justo lo que esta vista viene a resolver. */
+.dia-view{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.dia-table{table-layout:fixed;width:max-content;min-width:100%}
+.dia-table .th-ter{width:190px;min-width:190px;padding:7px 8px;text-align:left;vertical-align:top;
+                   border-right:0.5px solid #2c4a6e}
+.th-ter-nom{display:block;font-size:11.5px;font-weight:700;letter-spacing:.02em;line-height:1.25;color:#fff;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Sobre el azul oscuro de la cabecera, el gris del resto de la tabla no se lee: aqui va el
+   mismo celeste que usan los nombres de dia en la vista semanal. */
+.th-ter-sub{display:block;margin-top:2px;font-size:9.5px;font-weight:600;color:#7ca3d0;text-transform:none;letter-spacing:0}
+.th-ter-sub em{font-style:normal;margin-right:6px;color:#a8c6e6}
+.dia-table .td-dia{width:190px;min-width:190px}
+.dia-vacio{padding:28px 16px;text-align:center;color:#6b7280;font-size:13px}
+
+/* ── Filtro de terapeutas: buscador y acciones ────────────────────────────────
+   Con veinte terapeutas, dar con uno a scroll y marcarlos de uno en uno era el cuello de
+   botella del filtro — y filtrar es lo que hace legible la vista semanal. */
+.sidebar-hdr{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.sidebar-cuenta{font-size:10px;font-weight:700;color:#185FA5;background:#e8f1fb;border-radius:10px;padding:1px 7px}
+.sidebar-cuenta small{font-weight:500;opacity:.6}
+.sidebar-buscar{width:100%;box-sizing:border-box;margin:6px 0 5px;padding:5px 8px;font-size:11.5px;
+                border:1px solid #dbe3ec;border-radius:6px;outline:none;background:#fff}
+.sidebar-buscar:focus{border-color:#185FA5;box-shadow:0 0 0 2px rgba(24,95,165,.12)}
+.sidebar-acciones{display:flex;gap:5px;margin-bottom:7px}
+.sidebar-acciones button{flex:1;padding:4px 6px;font-size:10.5px;font-weight:600;cursor:pointer;
+                         border:1px solid #dbe3ec;border-radius:6px;background:#fff;color:#44546b}
+.sidebar-acciones button:hover:not(:disabled){background:#eef4fb;border-color:#9dbfe3;color:#185FA5}
+.sidebar-acciones button:disabled{opacity:.45;cursor:default}
+/* "solo" aparece al pasar por encima: quedarse con un terapeuta es el gesto mas repetido. */
+.ter-item{position:relative}
+.ter-solo{position:absolute;right:6px;top:50%;transform:translateY(-50%);opacity:0;transition:opacity .12s;
+          padding:2px 7px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+          border:1px solid #9dbfe3;border-radius:10px;background:#fff;color:#185FA5;cursor:pointer}
+.ter-item:hover .ter-solo{opacity:1}
+.ter-solo:hover{background:#185FA5;color:#fff;border-color:#185FA5}
