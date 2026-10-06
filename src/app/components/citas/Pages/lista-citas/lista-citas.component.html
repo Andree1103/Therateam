@@ -180,28 +180,38 @@
             <ng-container *ngFor="let dia of diasSemana; let di = index">
             <td *ngIf="esDiaVisible(di)" class="td-dia"
                 [class.hoy-col]="esHoy(dia.fecha)">
-              <ng-container *ngFor="let cl of getClustersHora(di, s.h); trackBy: trackByCluster">
-              <ng-container *ngIf="cl.citas.length === 1; else multiChip">
-              <ng-container *ngIf="cl.citas[0] as c">
+              <ng-container *ngFor="let pos of getCitasPosicionadas(di, s.h); trackBy: trackByPosicionada">
+              <ng-container *ngIf="!pos.ocultas.length; else multiChip">
+              <ng-container *ngIf="pos.cita as c">
 
-                <!-- CHIP con hover card ─────────────────────────────────── -->
+                <!-- CHIP con hover card. El ancho ya no es siempre 100%: cuando dos citas
+                     coinciden de verdad en el tiempo se reparten la columna del dia. ────── -->
                 <div class="chip" #chipEl [ngStyle]="getChipStyle(c)"
-                     [style.top.px]="cl.top" [style.height.px]="getChipHeight(c)"
-                     [style.left]="'0%'" [style.width.%]="100"
+                     [class.chip-estrecho]="pos.ancho < 60"
+                     [style.top.px]="pos.top" [style.height.px]="pos.height"
+                     [style.left.%]="pos.izquierda" [style.width.%]="pos.ancho"
                      (click)="abrirEditar(c, $event)"
                      (mouseenter)="enterHover(c.id, chipEl)"
                      (mousemove)="citaHoverId === c.id && posicionarHoverCard(chipEl)"
                      (mouseleave)="leaveHover(c.id)">
 
+                  <!-- El paciente va primero: es a quien se busca. El terapeuta queda debajo,
+                       que ademas suele estar ya filtrado arriba. Motivo y "agendo" solo
+                       aparecen si el bloque tiene alto para ellos, para no cortar texto. -->
                   <div class="chip-body">
+                    <div class="chip-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
                     <div class="chip-top">
                       <span class="chip-ter">{{ c.terapeuta_nombre }}</span>
                       <span class="chip-badge">{{ c.tipo_terapia_nombre }}</span>
                     </div>
-                    <div class="chip-pac">{{ c.paciente_nombre }} {{ c.paciente_apellido }}</div>
+                    <div class="chip-motivo" *ngIf="pos.height >= 56 && (c.observacion || c.notas_previas)">
+                      {{ c.observacion || c.notas_previas }}
+                    </div>
                     <div class="chip-bot">
-                      <span class="chip-tipo">{{ c.duracion_minutos }}min</span>
                       <span class="chip-hora">{{ c.fecha_inicio | date:'HH:mm' }}–{{ c.fecha_fin | date:'HH:mm' }}</span>
+                      <span class="chip-quien" *ngIf="pos.height >= 56 && c.usuario_creacion_nombre">
+                        {{ c.usuario_creacion_nombre }}
+                      </span>
                       <span class="chip-pago-dot"
                             *ngIf="c.estado_pago_key && c.estado_pago_key !== 'SIN_PAGO'"
                             [style.background]="getPagoColor(c.estado_pago_key)"
@@ -346,13 +356,15 @@
               </ng-container>
               </ng-container>
 
-              <!-- Varias citas solapadas (terapeutas distintos a la misma hora): chip compacto ── -->
+              <!-- Solo cuando coinciden mas de las que caben a lo ancho: dos se pintan y el
+                   resto se cuenta aqui. A menos ancho los nombres dejan de leerse. ─────── -->
               <ng-template #multiChip>
                 <div class="chip chip-multi"
-                     [style.top.px]="cl.top" [style.height.px]="cl.height < 32 ? 32 : cl.height"
-                     (click)="abrirMultiCitas(cl.citas, $event)">
-                  <span class="chip-multi-count">{{ cl.citas.length }} citas</span>
-                  <span class="chip-multi-hint">Ver detalle</span>
+                     [style.top.px]="pos.top" [style.height.px]="pos.height < 32 ? 32 : pos.height"
+                     [style.left.%]="pos.izquierda" [style.width.%]="pos.ancho"
+                     (click)="abrirMultiCitas(pos.ocultas, $event)">
+                  <span class="chip-multi-count">+{{ pos.ocultas.length }}</span>
+                  <span class="chip-multi-hint">Ver</span>
                 </div>
               </ng-template>
               </ng-container>

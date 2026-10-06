@@ -57,6 +57,20 @@ export interface PacienteState {
   tipoId: string;
 }
 
+/**
+ * Una cita ya colocada en la cuadrícula: dónde empieza dentro de su fila, qué alto ocupa y qué
+ * trozo del ancho del día le toca. `ocultas` solo viene con contenido en el chip "+N", y lleva
+ * las citas que no cupieron para poder abrirlas desde el listado.
+ */
+interface CitaEnGrilla {
+  cita: Cita;
+  top: number;
+  height: number;
+  izquierda: number;
+  ancho: number;
+  ocultas: Cita[];
+}
+
 @Component({
   selector: 'app-lista-citas',
   templateUrl: './lista-citas.component.html',
@@ -1533,19 +1547,37 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   // ── Slots y vistas ─────────────────────────────────────────────────────────
 
   /**
-   * `getClustersHora`/`getFranjasLibresHora` devuelven objetos NUEVOS en cada llamada (se evalúan
-   * en cada ciclo de detección de cambios de Angular). Sin `trackBy`, *ngFor compararía por
-   * identidad de objeto, vería "todo distinto" en cada ciclo, y destruiría/recrearía los <div>
-   * de las citas constantemente — incluso el que el mouse está tocando en ese momento, rompiendo
-   * el hover y a veces el click. Estas funciones le dan a Angular una clave estable (basada en
-   * los ids reales de las citas) para que reutilice el mismo DOM mientras los datos no cambien.
+   * `getCitasPosicionadas`/`getFranjasLibresHora` devuelven objetos NUEVOS en cada llamada (se
+   * evalúan en cada ciclo de detección de cambios de Angular). Sin `trackBy`, *ngFor compararía
+   * por identidad de objeto, vería "todo distinto" en cada ciclo, y destruiría/recrearía los
+   * <div> de las citas constantemente — incluso el que el mouse está tocando en ese momento,
+   * rompiendo el hover y a veces el click.
    */
-  trackByCluster(_index: number, cl: { citas: Cita[] }): string {
-    return cl.citas.map(c => c.id).join('|');
-  }
-
   trackByFranja(_index: number, g: { minutoInicio: number }): number {
     return g.minutoInicio;
+  }
+
+
+  /**
+   * Todas las citas visibles de ese día, sin acotar por hora.
+   *
+   * Hace falta para saber hasta dónde puede estirarse un chip: el alto mínimo que necesita el
+   * botón "Registrar atención" (78px) es mayor que lo que ocupan 40 minutos (58px), así que sin
+   * recortarlo una cita de las 10:00 se mete encima de la de las 10:40. El corte se calcula
+   * contra el día entero porque la siguiente cita puede caer en la fila de abajo.
+   */
+  private citasDelDia(diaIdx: number): Cita[] {
+    const fecha = this.diasSemana[diaIdx]?.fecha;
+    if (!fecha) return [];
+    return this.citas.filter(c => {
+      const ini = new Date(c.fecha_inicio);
+      if (ini.getFullYear() !== fecha.getFullYear() ||
+          ini.getMonth()    !== fecha.getMonth()    ||
+          ini.getDate()     !== fecha.getDate()) return false;
+      if (this.filtrosTerapeutas.length > 0 &&
+          !this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? '')) return false;
+      return this.pasaFiltrosAgenda(c);
+    });
   }
 
   /** Citas que empiezan dentro de la hora `h` (ventana de 60 min) del día `diaIdx`, para la fila de la agenda. */
@@ -1568,29 +1600,121 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Agrupa las citas de la hora `h` para dibujarlas: si hay más de una cita en esa hora
-   * (sin importar si hay un filtro de terapeuta activo), se colapsan TODAS en un único
-   * bloque "N citas" — el detalle se ve en el modal al hacer click. Con exactamente 1 cita
-   * en la hora, se dibuja la tarjeta normal.
+   * Cada cita de la hora `h`, colocada en su sitio exacto dentro de la celda.
+   *
+   * Antes esto devolvia UN bloque por hora con todas las citas dentro, y la plantilla lo pintaba
+   * como "3 citas · Ver detalle". El problema es que agrupaba por hora de RELOJ, no por tiempo
+   * ocupado: una cita de 14:00 a 14:40 y otra de 14:40 a 15:20 no se pisan en absoluto, pero
+   * caian en la misma fila y se escondian las dos. Con la agenda llena, la pantalla decia cuantas
+   * citas habia y no quien venia — habia que abrir un modal para cada franja.
+   *
+   * Ahora cada cita se posiciona por su minuto real de inicio y su duracion, asi que las que van
+   * seguidas quedan apiladas a lo alto y a ancho completo, como en la agenda de siempre. Solo
+   * las que de verdad coinciden en el tiempo se reparten el ancho en columnas.
+   *
+   * El reparto usa el algoritmo de calendario de toda la vida: cada cita entra en la primera
+   * columna cuya ultima cita ya termino. Si hiciera falta una cuarta columna no se encoge mas
+   * —a ese ancho los nombres son ilegibles—: se pintan dos y un chip "+N" que abre el listado.
    */
-  getClustersHora(diaIdx: number, h: number): { top: number; height: number; citas: Cita[] }[] {
+  getCitasPosicionadas(diaIdx: number, h: number): CitaEnGrilla[] {
     const pxPorMin = this.SLOT_H / 60;
     const citas = this.getCitasHora(diaIdx, h)
       .slice()
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
-
     if (citas.length === 0) return [];
 
-    const iniMs = Math.min(...citas.map(c => new Date(c.fecha_inicio).getTime()));
-    const finMs = Math.max(...citas.map(c => new Date(c.fecha_fin).getTime()));
-    const ini = new Date(iniMs);
-    const offsetMin = (ini.getHours() * 60 + ini.getMinutes()) - h * 60;
+    const ini = (c: Cita) => new Date(c.fecha_inicio).getTime();
+    const fin = (c: Cita) => new Date(c.fecha_fin).getTime();
 
-    return [{
-      top:    Math.max(0, offsetMin) * pxPorMin,
-      height: Math.max(20, ((finMs - iniMs) / 60000) * pxPorMin - 2),
-      citas,
-    }];
+    // Alto real del chip: el que pide su duracion, pero nunca tanto como para pisar a la
+    // siguiente cita del dia. Al recortarse, la plantilla deja de pintar motivo y "agendo"
+    // (van condicionados al alto), asi que el bloque encoge sin que se corte ningun texto.
+    const inicios = this.citasDelDia(diaIdx).map(ini).sort((a, b) => a - b);
+    const altoDe = (c: Cita): number => {
+      const pedido = this.getChipHeight(c);
+      const siguiente = inicios.find(t => t > ini(c));
+      if (siguiente === undefined) return pedido;
+      const hueco = ((siguiente - ini(c)) / 60000) * pxPorMin - 2;
+      return Math.max(24, Math.min(pedido, hueco));
+    };
+
+    // 1. Grupos de citas encadenadas por solapamiento real.
+    const grupos: Cita[][] = [];
+    let grupo: Cita[] = [];
+    let finDelGrupo = -Infinity;
+    for (const c of citas) {
+      if (grupo.length > 0 && ini(c) < finDelGrupo) {
+        grupo.push(c);
+        finDelGrupo = Math.max(finDelGrupo, fin(c));
+      } else {
+        if (grupo.length) grupos.push(grupo);
+        grupo = [c];
+        finDelGrupo = fin(c);
+      }
+    }
+    if (grupo.length) grupos.push(grupo);
+
+    const MAX_COLUMNAS = 3;
+    const salida: CitaEnGrilla[] = [];
+
+    for (const g of grupos) {
+      // 2. Columnas: la primera que ya quedo libre a esa hora.
+      const columnas: Cita[][] = [];
+      const colDe = new Map<string, number>();
+      for (const c of g) {
+        let col = columnas.findIndex(cl => fin(cl[cl.length - 1]) <= ini(c));
+        if (col === -1) { columnas.push([c]); col = columnas.length - 1; }
+        else columnas[col].push(c);
+        colDe.set(c.id, col);
+      }
+
+      const seDesborda = columnas.length > MAX_COLUMNAS;
+      const nCols = seDesborda ? MAX_COLUMNAS : columnas.length;
+      const ancho = 100 / nCols;
+      const ocultas: Cita[] = [];
+
+      for (const c of g) {
+        const col = colDe.get(c.id) ?? 0;
+        // Con desborde, la ultima columna la ocupa el chip "+N": las citas que caerian ahi
+        // (o mas a la derecha) no se pintan sueltas, se cuentan.
+        if (seDesborda && col >= nCols - 1) { ocultas.push(c); continue; }
+        const inicio = new Date(c.fecha_inicio);
+        const offsetMin = (inicio.getHours() * 60 + inicio.getMinutes()) - h * 60;
+        salida.push({
+          cita: c,
+          top: Math.max(0, offsetMin) * pxPorMin,
+          height: altoDe(c),
+          izquierda: col * ancho,
+          ancho,
+          ocultas: [],
+        });
+      }
+
+      if (ocultas.length) {
+        const primera = new Date(ocultas[0].fecha_inicio);
+        const offsetMin = (primera.getHours() * 60 + primera.getMinutes()) - h * 60;
+        salida.push({
+          cita: ocultas[0],
+          top: Math.max(0, offsetMin) * pxPorMin,
+          height: altoDe(ocultas[0]),
+          izquierda: (nCols - 1) * ancho,
+          ancho,
+          ocultas,
+        });
+      }
+    }
+    return salida;
+  }
+
+  /**
+   * Clave estable para *ngFor.
+   *
+   * `getCitasPosicionadas` devuelve objetos NUEVOS en cada ciclo de deteccion de cambios. Sin
+   * esto, Angular veria "todo distinto" cada vez y destruiria los chips constantemente —
+   * incluido el que el mouse esta tocando, rompiendo el hover y a veces el clic.
+   */
+  trackByPosicionada(_i: number, p: CitaEnGrilla): string {
+    return p.ocultas.length ? 'mas:' + p.ocultas.map(c => c.id).join('|') : p.cita.id;
   }
 
   // ── Modal: varias citas solapadas ───────────────────────────────────────────
