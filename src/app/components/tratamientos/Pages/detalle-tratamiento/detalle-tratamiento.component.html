@@ -413,6 +413,23 @@
     </div>
 
     <div class="modal-footer-pago">
+      <!-- El saldo tambien cubre sesiones sueltas, no solo el abono: antes se mandaba el importe
+           completo de cada una y el saldo se quedaba parado. -->
+      <div class="saldo-abono" *ngIf="modoPago === 'citas' && pacienteSaldoAFavor > 0 && citasSeleccionadas.size > 0">
+        <label class="toggle-label" (click)="usarSaldoEnSesiones = !usarSaldoEnSesiones" style="cursor:pointer">
+          <input type="checkbox" [checked]="usarSaldoEnSesiones" style="pointer-events:none">
+          Usar su saldo a favor (S/ {{ pacienteSaldoAFavor.toFixed(2) }} disponible)
+        </label>
+        <div class="saldo-abono-txt" *ngIf="usarSaldoEnSesiones">
+          <ng-container *ngIf="sesionesQueCubreElSaldo === 0">Su saldo no alcanza para una sesión completa.</ng-container>
+          <ng-container *ngIf="sesionesQueCubreElSaldo > 0">
+            Cubre <strong>{{ sesionesQueCubreElSaldo }}</strong> de las {{ citasSeleccionadas.size }} seleccionadas.
+            <ng-container *ngIf="citasSeleccionadas.size > sesionesQueCubreElSaldo">
+              El resto se cobra por el método elegido.
+            </ng-container>
+          </ng-container>
+        </div>
+      </div>
       <div class="mf-resumen" *ngIf="modoPago === 'citas'">
         <span class="mf-hint" *ngIf="citasSeleccionadas.size === 0">Selecciona al menos una cita</span>
         <span class="mf-total" *ngIf="citasSeleccionadas.size > 0">
@@ -427,7 +444,11 @@
       <div class="mf-btns">
         <button class="btn-secondary" (click)="cerrarPago()">Cancelar</button>
         <button class="btn-primary" (click)="guardarPago()"
-                [disabled]="guardandoPago || !pagoMetodoId || (modoPago === 'citas' ? citasSeleccionadas.size === 0 : !abonoMonto || abonoMonto <= 0)">
+                [disabled]="guardandoPago
+                          || (modoPago === 'citas'
+                               ? (citasSeleccionadas.size === 0
+                                  || (!pagoMetodoId && citasSeleccionadas.size > sesionesQueCubreElSaldo))
+                               : (!pagoMetodoId || !abonoMonto || abonoMonto <= 0))">
           {{ guardandoPago ? 'Registrando...' : (modoPago === 'abono' ? 'Registrar abono' : 'Registrar pago') }}
         </button>
       </div>

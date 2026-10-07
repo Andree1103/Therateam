@@ -494,6 +494,24 @@
               </label>
             </div>
 
+            <!-- Saldo a favor: antes ni se miraba aqui, y al crear un paquete se le cobraba
+                 todo de nuevo a un paciente que ya tenia dinero adelantado. -->
+            <div class="saldo-paq" *ngIf="pagoModo !== 'pendiente' && pacienteSaldoAFavor > 0">
+              <label (click)="usarSaldoEnPagoInicial = !usarSaldoEnPagoInicial" style="cursor:pointer">
+                <input type="checkbox" [checked]="usarSaldoEnPagoInicial" style="pointer-events:none">
+                Usar su saldo a favor (S/ {{ pacienteSaldoAFavor.toFixed(2) }} disponible)
+              </label>
+              <p class="saldo-paq-txt" *ngIf="usarSaldoEnPagoInicial && montoDelPagoInicial > 0">
+                Se aplican S/ {{ saldoAplicadoAlPagoInicial.toFixed(2) }} de su saldo.
+                <ng-container *ngIf="efectivoDelPagoInicial > 0">
+                  Faltan <strong>S/ {{ efectivoDelPagoInicial.toFixed(2) }}</strong> por cobrar.
+                </ng-container>
+                <ng-container *ngIf="efectivoDelPagoInicial === 0">
+                  <strong>No hay que cobrarle nada más.</strong>
+                </ng-container>
+              </p>
+            </div>
+
             <ng-container *ngIf="pagoModo !== 'pendiente'">
               <div class="frow-2" style="margin-top:8px">
                 <div class="frow" *ngIf="pagoModo === 'parcial'">

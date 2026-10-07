@@ -181,3 +181,8 @@
 .hint-msg{font-size:11px;color:#6b7280;margin-top:4px;line-height:1.4;display:block}
 
 @media(max-width:768px){.page-header{flex-direction:column;align-items:flex-start;padding-left:64px}.page-body{padding:16px}.frow-2{grid-template-columns:1fr}.modal{border-radius:12px}}
+
+/* Saldo a favor dentro del bloque "Pago inicial" del modal de paquete. */
+.saldo-paq{margin-top:8px;padding:8px 10px;background:#eef7f1;border:1px solid #bfe3cd;border-radius:7px}
+.saldo-paq label{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#14532d}
+.saldo-paq-txt{margin:5px 0 0;font-size:11.5px;line-height:1.45;color:#2f6b47}

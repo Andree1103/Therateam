@@ -196,6 +196,28 @@ export class DetalleTratamientoComponent implements OnInit {
     });
   }
 
+  /** Si el saldo a favor se usa al cobrar las sesiones seleccionadas. */
+  usarSaldoEnSesiones = true;
+
+  /**
+   * Cuantas de las sesiones marcadas paga el saldo entero, sin pedir dinero.
+   *
+   * Se cuentan sesiones completas: dejar una a medias con el saldo la deja PARCIAL y obliga a
+   * perseguir el resto, que es peor que no usarlo.
+   */
+  get sesionesQueCubreElSaldo(): number {
+    if (!this.usarSaldoEnSesiones || this.pacienteSaldoAFavor <= 0) return 0;
+    let queda = this.pacienteSaldoAFavor;
+    let n = 0;
+    for (const s of this.sesiones) {
+      if (!s.citaActiva || !this.citasSeleccionadas.has(s.citaActiva.id)) continue;
+      const falta = this.saldoPendienteSesion(s);
+      if (falta <= 0 || queda < falta) break;
+      queda -= falta; n++;
+    }
+    return n;
+  }
+
   /** Lo que se pretende cobrar ahora: el abono escrito, o la deuda si aun no se escribio nada. */
   get cargoDelAbono(): number {
     const escrito = Number(this.abonoMonto) || 0;
@@ -364,17 +386,28 @@ export class DetalleTratamientoComponent implements OnInit {
     // Se registran UNO POR UNO (no en paralelo): cada pago recalcula el totalCobrado del paquete
     // leyendo el valor actual — si se mandan varios a la vez, dos pueden leer el mismo total antes
     // de que el anterior confirme, y uno se pisa con el otro (se pierde el aporte del primero).
+    // El saldo a favor paga las primeras sesiones de la seleccion, sin pedir dinero nuevo.
+    // Faltaba aqui: el motor descuenta el saldo solo si no llega el efectivo, asi que mandando
+    // el importe completo de cada sesion el saldo se quedaba parado y se le cobraba todo otra
+    // vez al paciente. Se descuenta en orden hasta que se acaba; a partir de ahi, efectivo.
+    let saldoPorGastar = this.usarSaldoEnSesiones ? this.pacienteSaldoAFavor : 0;
+
     from(sesionesSeleccionadas).pipe(
-      concatMap(s => this.pagoService.create({
+      concatMap(s => {
+        const falta = this.saldoPendienteSesion(s);
+        const conSaldo = saldoPorGastar >= falta && falta > 0;
+        if (conSaldo) saldoPorGastar -= falta;
+        return this.pagoService.create({
         tratamiento:   { id: this.tratamiento!.id },
         paciente:      pacienteId ? { id: pacienteId } : undefined,
         cita:          { id: s.citaActiva!.id },
-        metodo:        { id: this.pagoMetodoId },
-        montoRecibido: this.saldoPendienteSesion(s),
+        ...(conSaldo ? {} : { metodo: { id: this.pagoMetodoId } }),
+        montoRecibido: conSaldo ? 0 : falta,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
         fechaPago:     new Date().toISOString(),
-      } as any)),
+        } as any);
+      }),
       toArray()
     ).subscribe({
       next: () => {

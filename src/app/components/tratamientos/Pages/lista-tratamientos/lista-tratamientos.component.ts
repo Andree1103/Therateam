@@ -335,6 +335,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.pac.dropdownAbierto = false;
     this.pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
     this.formData.pacienteId = this.pac.id;
+    this.cargarSaldoDelPaciente();
   }
 
   /** El paciente buscado no existe todavía — pasa a modo "nuevo" precargando nombre/apellido
@@ -951,16 +952,51 @@ export class ListaTratamientosComponent implements OnInit {
     this.cerrarModal(); this.cargar(); this.guardando = false;
   }
 
+  // ── Saldo a favor en el pago inicial ────────────────────────────────────────
+  // El motor descuenta el saldo solo si no llega el efectivo, asi que mandando el importe
+  // completo el saldo se quedaba parado y se le cobraba todo otra vez al paciente. Aqui se
+  // resta antes de pedir dinero, igual que en los demas cobros.
+  pacienteSaldoAFavor = 0;
+  usarSaldoEnPagoInicial = true;
+
+  private cargarSaldoDelPaciente(): void {
+    this.pacienteSaldoAFavor = 0;
+    const id = this.formData.pacienteId;
+    if (!id) return;
+    this.pacienteService.getById(id).subscribe({
+      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+      error: () => { this.pacienteSaldoAFavor = 0; }
+    });
+  }
+
+  /** Lo que se pretende cobrar ahora, antes de tocar el saldo. */
+  get montoDelPagoInicial(): number {
+    if (this.pagoModo === 'pendiente') return 0;
+    return this.pagoModo === 'completo' ? this.montoTotalPaquete : (this.pagoMonto ?? 0);
+  }
+
+  /** Lo que cubre el saldo de ese cobro. */
+  get saldoAplicadoAlPagoInicial(): number {
+    if (!this.usarSaldoEnPagoInicial) return 0;
+    return Math.min(this.pacienteSaldoAFavor, this.montoDelPagoInicial);
+  }
+
+  /** Lo que hay que cobrar de verdad, ya descontado el saldo. */
+  get efectivoDelPagoInicial(): number {
+    return Math.max(0, this.montoDelPagoInicial - this.saldoAplicadoAlPagoInicial);
+  }
+
   /** Registra el pago inicial elegido en el modal contra el paquete recién creado — el paquete
    *  ya quedó guardado, así que un fallo aquí no debe bloquear el flujo, solo avisar. */
   private registrarPagoInicial(paquete: Tratamiento, citasCreadas: number): void {
-    const monto = this.pagoModo === 'completo' ? this.montoTotalPaquete : (this.pagoMonto ?? 0);
     const sufijoCitas = citasCreadas > 0 ? ` y ${citasCreadas} cita${citasCreadas === 1 ? '' : 's'} programada${citasCreadas === 1 ? '' : 's'}` : '';
+    const enEfectivo = this.efectivoDelPagoInicial;
     this.pagoService.create({
       tratamiento: { id: paquete.id! } as any,
       paciente: { id: this.formData.pacienteId! } as any,
-      metodo: { id: this.pagoMetodoId! } as any,
-      montoRecibido: monto,
+      // Sin dinero nuevo no hay medio que declarar: lo cubre entero su saldo a favor.
+      ...(enEfectivo > 0 ? { metodo: { id: this.pagoMetodoId! } as any } : {}),
+      montoRecibido: enEfectivo,
       ...(this.pagoReferencia.trim() ? { referencia: this.pagoReferencia.trim() } : {}),
     }).subscribe({
       next: () => {
