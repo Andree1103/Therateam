@@ -2478,7 +2478,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.fTipoRecurrencia = 'EVENTUAL';
     this.fPrecio    = primerTipo?.precio_recomendado ?? null;
     this.fPagado    = false;
-    this.fMetodoPagoId = this.metodosPago[0]?.id ?? null;
+    // Sin preseleccionar. Venia con el primero del catalogo —Efectivo— y nadie lo elegia: un
+    // lote cobrado por Yape quedaba registrado como efectivo y descuadraba la caja del dia.
+    // Elegir el medio tiene que ser un acto, no el resultado de no mirar.
+    this.fMetodoPagoId = null;
     this.fReferencia = '';
     this.pacienteSaldoAFavor = 0;
     this.usarSaldoAFavor = false;
@@ -2854,13 +2857,19 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.enfocar('precioCita');
       return;
     }
-    // Marcar "pagado" (sesión única) o dejar sesiones a pagar (programación múltiple) sin método
-    // de pago hacía que el registro del pago fallara en silencio (el backend lo exige) — se corta
-    // acá con un aviso claro en vez de dejar la cita creada pero el cobro perdido.
-    const seVaACobrarAlCrear = this.fPrecio && this.fPrecio > 0 && this.fTratamientoExistenteId === null &&
-      (this.modoProgramacion === 'multiple' ? this.bulkSesionesAPagar > 0 : (this.fPagado || this.usarSaldoAFavor));
-    if (seVaACobrarAlCrear && !this.fMetodoPagoId) {
-      this.toast.warning('Selecciona el método de pago'); return;
+    // Si va a entrar dinero al crear la cita, hay que decir por donde entra: sin metodo el pago
+    // falla en el backend y la cita queda creada con el cobro perdido.
+    //
+    // Se mira el dinero NUEVO, no el cobro entero: lo que cubre el saldo a favor ya entro el dia
+    // del adelanto, con el medio que tuviera entonces. Antes se exigia metodo tambien para esos,
+    // y obligaba a elegir uno falso — que luego aparece en la caja como si hubiera entrado hoy.
+    const entraDineroNuevo = (this.fPrecio ?? 0) > 0 && this.fTratamientoExistenteId === null &&
+      (this.modoProgramacion === 'multiple'
+        ? this.sesionesACobrarEnEfectivo > 0
+        : (this.fPagado && this.montoACobrarAhora > 0));
+    if (entraDineroNuevo && !this.fMetodoPagoId) {
+      this.toast.warning('Elige el método de pago para lo que se cobra ahora.');
+      return;
     }
     if (this.modoProgramacion === 'multiple' && !this.citaEditando) {
       if (!this.bulkFechaInicio || this.bulkPreview.length === 0) { this.toast.warning('Selecciona fecha y hora'); return; }

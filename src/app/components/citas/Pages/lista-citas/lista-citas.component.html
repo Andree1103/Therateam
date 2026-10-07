@@ -1219,7 +1219,8 @@
               <ng-container *ngIf="usarSaldoAFavor && sesionesQueCubreElSaldo > 0">
                 Cubre <strong>{{ sesionesQueCubreElSaldo }}</strong> de las {{ bulkSesionesAPagar }} sesiones a pagar.
                 <ng-container *ngIf="sesionesACobrarEnEfectivo > 0">
-                  Las otras {{ sesionesACobrarEnEfectivo }} se cobran{{ nombreMetodoPago ? ' en ' + nombreMetodoPago : '' }}.
+                  Las otras {{ sesionesACobrarEnEfectivo }} se cobran por el
+                  <strong>método que elijas arriba</strong>{{ nombreMetodoPago ? ' (ahora: ' + nombreMetodoPago + ')' : ' — aún sin elegir' }}.
                 </ng-container>
                 <ng-container *ngIf="sesionesACobrarEnEfectivo === 0">No hay que cobrarle nada más.</ng-container>
               </ng-container>
