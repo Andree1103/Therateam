@@ -115,12 +115,18 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     return (c.monto_pagado ?? 0) > 0 && this.deudaCita(c) > 0;
   }
 
-  /** Lo que falta para cubrir el paquete completo (monto total - ya cobrado - saldo a favor disponible). */
+  /**
+   * Lo que se debe del paquete: total menos lo ya cobrado. El saldo NO entra aqui.
+   *
+   * Antes restaba tambien el saldo a favor, y entonces el saldo se descontaba dos veces —una en
+   * esta cifra y otra en aCobrarConSaldo—. Con un paquete de S/ 235 sin cobrar y S/ 50 a favor,
+   * la pantalla proponia cobrar S/ 135 en vez de S/ 185: se le dejaban de cobrar 50 soles.
+   * Deuda y saldo son dos cosas; mezclarlas en un solo numero es lo que las descuadraba.
+   */
   get restantePaquete(): number {
     const t = this.tratamientoSeleccionado;
     if (!t) return 0;
-    const restante = (t.montoTotal ?? 0) - (t.totalCobrado ?? 0) - (t.saldoAFavor ?? 0);
-    return Math.max(0, restante);
+    return Math.max(0, (t.montoTotal ?? 0) - (t.totalCobrado ?? 0));
   }
 
   /** Lo que falta para cubrir el precio de la cita suelta seleccionada. */
@@ -160,18 +166,37 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Si este cobro usa el saldo a favor del paciente.
+   *
+   * Viene marcado porque es lo que la pantalla venia haciendo y lo que se espera casi siempre.
+   * Lo que no habia era forma de decir que NO: el saldo se gastaba igual, y en un paquete de
+   * S/ 235 un cobro registrado de S/ 45 se llevaba por delante los S/ 190 que el paciente
+   * tenia guardados, dejando todo saldado. Ahora es una decision, no un automatismo.
+   */
+  usarSaldoAFavor = true;
+
+  /** La deuda del concepto elegido (cita o paquete). Un adelanto no tiene deuda que cubrir. */
+  private get deudaDelConcepto(): number {
+    return this.formData.citaId ? this.restanteCita
+         : this.formData.tratamientoId ? this.restantePaquete : 0;
+  }
+
   /** Lo que el saldo puede cubrir del concepto elegido. */
   get saldoAplicable(): number {
-    const deuda = this.formData.citaId ? this.restanteCita
-                : this.formData.tratamientoId ? this.restantePaquete : 0;
-    return Math.min(this.pacienteSaldoAFavor, deuda);
+    if (!this.usarSaldoAFavor) return 0;
+    return Math.min(this.pacienteSaldoAFavor, this.deudaDelConcepto);
   }
 
   /** Lo que de verdad hay que cobrar hoy, ya descontado el saldo. */
   get aCobrarConSaldo(): number {
-    const deuda = this.formData.citaId ? this.restanteCita
-                : this.formData.tratamientoId ? this.restantePaquete : 0;
-    return Math.max(0, deuda - this.pacienteSaldoAFavor);
+    return Math.max(0, this.deudaDelConcepto - this.saldoAplicable);
+  }
+
+  /** Al marcar o desmarcar, el importe sugerido tiene que seguir: si no, queda el de antes. */
+  alternarUsoDelSaldo(): void {
+    this.usarSaldoAFavor = !this.usarSaldoAFavor;
+    if (this.deudaDelConcepto > 0) this.formData.montoRecibido = this.aCobrarConSaldo;
   }
 
   usarMontoPaquete(): void {
@@ -489,6 +514,9 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
       cita:       f.citaId        ? { id: f.citaId }        as any : undefined,
       metodo:     f.metodoId      ? { id: f.metodoId }      as any : undefined,
       montoRecibido: f.montoRecibido ?? undefined,
+      // Se dice cuanto saldo se pone. Era la ultima pantalla que no lo decia, y sin decirlo el
+      // backend gastaba todo el que cupiera en la deuda.
+      saldoAAplicar: this.saldoAplicable,
       referencia: f.referencia  || undefined,
       notas:      f.notas       || undefined,
       fechaPago:  f.fechaPago   || undefined,

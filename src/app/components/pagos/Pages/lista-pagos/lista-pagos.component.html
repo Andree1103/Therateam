@@ -210,10 +210,11 @@
             <span>Cobrado: S/ {{ (t.totalCobrado ?? 0) | number:'1.2-2' }}</span>
             <span *ngIf="(t.saldoAFavor ?? 0) > 0" class="txt-success">Saldo a favor: S/ {{ t.saldoAFavor | number:'1.2-2' }}</span>
           </div>
-          <button type="button" class="btn-link-paquete" *ngIf="restantePaquete > 0" (click)="usarMontoPaquete()">
-            Usar monto restante del paquete (S/ {{ restantePaquete | number:'1.2-2' }})
+          <button type="button" class="btn-link-paquete" *ngIf="aCobrarConSaldo > 0" (click)="usarMontoPaquete()">
+            Usar monto restante del paquete (S/ {{ aCobrarConSaldo | number:'1.2-2' }}<span *ngIf="saldoAplicable > 0"> tras el saldo</span>)
           </button>
           <span class="txt-success" *ngIf="restantePaquete === 0">Paquete cubierto por completo.</span>
+          <span class="txt-success" *ngIf="restantePaquete > 0 && aCobrarConSaldo === 0">Lo cubre entero su saldo a favor.</span>
           <p class="pac-hint" *ngIf="cargandoSesionesTratamiento" style="margin:6px 0 0">Revisando sesiones del paquete...</p>
           <p class="hint-warning" *ngIf="!cargandoSesionesTratamiento && sesionesFaltantesTratamiento > 0" style="margin:6px 0 0;color:#b45309">
             ⚠ Este paquete tiene {{ sesionesFaltantesTratamiento }} sesión{{ sesionesFaltantesTratamiento === 1 ? '' : 'es' }} sin cita creada todavía —
@@ -230,13 +231,23 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9.5a2.5 2.5 0 0 1 5 0c0 1.5-1.2 2-2.5 2.5S11 13.5 11 15a2.5 2.5 0 0 0 5 0"/></svg>
             <strong>Saldo a favor: S/ {{ pacienteSaldoAFavor | number:'1.2-2' }}</strong>
           </div>
-          <p class="saldo-box-txt" *ngIf="saldoAplicable > 0">
+          <!-- Usar el saldo es una decision, no un automatismo. Viene marcado porque es lo
+               habitual, pero se puede desmarcar: antes no habia forma de decir que no. -->
+          <label class="saldo-box-check" (click)="alternarUsoDelSaldo()">
+            <input type="checkbox" [checked]="usarSaldoAFavor" style="pointer-events:none">
+            Usar su saldo a favor en este cobro
+          </label>
+          <p class="saldo-box-txt" *ngIf="usarSaldoAFavor && saldoAplicable > 0">
             Se aplicarán S/ {{ saldoAplicable | number:'1.2-2' }} de su saldo a este cobro.
             <ng-container *ngIf="aCobrarConSaldo === 0"><strong>No hay que cobrarle nada más.</strong></ng-container>
             <ng-container *ngIf="aCobrarConSaldo > 0">Faltan S/ {{ aCobrarConSaldo | number:'1.2-2' }} por cobrar.</ng-container>
           </p>
-          <p class="saldo-box-txt" *ngIf="saldoAplicable === 0">
-            Elige el paquete o la cita a cobrar y su saldo se descontará solo.
+          <p class="saldo-box-txt" *ngIf="usarSaldoAFavor && saldoAplicable === 0">
+            Elige el paquete o la cita a cobrar y su saldo se descontará.
+          </p>
+          <p class="saldo-box-txt" *ngIf="!usarSaldoAFavor">
+            Su saldo <strong>no se tocará</strong>: se cobra el importe completo y los
+            S/ {{ pacienteSaldoAFavor | number:'1.2-2' }} siguen guardados.
           </p>
         </div>
 
