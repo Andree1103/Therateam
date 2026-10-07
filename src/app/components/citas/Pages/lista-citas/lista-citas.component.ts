@@ -3118,6 +3118,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     const loteMasivoId = (this.bulkAgruparComoPaquete && this.fTratamientoExistenteId === null)
       ? this.generarLoteId() : undefined;
 
+    // Se fija antes de empezar: el saldo del paciente va bajando con cada pago, asi que
+    // recalcularlo dentro del bucle daria un numero distinto en cada vuelta.
+    const sesionesConSaldo = this.sesionesQueCubreElSaldo;
+
     const crearSiguiente = (index: number): void => {
       if (index >= total) {
         if (creadas === total) {
@@ -3154,8 +3158,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
             const citaId = Number(citas[0].id);
             // Se encadena la siguiente cita al pago de esta: si se dispararan en paralelo, la
             // recarga final podía adelantarse a los últimos pagos y mostrarlos como pendientes.
+            // Las primeras las cubre el saldo (sin dinero nuevo); el resto, en efectivo.
+            const conSaldo = index < sesionesConSaldo;
             if (pid) { this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId,
-                                              () => crearSiguiente(index + 1)); return; }
+                                              () => crearSiguiente(index + 1), conSaldo); return; }
           }
           crearSiguiente(index + 1);
         },
@@ -3223,19 +3229,46 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * la grilla en paralelo con el pago y el GET —más liviano— llegaba primero, repintando la cita
    * como no pagada aunque el pago sí se hubiera registrado.
    */
+  /**
+   * Cuántas sesiones del lote paga el saldo a favor, sin pedir dinero nuevo.
+   *
+   * En programación múltiple el saldo estaba escondido a proposito ("solo tiene sentido para
+   * sesion unica"), pero el lote SI permite cobrar unas cuantas sesiones por adelantado — y
+   * entonces el saldo deberia poder cubrirlas, como en cualquier otro cobro. Sin esto el
+   * paciente con S/ 150 a favor tenia que pagar las tres sesiones otra vez en efectivo.
+   *
+   * Se cuentan sesiones enteras: media sesion pagada con saldo deja la cita PARCIAL y obliga a
+   * perseguir el resto, que es peor que no usarlo.
+   */
+  get sesionesQueCubreElSaldo(): number {
+    const precio = this.fPrecio ?? 0;
+    if (!this.usarSaldoAFavor || precio <= 0 || this.pacienteSaldoAFavor <= 0) return 0;
+    const aPagar = Math.max(0, Math.min(this.bulkSesionesAPagar ?? 0, this.bulkPreview.length));
+    return Math.min(aPagar, Math.floor(this.pacienteSaldoAFavor / precio));
+  }
+
+  /** Lo que queda por cobrar en efectivo del lote, ya descontadas las que cubre el saldo. */
+  get sesionesACobrarEnEfectivo(): number {
+    const aPagar = Math.max(0, Math.min(this.bulkSesionesAPagar ?? 0, this.bulkPreview.length));
+    return Math.max(0, aPagar - this.sesionesQueCubreElSaldo);
+  }
+
   private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number,
-                            onDone?: () => void): void {
+                            onDone?: () => void, soloConSaldo = false): void {
     const t = this.tratamientoExistenteSeleccionado;
     const body: any = {
       tratamiento:   t ? { id: t.id } : undefined,
       paciente:      { id: pacienteId },
-      montoRecibido: monto,
+      // Con saldo no entra dinero nuevo: se manda recibido 0 y el backend descuenta del saldo
+      // lo que haga falta para cubrir el precio.
+      montoRecibido: soloConSaldo ? 0 : monto,
       montoAplicado: monto,
       saldoGenerado: 0,
       saldoPrevio:   t?.saldoAFavor ?? 0,
-      notas:         'Pagado al crear cita',
+      notas:         soloConSaldo ? 'Cobrado con su saldo a favor al crear la cita'
+                                  : 'Pagado al crear cita',
     };
-    if (metodoId) body.metodo = { id: metodoId };
+    if (metodoId && !soloConSaldo) body.metodo = { id: metodoId };
     if (citaId)   body.cita   = { id: citaId };
     if (this.fReferencia.trim()) body.referencia = this.fReferencia.trim();
     // Antes el error se ignoraba en silencio: la cita quedaba creada pero el pago no, y no había

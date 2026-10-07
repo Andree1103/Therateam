@@ -1199,15 +1199,32 @@
             <label>N° de operación</label>
             <input type="text" [(ngModel)]="fReferencia" placeholder="Ej: 123456789">
           </div>
-          <!-- Saldo a favor del paciente — solo tiene sentido para sesión única (una sola cita a cobrar). -->
-          <div class="saldo-favor-box" *ngIf="pacienteSaldoAFavor > 0 && fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
+          <!-- Saldo a favor del paciente. Tambien en programacion multiple: el lote permite
+               cobrar unas cuantas sesiones por adelantado, y el saldo tiene que poder cubrirlas
+               — antes se escondia aqui y habia que volver a cobrarle en efectivo. -->
+          <div class="saldo-favor-box" *ngIf="pacienteSaldoAFavor > 0 && fPrecio && fPrecio > 0">
             <label class="toggle-label" (click)="usarSaldoAFavor = !usarSaldoAFavor">
               <div class="toggle-box" [class.on]="usarSaldoAFavor">
                 <div class="toggle-knob"></div>
               </div>
               <span>Usar saldo a favor (S/ {{ pacienteSaldoAFavor | number:'1.2-2' }} disponible)</span>
             </label>
-            <p class="pago-hint" *ngIf="usarSaldoAFavor && !fPagado">
+            <p class="pago-hint" *ngIf="modoProgramacion === 'multiple'">
+              <ng-container *ngIf="!usarSaldoAFavor">
+                Actívalo y su saldo pagará las primeras sesiones del lote.
+              </ng-container>
+              <ng-container *ngIf="usarSaldoAFavor && sesionesQueCubreElSaldo === 0">
+                Su saldo no alcanza para una sesión completa de S/ {{ fPrecio | number:'1.2-2' }}.
+              </ng-container>
+              <ng-container *ngIf="usarSaldoAFavor && sesionesQueCubreElSaldo > 0">
+                Cubre <strong>{{ sesionesQueCubreElSaldo }}</strong> de las {{ bulkSesionesAPagar }} sesiones a pagar.
+                <ng-container *ngIf="sesionesACobrarEnEfectivo > 0">
+                  Las otras {{ sesionesACobrarEnEfectivo }} se cobran{{ nombreMetodoPago ? ' en ' + nombreMetodoPago : '' }}.
+                </ng-container>
+                <ng-container *ngIf="sesionesACobrarEnEfectivo === 0">No hay que cobrarle nada más.</ng-container>
+              </ng-container>
+            </p>
+            <p class="pago-hint" *ngIf="modoProgramacion === 'single' && usarSaldoAFavor && !fPagado">
               Se aplican S/ {{ saldoAplicadoAhora | number:'1.2-2' }} de su saldo a esta cita
               <ng-container *ngIf="montoACobrarAhora > 0">
                 — queda <strong>PARCIAL</strong>, con S/ {{ montoACobrarAhora | number:'1.2-2' }} pendiente por cobrar después.

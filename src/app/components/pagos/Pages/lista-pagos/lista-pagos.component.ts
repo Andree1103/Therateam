@@ -150,6 +150,16 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
 
   pacienteSaldoAFavor = 0;
 
+  /** Relee del servidor el saldo del paciente elegido: al abrir el modal y tras cada cobro. */
+  private releerSaldoDelPaciente(): void {
+    const id = this.formData?.pacienteId;
+    if (!id) { this.pacienteSaldoAFavor = 0; return; }
+    this.pacienteService.getById(id).subscribe({
+      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
+      error: () => { this.pacienteSaldoAFavor = 0; }
+    });
+  }
+
   /** Lo que el saldo puede cubrir del concepto elegido. */
   get saldoAplicable(): number {
     const deuda = this.formData.citaId ? this.restanteCita
@@ -409,10 +419,7 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
 
     // Se pide fresco en vez de confiar en el que traiga el buscador: entre que se listó al
     // paciente y se abre este modal puede haberse registrado un adelanto.
-    this.pacienteService.getById(this.formData.pacienteId).subscribe({
-      next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
-      error: () => { this.pacienteSaldoAFavor = 0; }
-    });
+    this.releerSaldoDelPaciente();
 
     this.cargandoTratamientos = true;
     this.pagoService.getTratamientosByPaciente(this.formData.pacienteId).subscribe({
@@ -489,6 +496,10 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     this.pagoService.create(body).subscribe({
       next: () => {
         this.toast.success('Pago registrado correctamente');
+        // El saldo del paciente es justo lo que acaba de moverse. Solo se leia al elegirlo, asi
+        // que tras cobrar seguia anunciando el de antes: si se registraba otro pago seguido, la
+        // pantalla ofrecia descontar un saldo que ya estaba gastado.
+        this.releerSaldoDelPaciente();
         this.cerrarModal(); this.cargar(); this.guardando = false;
       },
       error: () => { this.toast.error('Error al registrar el pago'); this.guardando = false; }
