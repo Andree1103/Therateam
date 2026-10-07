@@ -23,6 +23,14 @@ export interface Pago {
   montoAplicado?: number;
   saldoGenerado?: number;
   saldoPrevio?: number;
+  /**
+   * Cuanto del saldo a favor se quiere usar en este cobro. Es una instruccion, no se guarda.
+   *
+   * Si no se manda, el backend usa TODO el saldo que quepa en la deuda — que es lo que hacia
+   * siempre, y por lo que un cobro de S/ 45 podia llevarse por delante S/ 190 a favor sin que
+   * nadie lo pidiera. 0 = no tocar su saldo.
+   */
+  saldoAAplicar?: number;
   referencia?: string;
   notas?: string;
   fechaPago?: string;

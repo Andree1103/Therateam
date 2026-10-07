@@ -1667,6 +1667,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       // llegue el saldo: cobrar 80 con 30 a favor deja la cita en 80 y PARCIAL, no en 80 saldada
       // ni —peor— con precio 30 como si hubiera costado eso.
       montoAplicado: soloSaldo ? this.montoACobrarDeLaCita : this.pagoMonto,
+      // Cuanto de su saldo se pone: todo lo que haga falta si se cobra con saldo, nada si se
+      // cobra con un metodo. Sin decirlo, el motor lo gastaba por su cuenta tambien al cobrar
+      // en efectivo.
+      saldoAAplicar: soloSaldo ? this.saldoAplicadoEfectivo : 0,
       saldoGenerado: 0,
       saldoPrevio:   this.pagoSaldoPrevio,
       notas:         soloSaldo ? (this.efectivoTrasSaldo > 0
@@ -3272,6 +3276,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       // lo que haga falta para cubrir el precio.
       montoRecibido: soloConSaldo ? 0 : monto,
       montoAplicado: monto,
+      saldoAAplicar: soloConSaldo ? monto : 0,
       saldoGenerado: 0,
       saldoPrevio:   t?.saldoAFavor ?? 0,
       notas:         soloConSaldo ? 'Cobrado con su saldo a favor al crear la cita'

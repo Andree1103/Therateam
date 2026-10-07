@@ -997,6 +997,10 @@ export class ListaTratamientosComponent implements OnInit {
       // Sin dinero nuevo no hay medio que declarar: lo cubre entero su saldo a favor.
       ...(enEfectivo > 0 ? { metodo: { id: this.pagoMetodoId! } as any } : {}),
       montoRecibido: enEfectivo,
+      // Cuanto de su saldo se usa lo decide la casilla, no el motor. Sin esto la casilla era
+      // decorativa: el saldo se gastaba igual — paso en el paquete de JOSE CARLOS, 5x47 con un
+      // cobro de 45 que se llevo por delante sus 190 a favor.
+      saldoAAplicar: this.saldoAplicadoAlPagoInicial,
       ...(this.pagoReferencia.trim() ? { referencia: this.pagoReferencia.trim() } : {}),
     }).subscribe({
       next: () => {

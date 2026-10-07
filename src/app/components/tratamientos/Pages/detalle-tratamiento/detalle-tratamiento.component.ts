@@ -310,6 +310,9 @@ export class DetalleTratamientoComponent implements OnInit {
       tratamiento:   { id: this.tratamiento!.id },
       paciente:      pacienteId ? { id: pacienteId } : undefined,
       montoRecibido: 0,
+      // Lo que dice la nota y lo que se gasta tienen que ser el mismo numero. Antes la nota
+      // prometia "se usaron S/ X" y el motor gastaba todo el saldo que cupiera en la deuda.
+      saldoAAplicar: this.saldoAplicadoEfectivo,
       notas:         this.efectivoTrasSaldo > 0
                        ? `Se usaron S/ ${this.saldoAplicadoEfectivo.toFixed(2)} de su saldo a favor`
                          + ` — quedan S/ ${this.efectivoTrasSaldo.toFixed(2)} por cobrar`
@@ -409,6 +412,9 @@ export class DetalleTratamientoComponent implements OnInit {
         paciente:      pacienteId ? { id: pacienteId } : undefined,
         metodo:        { id: this.pagoMetodoId },
         montoRecibido: this.abonoMonto,
+        // Un abono en efectivo no es excusa para gastarle el saldo: si lo quiere usar, hay
+        // boton aparte para eso.
+        saldoAAplicar: 0,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
       } as any).subscribe({
@@ -453,6 +459,7 @@ export class DetalleTratamientoComponent implements OnInit {
         cita:          { id: s.citaActiva!.id },
         ...(conSaldo ? {} : { metodo: { id: this.pagoMetodoId } }),
         montoRecibido: conSaldo ? 0 : falta,
+        saldoAAplicar: conSaldo ? falta : 0,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
         } as any);
