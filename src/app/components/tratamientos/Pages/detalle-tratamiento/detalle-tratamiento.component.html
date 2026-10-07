@@ -299,8 +299,13 @@
           <strong>S/ {{ (tratamiento?.saldoAFavor ?? 0).toFixed(2) }}</strong>
         </div>
         <div class="pago-res-item pago-res-item--selected" *ngIf="citasSeleccionadas.size > 0">
-          <span>A pagar ahora</span>
-          <strong class="success">S/ {{ totalPago.toFixed(2) }}</strong>
+          <span>{{ saldoAplicadoALasSesiones > 0 ? 'A cobrar ahora' : 'A pagar ahora' }}</span>
+          <strong class="success">S/ {{ efectivoDeLasSesiones.toFixed(2) }}</strong>
+          <!-- Con el saldo activo esta cifra y la de abajo decian 150 mientras por caja entraban
+               50: se ensena lo que se le pide a la persona, y aparte de donde sale el resto. -->
+          <em class="pago-res-nota" *ngIf="saldoAplicadoALasSesiones > 0">
+            + S/ {{ saldoAplicadoALasSesiones.toFixed(2) }} de su saldo
+          </em>
         </div>
       </div>
 
@@ -391,13 +396,15 @@
       <!-- Método y referencia -->
       <div class="frow-2">
         <div class="frow">
-          <label>Método de pago *</label>
+          <label>Método de pago <span *ngIf="haceFaltaMetodo">*</span></label>
           <select [(ngModel)]="pagoMetodoId"
-                  [class.err-input]="!pagoMetodoId && metodosPago.length > 0">
+                  [class.err-input]="haceFaltaMetodo && !pagoMetodoId && metodosPago.length > 0">
             <option [ngValue]="null">{{ metodosPago.length === 0 ? 'Cargando...' : 'Seleccionar...' }}</option>
             <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
           </select>
-          <span class="err-msg" *ngIf="!pagoMetodoId && metodosPago.length > 0">Selecciona el método</span>
+          <span class="err-msg" *ngIf="haceFaltaMetodo && !pagoMetodoId && metodosPago.length > 0">Selecciona el método</span>
+          <!-- Si el saldo lo cubre todo no entra dinero: no hay medio que registrar. -->
+          <span class="campo-nota" *ngIf="!haceFaltaMetodo">No hace falta: lo cubre su saldo.</span>
         </div>
         <div class="frow">
           <label>Referencia / N° operación</label>
@@ -434,7 +441,10 @@
         <span class="mf-hint" *ngIf="citasSeleccionadas.size === 0">Selecciona al menos una cita</span>
         <span class="mf-total" *ngIf="citasSeleccionadas.size > 0">
           {{ citasSeleccionadas.size }} cita{{ citasSeleccionadas.size !== 1 ? 's' : '' }}
-          &rarr; <strong>S/ {{ totalPago.toFixed(2) }}</strong>
+          &rarr; <strong>S/ {{ efectivoDeLasSesiones.toFixed(2) }}</strong>
+          <em class="mf-total-nota" *ngIf="saldoAplicadoALasSesiones > 0">
+            y S/ {{ saldoAplicadoALasSesiones.toFixed(2) }} del saldo
+          </em>
         </span>
       </div>
       <div class="mf-resumen" *ngIf="modoPago === 'abono'">

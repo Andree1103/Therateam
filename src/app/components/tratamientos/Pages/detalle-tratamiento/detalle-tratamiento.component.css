@@ -169,7 +169,15 @@
 .mf-hint{font-style:italic}
 .mf-total{color:#0f172a}
 .mf-total strong{color:#185FA5;font-size:14px}
-.mf-btns{display:flex;gap:10px}
+.mf-btns{display:flex;gap:10px;flex-shrink:0}
+
+/* El bloque del saldo vive en el PIE, no en el cuerpo, y el pie es una fila: metido ahi sin mas
+   se repartia el ancho con el resumen y los botones, y los tres salian estrujados —el total
+   partido en tres lineas y los botones encima. Se le da la fila entera y el resto va debajo. */
+.modal-footer-pago{flex-wrap:wrap}
+.modal-footer-pago .saldo-abono{flex:1 0 100%;margin-top:0}
+.mf-total{display:flex;flex-direction:column;line-height:1.35}
+.mf-total-nota,.pago-res-nota{font-style:normal;font-size:11.5px;color:#047857;font-weight:600}
 
 @media(max-width:1024px){.stats-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.stats-row{grid-template-columns:repeat(2,1fr)}.page-header{flex-direction:column;align-items:flex-start}.frow-2{grid-template-columns:1fr}}
@@ -188,3 +196,6 @@
                  transition:background .13s,border-color .13s}
 .btn-saldo-abono:hover{background:#d1fae5;border-color:#059669}
 .btn-saldo-abono:disabled{opacity:.5;cursor:not-allowed}
+
+/* Aclaracion bajo un campo que, en este caso, no hay que rellenar. */
+.campo-nota{font-size:11.5px;color:#047857;margin-top:3px}

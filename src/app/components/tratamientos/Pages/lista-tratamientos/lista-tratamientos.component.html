@@ -522,13 +522,18 @@
                   <span class="err-msg" *ngIf="pagoMontoRef.invalid && pagoMontoRef.touched">Requerido</span>
                 </div>
                 <div class="frow">
-                  <label>Método de pago *</label>
-                  <select [(ngModel)]="pagoMetodoId" name="pagoMetodoId" required
+                  <!-- Si el saldo cubre el paquete entero no entra dinero: exigir el medio aqui
+                       dejaba el boton de crear bloqueado por un dato que no existe. -->
+                  <label>Método de pago <span *ngIf="efectivoDelPagoInicial > 0">*</span></label>
+                  <select [(ngModel)]="pagoMetodoId" name="pagoMetodoId" [required]="efectivoDelPagoInicial > 0"
                           #pagoMetodoRef="ngModel" [class.err-input]="pagoMetodoRef.invalid && pagoMetodoRef.touched">
                     <option [ngValue]="null">— Seleccionar —</option>
                     <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
                   </select>
                   <span class="err-msg" *ngIf="pagoMetodoRef.invalid && pagoMetodoRef.touched">Requerido</span>
+                  <span class="hint-msg" *ngIf="efectivoDelPagoInicial === 0 && montoDelPagoInicial > 0">
+                    No hace falta: lo cubre su saldo.
+                  </span>
                 </div>
               </div>
 
@@ -540,7 +545,15 @@
                        placeholder="Ej: 00123456">
               </div>
 
-              <span class="hint-msg" *ngIf="pagoModo === 'completo'">Se registra un pago por el total del paquete: S/ {{ montoTotalPaquete | number:'1.2-2' }}.</span>
+              <!-- Con el saldo aplicado por caja no entra el total del paquete sino la
+                   diferencia: la frase decia 200 mientras se cobraban 180. -->
+              <span class="hint-msg" *ngIf="pagoModo === 'completo' && saldoAplicadoAlPagoInicial <= 0">
+                Se registra un pago por el total del paquete: S/ {{ montoTotalPaquete | number:'1.2-2' }}.
+              </span>
+              <span class="hint-msg" *ngIf="pagoModo === 'completo' && saldoAplicadoAlPagoInicial > 0 && efectivoDelPagoInicial > 0">
+                Se cobra S/ {{ efectivoDelPagoInicial | number:'1.2-2' }} por este método; los otros
+                S/ {{ saldoAplicadoAlPagoInicial | number:'1.2-2' }} salen de su saldo.
+              </span>
             </ng-container>
           </div>
         </div>

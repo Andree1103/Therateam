@@ -187,9 +187,11 @@ export class DetalleTratamientoComponent implements OnInit {
   saldoAAplicar: number | null = null;
 
   private cargarSaldoDelPaciente(): void {
-    this.pacienteSaldoAFavor = 0;
     const id = this.tratamiento?.pacienteId ?? (this.tratamiento as any)?.paciente?.id;
-    if (!id) return;
+    if (!id) { this.pacienteSaldoAFavor = 0; return; }
+    // Ojo con poner la cifra a cero antes de pedirla: al abrir el cobro el bloque del saldo
+    // desaparecia y el total saltaba al importe SIN saldo durante un instante, justo mientras
+    // alguien lo esta leyendo para cobrar. Se deja la cifra anterior y se reemplaza al llegar.
     this.pacienteService.getById(id).subscribe({
       next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
       error: () => {}
@@ -216,6 +218,42 @@ export class DetalleTratamientoComponent implements OnInit {
       queda -= falta; n++;
     }
     return n;
+  }
+
+  /**
+   * Lo que el paciente paga del saldo, y lo que entrega de verdad.
+   *
+   * El recuadro de arriba decia "A pagar ahora S/ 150" con el saldo marcado, cuando por caja
+   * entraban 50. La cifra que se ensena tiene que ser la que se le pide a la persona que esta
+   * en el mostrador; si no, el recibo y la pantalla cuentan cosas distintas.
+   */
+  get saldoAplicadoALasSesiones(): number {
+    let queda = this.usarSaldoEnSesiones ? this.pacienteSaldoAFavor : 0;
+    let usado = 0;
+    for (const s of this.sesiones) {
+      if (!s.citaActiva || !this.citasSeleccionadas.has(s.citaActiva.id)) continue;
+      const falta = this.saldoPendienteSesion(s);
+      if (falta <= 0 || queda < falta) break;
+      queda -= falta; usado += falta;
+    }
+    return usado;
+  }
+
+  /**
+   * Si hace falta elegir metodo de pago.
+   *
+   * Cuando el saldo cubre TODAS las sesiones marcadas no entra un sol, asi que no hay medio que
+   * registrar. El campo seguia saliendo en rojo con "Selecciona el metodo" aunque el boton de
+   * guardar estuviera habilitado: la pantalla pedia algo que ella misma no necesitaba.
+   */
+  get haceFaltaMetodo(): boolean {
+    if (this.modoPago === 'abono') return true;
+    return this.citasSeleccionadas.size > this.sesionesQueCubreElSaldo;
+  }
+
+  /** El dinero que hay que cobrar: lo seleccionado menos lo que cubre el saldo. */
+  get efectivoDeLasSesiones(): number {
+    return Math.max(0, this.totalPago - this.saldoAplicadoALasSesiones);
   }
 
   /** Lo que se pretende cobrar ahora: el abono escrito, o la deuda si aun no se escribio nada. */
@@ -254,6 +292,16 @@ export class DetalleTratamientoComponent implements OnInit {
    * quedaba saldado sin que entrara un sol, y al revertirlo devolvia al saldo mas de lo que
    * habia. Lo que falte se cobra aparte, con su medio.
    */
+  /*
+   * La fecha del pago la pone el servidor, no esta pantalla.
+   *
+   * Aqui se mandaba `new Date().toISOString()`, que es UTC. El campo del backend es hora local
+   * (hora de pared, la del mostrador), asi que la Z se perdia y un pago de las 08:00 se guardaba
+   * como las 13:00: caia en el turno TARDE y el reporte del turno manana no cuadraba con la caja.
+   * Con la validacion de fecha no futura puesta esta semana, ademas, pasaba a fallar del todo —
+   * cinco horas por delante. Sin el campo, @PrePersist sella la hora del servidor, que es la
+   * buena y no depende del reloj de quien este cobrando.
+   */
   pagarAbonoConSaldo(): void {
     if (this.saldoAplicadoEfectivo <= 0) return;
     const pacienteId = this.tratamiento!.pacienteId ?? (this.tratamiento as any)?.paciente?.id;
@@ -266,7 +314,6 @@ export class DetalleTratamientoComponent implements OnInit {
                        ? `Se usaron S/ ${this.saldoAplicadoEfectivo.toFixed(2)} de su saldo a favor`
                          + ` — quedan S/ ${this.efectivoTrasSaldo.toFixed(2)} por cobrar`
                        : 'Cobrado con su saldo a favor',
-      fechaPago:     new Date().toISOString(),
     } as any).subscribe({
       next: () => {
         this.toast.success('Pago registrado con su saldo a favor');
@@ -318,7 +365,7 @@ export class DetalleTratamientoComponent implements OnInit {
     this.citasSeleccionadas.clear();
     // Pre-seleccionar todas las citas pendientes de pago
     this.sesionesParaPagar.forEach(s => this.citasSeleccionadas.add(s.citaActiva!.id));
-    this.pagoMetodoId   = this.metodosPago[0]?.id ?? null;
+    this.pagoMetodoId   = null;
     this.pagoNotas      = '';
     this.pagoReferencia = '';
     this.modoPago       = 'citas';
@@ -339,7 +386,11 @@ export class DetalleTratamientoComponent implements OnInit {
   }
 
   guardarPago(): void {
-    if (!this.pagoMetodoId) {
+    // Solo se exige el medio si de verdad entra dinero. Este guardia era incondicional: con el
+    // saldo cubriendo todas las sesiones marcadas, el boton se habilitaba y al pulsarlo el
+    // propio metodo se negaba a guardar pidiendo un dato que sobraba. El cobro con saldo no
+    // llegaba a registrarse nunca desde esta pantalla.
+    if (this.haceFaltaMetodo && !this.pagoMetodoId) {
       this.toast.warning('Selecciona el método de pago'); return;
     }
     const pacienteId  = this.tratamiento!.pacienteId
@@ -360,7 +411,6 @@ export class DetalleTratamientoComponent implements OnInit {
         montoRecibido: this.abonoMonto,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
-        fechaPago:     new Date().toISOString(),
       } as any).subscribe({
         next: () => {
           this.toast.success('Abono registrado correctamente');
@@ -405,7 +455,6 @@ export class DetalleTratamientoComponent implements OnInit {
         montoRecibido: conSaldo ? 0 : falta,
         referencia:    this.pagoReferencia || undefined,
         notas:         this.pagoNotas      || undefined,
-        fechaPago:     new Date().toISOString(),
         } as any);
       }),
       toArray()
