@@ -1,3 +1,4 @@
+import { fechaHoraConDia } from '../../../../core/utils/fecha';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
@@ -420,13 +421,7 @@ export class PerfilPacienteComponent implements OnInit {
     return new Date(f).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  formatFechaHora(f?: string | Date): string {
-    if (!f) return '—';
-    return new Date(f).toLocaleDateString('es-PE', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  }
+  formatFechaHora(f?: string | Date): string { return fechaHoraConDia(f); }
 
   estadoTratamiento(t: Tratamiento): string {
     return t.estadoNombre ?? '—';

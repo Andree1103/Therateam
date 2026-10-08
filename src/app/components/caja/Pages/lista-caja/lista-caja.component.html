@@ -10,12 +10,34 @@
       <label>Fecha</label>
       <input type="date" [(ngModel)]="fecha" (ngModelChange)="onFechaChange()">
     </div>
-    <button *ngIf="puedeExportar" type="button" class="btn-secondary" (click)="exportarExcel()"
-            [disabled]="exportando || !resumen || resumen.ingresosPorMetodo.length === 0"
-            title="Exporta los ingresos por método del turno que estás viendo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      {{ exportando ? 'Exportando...' : 'Exportar día' }}
-    </button>
+    <!-- Exportar ya no es un boton suelto: abre el rango, porque cuadrar un mes exportando
+         dia a dia y pegando hojas era el trabajo que esto venia a quitar. -->
+    <div class="export-rango" *ngIf="puedeExportar">
+      <button type="button" class="btn-secondary" (click)="abrirRangoExport()" [disabled]="exportando"
+              title="Exporta los ingresos por método y concepto de un rango de días">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ exportando ? 'Exportando...' : 'Exportar' }}
+      </button>
+
+      <div class="export-pop" *ngIf="mostrarRangoExport">
+        <div class="export-pop-hd">Exportar caja</div>
+        <div class="export-pop-row">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="exportDesde" [max]="exportHasta || null">
+        </div>
+        <div class="export-pop-row">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="exportHasta" [min]="exportDesde || null">
+        </div>
+        <p class="export-pop-nota">Se incluyen los dos turnos de cada día. Máximo 92 días.</p>
+        <div class="export-pop-btns">
+          <button type="button" class="btn-secondary" (click)="cerrarRangoExport()">Cancelar</button>
+          <button type="button" class="btn-primary" (click)="exportarExcel()" [disabled]="exportando">
+            {{ exportando ? 'Exportando...' : 'Exportar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="page-body">
@@ -59,7 +81,8 @@
       </div>
 
       <div class="cards-row">
-        <div class="stat-card">
+        <!-- El acumulado de dias anteriores: solo para los roles que lo tienen concedido. -->
+        <div class="stat-card" *ngIf="puedeVerSaldoInicial">
           <span class="stat-lbl">Saldo inicial</span>
           <span class="stat-val">S/ {{ resumen.saldoInicial | number:'1.2-2' }}</span>
         </div>
@@ -72,8 +95,10 @@
           <span class="stat-val">S/ {{ (egresosForm ?? 0) | number:'1.2-2' }}</span>
         </div>
         <div class="stat-card stat-card--total">
-          <span class="stat-lbl">Saldo final</span>
-          <span class="stat-val">S/ {{ saldoFinalPreview | number:'1.2-2' }}</span>
+          <!-- Sin el permiso se enseña el neto del turno y no el saldo final: el final
+               arrastra el inicial, asi que seria el mismo dato por otra puerta. -->
+          <span class="stat-lbl">{{ puedeVerSaldoInicial ? 'Saldo final' : 'Neto del turno' }}</span>
+          <span class="stat-val">S/ {{ (puedeVerSaldoInicial ? saldoFinalPreview : netoDelTurno) | number:'1.2-2' }}</span>
         </div>
       </div>
 
@@ -181,16 +206,19 @@
       </div>
       <table class="data-table" *ngIf="historial.length > 0">
         <thead>
-          <tr><th>Fecha</th><th>Turno</th><th>Saldo inicial</th><th>Ingresos</th><th>Egresos</th><th>Saldo final</th></tr>
+          <tr><th>Fecha</th><th>Turno</th>
+              <th *ngIf="puedeVerSaldoInicial">Saldo inicial</th>
+              <th>Ingresos</th><th>Egresos</th>
+              <th>{{ puedeVerSaldoInicial ? 'Saldo final' : 'Neto del turno' }}</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let h of historial">
             <td>{{ h.fecha | date:'d MMM yyyy' }}</td>
             <td>{{ h.turno }}</td>
-            <td>S/ {{ h.saldoInicial | number:'1.2-2' }}</td>
+            <td *ngIf="puedeVerSaldoInicial">S/ {{ h.saldoInicial | number:'1.2-2' }}</td>
             <td class="txt-success">S/ {{ h.totalIngresos | number:'1.2-2' }}</td>
             <td class="txt-danger">S/ {{ h.egresos | number:'1.2-2' }}</td>
-            <td class="monto">S/ {{ h.saldoFinal | number:'1.2-2' }}</td>
+            <td class="monto">S/ {{ (puedeVerSaldoInicial ? h.saldoFinal : (h.totalIngresos - (h.egresos ?? 0))) | number:'1.2-2' }}</td>
           </tr>
         </tbody>
       </table>

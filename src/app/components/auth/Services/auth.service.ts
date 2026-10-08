@@ -29,6 +29,8 @@ export interface User {
   puedeExportar: boolean;
   /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
   puedeCorregirAtencion: boolean;
+  /** Viene del ROL: si es false, Caja no muestra el saldo inicial. */
+  puedeVerSaldoInicial: boolean;
 }
 
 interface LoginResponse {
@@ -48,6 +50,7 @@ interface LoginResponse {
   puedeExportar: boolean;
   /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
   puedeCorregirAtencion: boolean;
+  puedeVerSaldoInicial: boolean;
 }
 
 @Injectable({
@@ -101,6 +104,7 @@ export class AuthService {
           pacientesVerTelefono: res.pacientesVerTelefono,
           puedeExportar: res.puedeExportar,
           puedeCorregirAtencion: res.puedeCorregirAtencion,
+          puedeVerSaldoInicial: res.puedeVerSaldoInicial,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -189,6 +193,10 @@ export class AuthService {
    * clavado al rol ADMIN. Acá solo se oculta el boton: el backend igual exige la autoridad
    * PUEDE_CORREGIR_ATENCION en el endpoint.
    */
+  puedeVerSaldoInicial(): boolean {
+    return this.currentUserValue?.puedeVerSaldoInicial ?? false;
+  }
+
   puedeCorregirAtencion(): boolean {
     return this.currentUserValue?.puedeCorregirAtencion ?? false;
   }

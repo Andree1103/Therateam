@@ -67,6 +67,7 @@
                   <span class="modulo-chip" *ngIf="r.pacientesVerTelefono" title="Ve el celular de los pacientes">Ve celulares</span>
                   <span class="modulo-chip" *ngIf="r.puedeExportar" title="Puede descargar los listados en Excel">Exporta Excel</span>
                   <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
+                  <span class="modulo-chip" *ngIf="r.puedeVerSaldoInicial" title="Ve el saldo inicial en Caja, que arrastra lo acumulado de dias anteriores">Ve saldo inicial</span>
                 </div>
               </td>
               <td>
@@ -242,6 +243,10 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeCorregirAtencion" name="puedeCorregirAtencion">
             Este rol puede corregir atenciones ya registradas
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeVerSaldoInicial" name="puedeVerSaldoInicial">
+            Este rol ve el saldo inicial de la caja (el acumulado del negocio)
           </label>
         </div>
         <div class="modal-footer">

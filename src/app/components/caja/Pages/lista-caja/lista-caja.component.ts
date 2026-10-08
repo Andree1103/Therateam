@@ -14,6 +14,21 @@ export class ListaCajaComponent implements OnInit {
   /** Exportar a Excel se habilita por ROL (Seguridad > Roles). */
   get puedeExportar(): boolean { return this.authService.puedeExportar(); }
 
+  /**
+   * Si este usuario ve el acumulado del negocio.
+   *
+   * Cubre el saldo inicial Y el final, no solo el inicial: el final es inicial + ingresos -
+   * egresos, asi que enseñando uno se despeja el otro con una resta. Quien no lo tenga ve lo
+   * de su turno —ingresos, egresos y el neto— que es lo que necesita para cuadrar el cajon.
+   */
+  get puedeVerSaldoInicial(): boolean { return this.authService.puedeVerSaldoInicial(); }
+
+  /** Lo que entro menos lo que salio en este turno, sin arrastrar nada de dias anteriores. */
+  get netoDelTurno(): number {
+    if (!this.resumen) return 0;
+    return this.resumen.totalIngresos - (this.resumen.egresos ?? 0);
+  }
+
 
   fecha: string = this.hoyISO();
   turno: 1 | 2 = 1;
@@ -106,34 +121,74 @@ export class ListaCajaComponent implements OnInit {
    * botón exportaba el historial de cierres y quedaba deshabilitado si todavía no se había
    * cerrado ningún turno en los últimos 30 días, aunque el día seleccionado sí tuviera ingresos.
    */
+  // ── Exportar un rango de dias ────────────────────────────────────────────
+  // Antes solo salia el dia y turno que estabas mirando. Para cuadrar un mes habia que exportar
+  // sesenta veces y pegar las hojas a mano.
+
+  mostrarRangoExport = false;
+  exportDesde = '';
+  exportHasta = '';
+
+  abrirRangoExport(): void {
+    // Arranca en el dia que se esta viendo: lo mas comun sigue siendo exportar hoy, y asi eso
+    // son dos clics y no teclear dos fechas.
+    this.exportDesde = this.exportDesde || this.fecha;
+    this.exportHasta = this.exportHasta || this.fecha;
+    this.mostrarRangoExport = true;
+  }
+
+  cerrarRangoExport(): void { this.mostrarRangoExport = false; }
+
   exportarExcel(): void {
-    if (!this.resumen) return;
-    if (this.resumen.ingresosPorMetodo.length === 0) {
-      this.toast.warning('No hay ingresos registrados para exportar en este turno'); return;
+    if (!this.exportDesde || !this.exportHasta) {
+      this.toast.warning('Indica la fecha de inicio y la de fin'); return;
+    }
+    if (this.exportHasta < this.exportDesde) {
+      this.toast.warning('La fecha de fin no puede ser anterior a la de inicio'); return;
     }
     this.exportando = true;
-    const fechaStr = new Date(this.resumen.fecha + 'T00:00:00').toLocaleDateString('es-PE');
-    const turno = this.resumen.turno;
-    // Tres bloques en la misma hoja, distinguidos por la columna Tipo: el mismo total visto
-    // por concepto, por método, y el detalle de qué productos salieron.
+    this.cajaService.getResumenRango(this.exportDesde, this.exportHasta).subscribe({
+      next: resumenes => {
+        const filas = resumenes.flatMap(r => this.filasDe(r));
+        if (filas.length === 0) {
+          this.toast.warning('No hay ingresos registrados en ese rango');
+          this.exportando = false;
+          return;
+        }
+        const nombre = this.exportDesde === this.exportHasta
+          ? `caja_${this.exportDesde}`
+          : `caja_${this.exportDesde}_a_${this.exportHasta}`;
+        this.excelExportService.exportar(filas, nombre);
+        this.exportando = false;
+        this.mostrarRangoExport = false;
+      },
+      error: err => {
+        this.toast.error(err?.error?.error || 'No se pudo exportar el rango');
+        this.exportando = false;
+      }
+    });
+  }
+
+  /**
+   * Las filas de un dia/turno. Tres bloques en la misma hoja, distinguidos por la columna Tipo:
+   * el mismo total visto por concepto, por metodo, y el detalle de que productos salieron.
+   */
+  private filasDe(r: CajaResumen): any[] {
+    const fechaStr = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-PE');
     const fila = (tipo: string, detalle: string, monto: number, unidades: number | '' = '') => ({
       'Fecha': fechaStr,
-      'Turno': turno,
+      'Turno': r.turno,
       'Tipo': tipo,
       'Detalle': detalle,
       'Unidades': unidades,
       'Monto (S/)': monto,
     });
-
-    const filas = [
-      ...(this.resumen.ingresosPorConcepto ?? []).map(c => fila('Concepto', c.nombre, c.monto)),
-      ...this.resumen.ingresosPorMetodo.map(m => fila('Método de pago', m.metodoNombre, m.monto)),
-      ...(this.resumen.ventasPorProducto ?? []).map(v => fila('Producto vendido', v.nombreProducto, v.total, v.unidades)),
-      fila('TOTAL', 'Ingresos del turno', this.resumen.totalIngresos),
+    return [
+      ...(r.ingresosPorConcepto ?? []).map(c => fila('Concepto', c.nombre, c.monto)),
+      ...(r.ingresosPorMetodo ?? []).map(m => fila('Método de pago', m.metodoNombre, m.monto)),
+      ...(r.ventasPorProducto ?? []).map(v => fila('Producto vendido', v.nombreProducto, v.total, v.unidades)),
+      fila('TOTAL', 'Ingresos del turno', r.totalIngresos),
     ];
-
-    this.excelExportService.exportar(filas, `caja_${this.fecha}_turno${this.turno}`);
-    this.exportando = false;
   }
 
   /** Exporta el historial de cierres visible (últimos 30 días) — mismo rango que se ve en pantalla. */
@@ -143,10 +198,14 @@ export class ListaCajaComponent implements OnInit {
     const filas = this.historial.map(h => ({
       'Fecha': new Date(h.fecha).toLocaleDateString('es-PE'),
       'Turno': h.turno,
-      'Saldo inicial (S/)': h.saldoInicial,
+      // El acumulado solo va para quien puede verlo en pantalla. Si no, el Excel seria la
+      // puerta de atras del permiso.
+      ...(this.puedeVerSaldoInicial ? { 'Saldo inicial (S/)': h.saldoInicial } : {}),
       'Ingresos (S/)': h.totalIngresos,
       'Egresos (S/)': h.egresos,
-      'Saldo final (S/)': h.saldoFinal,
+      ...(this.puedeVerSaldoInicial
+            ? { 'Saldo final (S/)': h.saldoFinal }
+            : { 'Neto del turno (S/)': h.totalIngresos - (h.egresos ?? 0) }),
       'Comentario': h.comentario ?? '',
       'Usuario creación': h.cerradoPor ? `${h.cerradoPor.nombre ?? ''} ${h.cerradoPor.apellido ?? ''}`.trim() : '',
     }));

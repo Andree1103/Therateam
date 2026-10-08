@@ -263,7 +263,7 @@
                  que habia que cobrarlo entero otra vez. Y el terapeuta, para distinguir dos citas
                  de la misma terapia el mismo dia. -->
             <option *ngFor="let c of citasPendientes" [ngValue]="c.id">
-              {{ c.tipo_terapia_nombre }} · {{ c.fecha_inicio | date:'dd/MM HH:mm' }}{{ c.terapeuta_nombre ? ' · ' + c.terapeuta_nombre : '' }}
+              {{ c.tipo_terapia_nombre }} · {{ conDia(c.fecha_inicio) }}{{ c.terapeuta_nombre ? ' · ' + c.terapeuta_nombre : '' }}
               · debe S/ {{ deudaCita(c) | number:'1.2-2' }}{{ esPagoParcial(c) ? ' (parcial, de S/ ' + (c.precio | number:'1.2-2') + ')' : '' }}
             </option>
           </select>

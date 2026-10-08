@@ -15,6 +15,8 @@ import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-
 import { AuthService } from '../../../auth/Services/auth.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { tieneDeuda } from '../../../../core/utils/estado-pago';
+import { fechaHoraConDia, fechaConDia } from '../../../../core/utils/fecha';
+import { sePuedeCobrar } from '../../../../core/utils/estado-cita';
 
 @Component({
   selector: 'app-detalle-tratamiento',
@@ -126,8 +128,11 @@ export class DetalleTratamientoComponent implements OnInit {
   // ── Sesiones para pagar ────────────────────────────────────────────────────
 
   get sesionesParaPagar(): Sesion[] {
+    // El estado de pago no basta: una sesion anulada sigue en SIN_PAGO y se ofrecia para
+    // cobrar. Mismo fallo que habia en el desplegable de Pagos.
     return this.sesiones.filter(s =>
       s.citaActiva && tieneDeuda(s.citaActiva.estadoPagoKey)
+      && sePuedeCobrar(s.citaActiva.estado.key)
     );
   }
 
@@ -349,18 +354,9 @@ export class DetalleTratamientoComponent implements OnInit {
 
   // ── Formato de fechas ──────────────────────────────────────────────────────
 
-  formatFecha(f?: string): string {
-    if (!f) return '—';
-    return new Date(f).toLocaleDateString('es-PE', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  }
+  formatFecha(f?: string): string { return fechaHoraConDia(f); }
 
-  formatFechaCorta(f?: string): string {
-    if (!f) return '—';
-    return new Date(f).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
-  }
+  formatFechaCorta(f?: string): string { return fechaConDia(f); }
 
   // ── Modal Pago ────────────────────────────────────────────────────────────
 

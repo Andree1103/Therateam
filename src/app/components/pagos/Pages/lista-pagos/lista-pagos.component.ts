@@ -17,6 +17,8 @@ import { CatalogItem } from '../../../../core/models/catalog.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 import { tieneDeuda } from '../../../../core/utils/estado-pago';
+import { fechaHoraCortaConDia } from '../../../../core/utils/fecha';
+import { sePuedeCobrar } from '../../../../core/utils/estado-cita';
 
 @Component({
   selector: 'app-lista-pagos',
@@ -181,6 +183,9 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     return this.formData.citaId ? this.restanteCita
          : this.formData.tratamientoId ? this.restantePaquete : 0;
   }
+
+  /** La fecha de una cita en el desplegable, con su dia de la semana. */
+  conDia(f?: string | Date | null): string { return fechaHoraCortaConDia(f); }
 
   /** Lo que el saldo puede cubrir del concepto elegido. */
   get saldoAplicable(): number {
@@ -460,7 +465,12 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     this.cargandoCitas = true;
     this.citaService.getByPaciente(this.formData.pacienteId).subscribe({
       next: data => {
-        this.citasPendientes = data.filter(c => !c.tratamiento_id && tieneDeuda(c.estado_pago_key) && (c.precio ?? 0) > 0);
+        // Hacen falta las DOS preguntas. Filtrando solo por el estado de pago salian citas
+        // anuladas y de inasistencia —que siguen en SIN_PAGO porque nadie las pago nunca—
+        // invitando a cobrar algo que ya no se cobra.
+        this.citasPendientes = data.filter(c =>
+          !c.tratamiento_id && tieneDeuda(c.estado_pago_key) && sePuedeCobrar(c.estado)
+          && (c.precio ?? 0) > 0);
         this.cargandoCitas = false;
       },
       error: () => { this.cargandoCitas = false; }

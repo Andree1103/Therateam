@@ -13,6 +13,11 @@ export class CajaService {
     return this.api.get<CajaResumen>(`${this.PATH}/resumen`, { fecha, turno: String(turno) });
   }
 
+  /** Los dos turnos de cada dia del rango, saltandose los que no tuvieron movimiento. */
+  getResumenRango(desde: string, hasta: string): Observable<CajaResumen[]> {
+    return this.api.get<CajaResumen[]>(`${this.PATH}/resumen-rango`, { desde, hasta });
+  }
+
   cerrar(req: CerrarCajaRequest): Observable<CajaResumen> {
     return this.api.post<CajaResumen>(`${this.PATH}/cerrar`, req);
   }

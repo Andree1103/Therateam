@@ -132,3 +132,8 @@
 }
 .conteo-chip strong{ font-size:13px; font-weight:700; }
 @media (max-width:640px){ .conteo-citas{ gap:10px; } }
+
+/* La fecha lleva el dia de la semana desde que se pidio ("lunes, 26 oct. 2026, 03:00 p. m."),
+   y en una columna estrecha eso parte en tres lineas. Con este ancho cabe en dos. */
+.data-table th.col-fecha{min-width:148px}
+
