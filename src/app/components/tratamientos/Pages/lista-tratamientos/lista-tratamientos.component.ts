@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { fechaHoraCortaConDia } from '../../../../core/utils/fecha';
 import { NgForm } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, from, of } from 'rxjs';
@@ -355,6 +356,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
     this.formData.pacienteId = this.pac.id;
     this.cargarSaldoDelPaciente();
+    this.buscarAbsorbibles();
   }
 
   /** El paciente buscado no existe todavía — pasa a modo "nuevo" precargando nombre/apellido
@@ -383,6 +385,69 @@ export class ListaTratamientosComponent implements OnInit {
       : this.tiposTerapia.filter(t => t.area?.id === this.fAreaId);
     const q = this.tipoBusqueda.toLowerCase().trim();
     return !q ? porArea : porArea.filter(t => t.nombre.toLowerCase().includes(q));
+  }
+
+  // ── Citas que ya tiene agendadas y pueden entrar al paquete ───────────────
+  // Antes, si el paciente ya tenia citas sueltas con ese terapeuta, habia que borrarlas y
+  // volver a crearlas dentro del paquete. Ahora se absorben.
+
+  citasAbsorbibles: any[] = [];
+  citasAAbsorber = new Set<number>();
+  buscandoAbsorbibles = false;
+
+  /**
+   * Busca candidatas cuando ya estan los tres datos que las definen.
+   *
+   * Se llama al cambiar paciente, terapeuta o tipo. Si falta alguno no hay nada que buscar:
+   * "citas de este paciente con este terapeuta y este tipo" no significa nada a medias.
+   */
+  buscarAbsorbibles(): void {
+    const pacienteId = this.pac.id;
+    const terapeutaId = this.formData.terapeutaId;
+    const tipoId = this.formData.tipoTerapiaId;
+    this.citasAbsorbibles = [];
+    this.citasAAbsorber.clear();
+    if (this.editando || !pacienteId || !terapeutaId || tipoId == null) return;
+
+    this.buscandoAbsorbibles = true;
+    this.tratamientoService.getAbsorbibles(pacienteId, terapeutaId, Number(tipoId)).subscribe({
+      next: citas => {
+        this.citasAbsorbibles = citas ?? [];
+        // Vienen marcadas: si alguien tiene tres citas sueltas y abre un paquete, lo normal es
+        // que sean justo esas. Desmarcar las que no quiera es menos trabajo que marcar.
+        this.citasAbsorbibles.forEach(c => this.citasAAbsorber.add(c.id));
+        this.buscandoAbsorbibles = false;
+        this.ajustarSesionesPorAbsorbidas();
+      },
+      error: () => { this.buscandoAbsorbibles = false; }
+    });
+  }
+
+  /** La fecha de una candidata, con su dia de la semana. */
+  conDia(f?: string | Date | null): string { return fechaHoraCortaConDia(f); }
+
+  toggleAbsorber(citaId: number): void {
+    if (this.citasAAbsorber.has(citaId)) this.citasAAbsorber.delete(citaId);
+    else this.citasAAbsorber.add(citaId);
+    this.ajustarSesionesPorAbsorbidas();
+  }
+
+  get nAbsorber(): number { return this.citasAAbsorber.size; }
+
+  /**
+   * El total de sesiones no puede ser menor que las citas que se van a meter.
+   *
+   * Sin esto el backend rechazaria el guardado con un "no caben" despues de haber creado ya el
+   * paquete, y quedaria uno vacio a medio hacer.
+   */
+  private ajustarSesionesPorAbsorbidas(): void {
+    const n = this.citasAAbsorber.size;
+    if (n > 0 && (this.formData.sesionesTotal ?? 0) < n) this.formData.sesionesTotal = n;
+  }
+
+  /** Lo que se le va a cobrar a cada una de las citas absorbidas. */
+  get precioQueTomaranLasCitas(): number {
+    return Number(this.formData.precioPorSesion) || 0;
   }
 
   get tipoSeleccionado(): CatalogItem | null {
@@ -436,6 +501,7 @@ export class ListaTratamientosComponent implements OnInit {
     }
     // La duración del tipo es solo un default sugerido para las sesiones del horario — sigue editable.
     this.duracionSesionMin = t.duracionMinutos ?? this.duracionSesionMin;
+    this.buscarAbsorbibles();
     this.calcularBulkDates();
   }
 
@@ -453,6 +519,7 @@ export class ListaTratamientosComponent implements OnInit {
   /** Al elegir terapeuta, trae su horario semanal real para deshabilitar días/horas que no atiende.
    *  Se pide fresco cada vez — no se guarda de una apertura de modal a otra. */
   onTerapeutaCambiadoParaHorario(): void {
+    this.buscarAbsorbibles();
     this.bulkHorarioTerapeuta = [];
     this.bulkHorarioCargado = false;
     this.bulkConflictos = [];
@@ -790,6 +857,21 @@ export class ListaTratamientosComponent implements OnInit {
       : this.tratamientoService.create(body);
     op$.subscribe({
       next: creado => {
+        if (!esEdicion && this.citasAAbsorber.size > 0) {
+          // Primero las que ya existian: ocupan las sesiones 1..n y el horario recurrente
+          // rellena las que queden. Al reves, el horario se comeria todas las sesiones y las
+          // citas de verdad se quedarian fuera.
+          this.tratamientoService.absorber(creado.id!, [...this.citasAAbsorber]).subscribe({
+            next: () => this.seguirTrasAbsorber(creado),
+            error: err => {
+              // El paquete ya esta creado: avisar y seguir es mejor que dejarlo a medias sin
+              // decir nada. Las citas se pueden meter despues editando el paquete.
+              this.toast.error(err?.error?.error || 'El paquete se creó, pero no se pudieron añadir las citas');
+              this.seguirTrasAbsorber(creado);
+            }
+          });
+          return;
+        }
         if (!esEdicion && this.bulkPreview.length > 0) {
           this.crearCitasDelPaquete(creado);
           return;
@@ -798,6 +880,12 @@ export class ListaTratamientosComponent implements OnInit {
       },
       error: () => { this.toast.error('Error al guardar el paquete'); this.guardando = false; }
     });
+  }
+
+  /** Tras meter las citas que ya existian, el horario recurrente rellena las sesiones libres. */
+  private seguirTrasAbsorber(paquete: Tratamiento): void {
+    if (this.bulkPreview.length > 0) { this.crearCitasDelPaquete(paquete); return; }
+    this.continuarDespuesDeGuardar(paquete, false, 0);
   }
 
   /** Crea de una vez todas las citas del horario programado, ya enganchadas a este paquete recién

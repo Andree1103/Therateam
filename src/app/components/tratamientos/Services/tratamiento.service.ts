@@ -69,6 +69,18 @@ export class TratamientoService {
     });
   }
 
+  /** Citas sueltas que ya tiene el paciente con ese terapeuta y tipo, y que caben en un paquete. */
+  getAbsorbibles(pacienteId: number, terapeutaId: number, tipoTerapiaId: number): Observable<any[]> {
+    return this.api.get<any[]>(`${this.PATH}/absorbibles`, {
+      pacienteId: String(pacienteId), terapeutaId: String(terapeutaId), tipoTerapiaId: String(tipoTerapiaId),
+    });
+  }
+
+  /** Mete esas citas en el paquete como sesiones suyas, con su precio por sesion. */
+  absorber(tratamientoId: number, citaIds: number[]): Observable<{ metidas: number }> {
+    return this.api.post<{ metidas: number }>(`${this.PATH}/${tratamientoId}/absorber`, citaIds);
+  }
+
   create(t: any): Observable<Tratamiento> {
     return this.api.post<Tratamiento>(this.PATH, t);
   }

@@ -380,6 +380,40 @@
             <span *ngIf="editando">Horario del paquete — crear sesiones faltantes o reprogramar citas futuras</span>
           </div>
 
+          <!-- Citas que el paciente YA tiene con este terapeuta y tipo. Antes habia que
+               borrarlas y volver a crearlas dentro del paquete; ahora se meten tal cual. -->
+          <div class="absorber" *ngIf="!editando && citasAbsorbibles.length > 0">
+            <div class="absorber-hd">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 6L9 17l-5-5"/></svg>
+              <strong>Ya tiene {{ citasAbsorbibles.length }} cita{{ citasAbsorbibles.length !== 1 ? 's' : '' }} agendada{{ citasAbsorbibles.length !== 1 ? 's' : '' }} sin pagar</strong>
+              <span>con este terapeuta y tipo de terapia</span>
+            </div>
+            <p class="absorber-txt">
+              Marca las que quieras meter en el paquete. Pasarán a ser sesiones suyas y tomarán
+              el precio del paquete<span *ngIf="precioQueTomaranLasCitas > 0">, S/ {{ precioQueTomaranLasCitas | number:'1.2-2' }} cada una</span>.
+            </p>
+            <label class="absorber-fila" *ngFor="let c of citasAbsorbibles"
+                   [class.absorber-fila--on]="citasAAbsorber.has(c.id)">
+              <input type="checkbox" [checked]="citasAAbsorber.has(c.id)" (change)="toggleAbsorber(c.id)">
+              <span class="absorber-fecha">{{ conDia(c.fecha_inicio) }}</span>
+              <span class="absorber-precio">
+                S/ {{ c.precio | number:'1.2-2' }}
+                <em *ngIf="citasAAbsorber.has(c.id) && precioQueTomaranLasCitas > 0 && precioQueTomaranLasCitas !== c.precio">
+                  → S/ {{ precioQueTomaranLasCitas | number:'1.2-2' }}
+                </em>
+              </span>
+            </label>
+            <p class="absorber-txt" *ngIf="nAbsorber > 0">
+              Se añadirán <strong>{{ nAbsorber }}</strong> de las {{ formData.sesionesTotal }} sesiones.
+              <span *ngIf="(formData.sesionesTotal ?? 0) > nAbsorber">
+                Las {{ (formData.sesionesTotal ?? 0) - nAbsorber }} restantes se crean con el horario de abajo.
+              </span>
+            </p>
+          </div>
+          <p class="pac-hint" *ngIf="!editando && buscandoAbsorbibles" style="margin:0 0 8px">
+            Buscando citas que ya tenga agendadas…
+          </p>
+
           <div class="frow" *ngIf="!formData.terapeutaId">
             <p class="pac-hint" style="margin:0">Elige un terapeuta arriba para ver sus días y horarios disponibles.</p>
           </div>
