@@ -934,42 +934,17 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return delArea.filter(t => this.filtrosTerapeutas.includes(terapeutaNombre(t)));
   }
 
-  /** Citas de ese terapeuta en esa hora del día elegido, ya colocadas dentro de la celda. */
+  /**
+   * Citas de ese terapeuta en esa hora del día elegido, ya colocadas dentro de la celda.
+   *
+   * Reparte en columnas igual que la semana. Antes ponia izquierda 0 y ancho 100 a todas, asi
+   * que dos citas solapadas del mismo terapeuta salian una encima de otra y no se leia ninguna.
+   */
   getCitasDiaTerapeuta(nombreTerapeuta: string, h: number): CitaEnGrilla[] {
-    const pxPorMin = this.SLOT_H / 60;
-    const f = this.diaSeleccionado;
-    const delDia = this.citas.filter(c => {
-      const ini = new Date(c.fecha_inicio);
-      return ini.getFullYear() === f.getFullYear()
-          && ini.getMonth()    === f.getMonth()
-          && ini.getDate()     === f.getDate()
-          && (c.terapeuta_nombre ?? '') === nombreTerapeuta
-          && this.pasaFiltrosAgenda(c);
-    }).sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
-
-    const inicios = delDia.map(c => new Date(c.fecha_inicio).getTime());
-    const horaMin = h * 60;
-    const salida: CitaEnGrilla[] = [];
-    for (const c of delDia) {
-      const ini = new Date(c.fecha_inicio);
-      const citaMin = ini.getHours() * 60 + ini.getMinutes();
-      if (citaMin < horaMin || citaMin >= horaMin + 60) continue;
-      // Mismo recorte que en la semana: el chip no puede pisar a la siguiente del terapeuta.
-      const t0 = ini.getTime();
-      const siguiente = inicios.find(t => t > t0);
-      const pedido = this.getChipHeight(c);
-      const alto = siguiente === undefined ? pedido
-                 : Math.max(24, Math.min(pedido, ((siguiente - t0) / 60000) * pxPorMin - 2));
-      salida.push({
-        cita: c,
-        top: (citaMin - horaMin) * pxPorMin,
-        height: alto,
-        izquierda: 0,
-        ancho: 100,
-        ocultas: [],
-      });
-    }
-    return salida;
+    const layout = this.layoutDiaTerapeuta(nombreTerapeuta);
+    // El layout ya contiene exactamente las citas de este terapeuta en este dia, asi que sirve
+    // de candidatas sin volver a filtrar la lista entera.
+    return this.colocar(layout, h, this.citas.filter(c => layout.has(c.id)));
   }
 
   cambiarVista(v: 'semana' | 'dia' | 'libre'): void {
@@ -1781,15 +1756,41 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   private cacheLayoutCitas: Cita[] | null = null;
 
   private layoutDia(diaIdx: number): Map<string, { col: number; nCols: number; altoMax: number }> {
+    return this.repartirEnColumnas('semana:' + diaIdx, () => this.citasDelDia(diaIdx));
+  }
+
+  /**
+   * El mismo reparto, para una columna de terapeuta en la vista Dia.
+   *
+   * La vista Dia no lo usaba: ponia toda cita a izquierda 0 y ancho 100, asi que dos citas
+   * solapadas del mismo terapeuta se dibujaban una ENCIMA de otra. En la semana ya estaba
+   * resuelto, y el algoritmo no depende de que las citas sean de un dia o de un terapeuta —
+   * solo de que compartan la misma columna. Asi que se comparte, en vez de tener dos.
+   */
+  private layoutDiaTerapeuta(nombreTerapeuta: string): Map<string, { col: number; nCols: number; altoMax: number }> {
+    const f = this.diaSeleccionado;
+    const clave = 'dia:' + f.toDateString() + ':' + nombreTerapeuta;
+    return this.repartirEnColumnas(clave, () => this.citas.filter(c => {
+      const ini = new Date(c.fecha_inicio);
+      return ini.getFullYear() === f.getFullYear()
+          && ini.getMonth()    === f.getMonth()
+          && ini.getDate()     === f.getDate()
+          && (c.terapeuta_nombre ?? '') === nombreTerapeuta
+          && this.pasaFiltrosAgenda(c);
+    }));
+  }
+
+  private repartirEnColumnas(
+      clave: string,
+      traerCitas: () => Cita[]): Map<string, { col: number; nCols: number; altoMax: number }> {
     if (this.cacheLayoutCitas !== this.citas) { this.cacheLayout.clear(); this.cacheLayoutCitas = this.citas; }
-    const clave = String(diaIdx);
     const cacheado = this.cacheLayout.get(clave);
     if (cacheado) return cacheado;
 
     const pxPorMin = this.SLOT_H / 60;
     const ini = (c: Cita) => new Date(c.fecha_inicio).getTime();
     const fin = (c: Cita) => new Date(c.fecha_fin).getTime();
-    const citas = this.citasDelDia(diaIdx).slice().sort((a, b) => ini(a) - ini(b));
+    const citas = traerCitas().slice().sort((a, b) => ini(a) - ini(b));
     const mapa = new Map<string, { col: number; nCols: number; altoMax: number }>();
 
     // 1. Grupos de citas encadenadas por solapamiento.
@@ -1857,10 +1858,31 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * los nombres son ilegibles—: se pintan las dos primeras y el resto se cuenta en un chip "+N".
    */
   getCitasPosicionadas(diaIdx: number, h: number): CitaEnGrilla[] {
+    return this.colocar(this.layoutDia(diaIdx), h, this.getCitasHora(diaIdx, h));
+  }
+
+  /**
+   * Pinta en la fila de la hora `h` las citas que EMPIEZAN ahi, usando un reparto ya calculado.
+   *
+   * Lo comparten la semana y el dia por terapeuta: el recorte de altos, el limite de tres
+   * columnas y el chip "+N" son los mismos y tenerlos dos veces era pedir que divergieran — de
+   * hecho divergieron, y por eso el dia dibujaba las citas encimadas.
+   */
+  private colocar(
+      layout: Map<string, { col: number; nCols: number; altoMax: number }>,
+      h: number,
+      candidatas: Cita[]): CitaEnGrilla[] {
     const pxPorMin = this.SLOT_H / 60;
-    const layout = this.layoutDia(diaIdx);
-    const citas = this.getCitasHora(diaIdx, h)
-      .slice()
+    // Solo las que ARRANCAN en esta hora: cada cita se dibuja una vez, en su fila, y desde ahi
+    // se estira. El filtro va aqui y no en quien llama porque la semana ya lo trae hecho y el
+    // dia no, y repetirlo en los dos era otra oportunidad de que se separaran.
+    const citas = candidatas
+      .filter(c => {
+        if (!layout.has(c.id)) return false;
+        const i = new Date(c.fecha_inicio);
+        const min = i.getHours() * 60 + i.getMinutes();
+        return min >= h * 60 && min < h * 60 + 60;
+      })
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
     if (citas.length === 0) return [];
 

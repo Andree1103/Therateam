@@ -433,9 +433,13 @@
             <td class="td-hora">{{ s.lbl }}</td>
             <td *ngFor="let t of terapeutasDelDia" class="td-dia">
               <ng-container *ngFor="let pos of getCitasDiaTerapeuta(getNombreTerapeuta(t), s.h); trackBy: trackByPosicionada">
+                <!-- Varias citas solapadas se reparten la columna, igual que en la semana. El
+                     ancho estaba escrito a mano al 100% y por eso salian una encima de otra:
+                     el reparto se calculaba (o no) pero la plantilla lo ignoraba. -->
                 <div class="chip" [ngStyle]="getChipStyle(pos.cita)"
+                     [class.chip-estrecho]="pos.ancho < 60"
                      [style.top.px]="pos.top" [style.height.px]="pos.height"
-                     [style.left]="'0%'" [style.width.%]="100"
+                     [style.left.%]="pos.izquierda" [style.width.%]="pos.ancho"
                      (click)="abrirEditar(pos.cita, $event)">
                   <div class="chip-body">
                     <div class="chip-pac">{{ pos.cita.paciente_nombre }} {{ pos.cita.paciente_apellido }}</div>

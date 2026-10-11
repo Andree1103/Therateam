@@ -82,6 +82,25 @@ export class ListaTratamientosComponent implements OnInit {
   terapeutasTodos: Terapeuta[] = [];
   tiposTerapia: CatalogItem[] = [];
   estadosTratamiento: CatalogItem[] = [];
+
+  /**
+   * Si tiene sentido ofrecer "Completado" para lo que se esta editando.
+   *
+   * Al crear, nunca: un paquete no nace con las sesiones dadas. Al editar, solo si estan todas
+   * atendidas. El backend lo rechaza igual —es ahi donde tiene que estar la regla— pero
+   * ofrecerlo y luego negarlo es peor que no ofrecerlo.
+   */
+  get puedeCompletarse(): boolean {
+    const t = this.editando;
+    if (!t) return false;
+    return (t.totalSesiones ?? 0) > 0 && (t.sesionesAtendidas ?? 0) >= (t.totalSesiones ?? 0);
+  }
+
+  /** Los estados que se pueden elegir ahora mismo. */
+  get estadosElegibles(): CatalogItem[] {
+    if (this.puedeCompletarse) return this.estadosTratamiento;
+    return this.estadosTratamiento.filter(e => e.key !== 'COMPLETADO');
+  }
   estadosCita: CatalogItem[] = [];
   modalidadesCita: CatalogItem[] = [];
   especialidades: CatalogItem[] = [];

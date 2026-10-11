@@ -325,9 +325,15 @@
             <select [(ngModel)]="formData.estadoTratamientoId" name="estadoTratamientoId" required
                     #estRef="ngModel" [class.err-input]="estRef.invalid && estRef.touched">
               <option [ngValue]="null">— Seleccionar —</option>
-              <option *ngFor="let e of estadosTratamiento" [ngValue]="e.id">{{ e.nombre }}</option>
+              <option *ngFor="let e of estadosElegibles" [ngValue]="e.id">{{ e.nombre }}</option>
             </select>
             <span class="err-msg" *ngIf="estRef.invalid && estRef.touched">Requerido</span>
+            <!-- "Completado" se entiende como "pago completo" y no lo es: quiere decir que las
+                 sesiones ya se dieron. Asi aparecio en produccion un paquete Completado con 0
+                 de 10 atendidas. Se ofrece solo cuando puede ser verdad. -->
+            <span class="hint-msg" *ngIf="!puedeCompletarse">
+              «Completado» se podrá elegir cuando todas las sesiones estén atendidas.
+            </span>
           </div>
           <div class="frow">
             <label>Fecha de inicio</label>
