@@ -3843,14 +3843,19 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   abrirAtencion(cita: Cita, e: Event): void {
     e.stopPropagation();
-    // Ya no se exige que este pagada: la sesion ocurrio, y no anotarla no cobra nada — solo
-    // empujaba a inventar un pago para desbloquear la pantalla. Se avisa de la deuda, que
-    // sigue viva en la cita y en Pagos, y se deja registrar.
-    if (tieneDeuda(cita.estado_pago_key)) {
+    // Para atender, la cita tiene que estar pagada. El backend lo rechaza igual —ahi es donde
+    // vive la regla— pero dejar pulsar y fallar es peor que no dejar pulsar: se avisa aqui con
+    // lo que falta y donde cobrarlo.
+    //
+    // Solo al CREAR. Una atencion que ya existe se puede corregir aunque la cita siga
+    // debiendo; si no, las sesiones atendidas antes de esta regla quedarian congeladas.
+    const yaTiene = cita.estado === 'ASISTIDA';
+    if (!yaTiene && !estaSaldada(cita.estado_pago_key)) {
       const falta = (cita.precio ?? 0) - (cita.monto_pagado ?? 0);
       this.toast.warning(falta > 0
-        ? `Ojo: quedan S/ ${falta.toFixed(2)} por cobrar de esta cita.`
-        : 'Ojo: esta cita todavía figura sin pago.');
+        ? `No se puede atender: faltan S/ ${falta.toFixed(2)} por cobrar. Cóbrala primero.`
+        : 'No se puede atender: esta cita figura sin pago. Cóbrala primero.');
+      return;
     }
     this.citaParaAtencion = cita;
     this.atencionEsEdicion = false;
@@ -3884,6 +3889,15 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   abrirAtencionDesdeEdicion(e: Event): void {
     const cita = this.citaEditando;
     if (!cita) return;
+    // Se comprueba ANTES de cerrar: si abrirAtencion rechaza, cerrar primero dejaria al
+    // usuario fuera del modal que estaba editando, sin saber por que.
+    if (cita.estado !== 'ASISTIDA' && !estaSaldada(cita.estado_pago_key)) {
+      const falta = (cita.precio ?? 0) - (cita.monto_pagado ?? 0);
+      this.toast.warning(falta > 0
+        ? `No se puede atender: faltan S/ ${falta.toFixed(2)} por cobrar. Cóbrala primero.`
+        : 'No se puede atender: esta cita figura sin pago. Cóbrala primero.');
+      return;
+    }
     this.cerrarModal();
     this.abrirAtencion(cita, e);
   }
