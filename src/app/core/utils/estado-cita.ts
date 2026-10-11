@@ -7,8 +7,25 @@
  * y de inasistencia invitando a cobrarlas, cuando esas ya no se cobran.
  */
 
-/** Estados en los que la cita ya no da lugar a un cobro nuevo. */
-const YA_NO_SE_COBRA = ['ANULADA', 'NO_ASISTIO', 'REPROGRAMADA'];
+/**
+ * Estados en los que la cita ya no da lugar a un cobro nuevo.
+ *
+ * Son SEIS, no tres. La primera version listaba ANULADA, NO_ASISTIO y REPROGRAMADA, y se colaban
+ * las canceladas por paciente o por clinica y las dos variantes viejas de inasistencia. Hoy el
+ * sistema solo escribe ANULADA y NO_ASISTIO —el porque va como texto en la cita— pero las otras
+ * cuatro siguen en el catalogo desactivadas, y basta una fila sin migrar para que una cita
+ * cancelada vuelva a ofrecerse para cobrar.
+ *
+ * ASISTIDA NO esta, a proposito: una sesion que se dio y no se pago es una deuda legitima y
+ * tiene que poder cobrarse. Para meter citas en un paquete la regla es otra —ahi ASISTIDA si
+ * queda fuera— y por eso el backend tiene dos listas (EstadosDeCita.NO_SE_COBRAN y
+ * YA_NO_ES_UNA_SESION_POR_DAR) en vez de una.
+ */
+const YA_NO_SE_COBRA = [
+  'ANULADA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA',
+  'NO_ASISTIO', 'INASISTENCIA', 'INASISTENCIA SIN',
+  'REPROGRAMADA',
+];
 
 /**
  * Si todavia tiene sentido cobrar esta cita.
