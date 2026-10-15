@@ -6,6 +6,7 @@ import { NgForm } from '@angular/forms';
 import { PagoService, PagoFiltros } from '../../Services/pago.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { CitaService } from '../../../citas/Services/cita.service';
+import { CajaService } from '../../../caja/Services/caja.service';
 import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -223,6 +224,7 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private authService: AuthService,
     private excelExportService: ExcelExportService,
+    private cajaService: CajaService,
     private router: Router
   ) {}
 
@@ -245,6 +247,12 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
         if (res.content.length === 0) { this.toast.warning('No hay pagos para exportar con los filtros actuales'); return; }
         const filas = res.content.map(p => ({
           'Fecha': fechaHoraAmPm(p.fechaPago),
+          // El turno, con la MISMA regla que usa Caja. Sin esta columna el Excel traia la hora
+          // y cada quien clasificaba a ojo: un pago de las 13:03 parece de la mañana, el corte
+          // dice que es de la tarde, y los dos numeros no cuadraban sin que nadie supiera por
+          // que. Ahora filtrando por turno y sumando "Suma al arqueo" sale exactamente lo
+          // mismo que el cierre de caja.
+          'Turno': this.turnoDe(p.fechaPago),
           'Paciente': p.paciente ? `${p.paciente.nombre} ${p.paciente.apellido}` : '',
           'DNI': p.paciente?.dni ?? '',
           'Paquete': p.tratamiento?.nombre ?? '',
@@ -300,6 +308,12 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.cargar();
     this.catalogService.getMetodosPago().subscribe(d => this.metodosPago = d);
+    // La hora de corte decide el turno de cada pago en el Excel. Se lee del servidor y no se
+    // escribe aqui: es configurable desde Caja, y dos copias se separarian el dia que cambie.
+    this.cajaService.getHoraCorte().subscribe({
+      next: (r: { horaCorte: string }) => this.horaCorte = r.horaCorte || this.horaCorte,
+      error: () => {}
+    });
 
     // debounce para no pegarle al servidor en cada tecla; switchMap descarta la
     // respuesta de una busqueda vieja si el usuario ya siguio escribiendo.
@@ -585,6 +599,21 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   get fechaDePagoEsFutura(): boolean {
     const f = this.formData?.fechaPago;
     return !!f && f > this.ahoraLocalISO();
+  }
+
+  /** La hora a la que termina el turno 1. Se lee de Caja al arrancar. */
+  horaCorte = '13:00';
+
+  /**
+   * En que turno cae un pago. Misma regla que el cierre de caja: antes del corte es 1.
+   *
+   * Va por texto 'HH:mm' y no por Date a proposito: la fecha llega del servidor en hora local
+   * y compararla asi no pasa por ninguna conversion de huso, que es donde se tuercen estas
+   * cosas — ya nos paso con las fechas de pago en UTC.
+   */
+  private turnoDe(fechaPago?: string | null): number | '' {
+    if (!fechaPago || fechaPago.length < 16) return '';
+    return fechaPago.slice(11, 16) < this.horaCorte ? 1 : 2;
   }
 
   /** Fecha/hora actual en formato local (no UTC) para un input datetime-local — usar
