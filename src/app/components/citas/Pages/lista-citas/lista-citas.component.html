@@ -55,10 +55,32 @@
       <button class="filtro-clear" (click)="limpiarFiltros()">✕</button>
     </span>
 
-    <button *ngIf="puedeExportar" class="btn-secondary ml-auto" (click)="exportarExcel()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Exportar Excel
-    </button>
+    <!-- Exportar abre el rango: sacar un mes eran cuatro exportaciones y pegar hojas. -->
+    <div class="export-rango ml-auto" *ngIf="puedeExportar">
+      <button class="btn-secondary" (click)="abrirRangoExport()" [disabled]="exportando">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+      </button>
+
+      <div class="export-pop" *ngIf="mostrarRangoExport">
+        <div class="export-pop-hd">Exportar citas</div>
+        <div class="export-pop-row">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="exportDesde" [max]="exportHasta || null">
+        </div>
+        <div class="export-pop-row">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="exportHasta" [min]="exportDesde || null">
+        </div>
+        <p class="export-pop-nota">Se aplican los filtros que tengas puestos arriba.</p>
+        <div class="export-pop-btns">
+          <button type="button" class="btn-secondary" (click)="cerrarRangoExport()">Cancelar</button>
+          <button type="button" class="btn-primary" (click)="exportarExcel()" [disabled]="exportando">
+            {{ exportando ? 'Exportando...' : 'Exportar' }}
+          </button>
+        </div>
+      </div>
+    </div>
     <button class="btn-nueva" *ngIf="puedeCrearCitas" (click)="abrirNueva()">+ Nueva cita</button>
   </div>
 

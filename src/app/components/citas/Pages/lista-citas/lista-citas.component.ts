@@ -447,15 +447,56 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * las 1000 primeras citas de siempre, así que al pararse en octubre el excel salía incompleto
    * sin avisar de nada.
    */
+  // ── Exportar un rango de fechas ──────────────────────────────────────────
+  // Antes salia solo la semana que estabas viendo. Para sacar un mes habia que pasar semana a
+  // semana exportando cuatro veces y pegar las hojas.
+
+  mostrarRangoExport = false;
+  exportDesde = '';
+  exportHasta = '';
+  exportando = false;
+
+  abrirRangoExport(): void {
+    // Arranca en la semana visible: es lo mas comun y asi son dos clics.
+    if (!this.exportDesde && this.diasSemana.length) this.exportDesde = this.fechaToISO(this.diasSemana[0].fecha);
+    if (!this.exportHasta && this.diasSemana.length) this.exportHasta = this.fechaToISO(this.diasSemana[6].fecha);
+    this.mostrarRangoExport = true;
+  }
+
+  cerrarRangoExport(): void { this.mostrarRangoExport = false; }
+
   exportarExcel(): void {
-    const desde = this.diasSemana.length ? this.fechaToISO(this.diasSemana[0].fecha) : '';
-    const hasta = this.diasSemana.length ? this.fechaToISO(this.diasSemana[6].fecha) : '';
-    // Los mismos filtros que aplica la grilla al pintar: garantiza que el excel tenga las mismas
-    // filas que se ven, aunque la respuesta del servidor todavía no haya llegado.
-    const visibles = this.citas
-      .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
-      .filter(c => this.pasaFiltrosAgenda(c));
-    this.construirExcelCitas(visibles, desde, hasta);
+    if (!this.exportDesde || !this.exportHasta) {
+      this.toast.warning('Indica la fecha de inicio y la de fin'); return;
+    }
+    if (this.exportHasta < this.exportDesde) {
+      this.toast.warning('La fecha de fin no puede ser anterior a la de inicio'); return;
+    }
+    // Se piden al servidor en vez de usar `this.citas`: ahi solo esta la semana cargada, asi
+    // que exportar un mes desde memoria habria devuelto siete dias y nadie lo habria notado.
+    const f = this.filtrosAgendaParaElBack();
+    if (!f) return;
+    this.exportando = true;
+    this.citaService.getCitasAgenda({
+      ...f,
+      desde: new Date(this.exportDesde + 'T00:00:00'),
+      hasta: new Date(this.exportHasta + 'T23:59:59'),
+    }).subscribe({
+      next: citas => {
+        const visibles = this.sinAnuladas(citas)
+          .filter(c => this.filtrosTerapeutas.length === 0 || this.filtrosTerapeutas.includes(c.terapeuta_nombre ?? ''))
+          .filter(c => this.pasaFiltrosAgenda(c));
+        if (visibles.length === 0) {
+          this.toast.warning('No hay citas en ese rango con los filtros actuales');
+          this.exportando = false;
+          return;
+        }
+        this.construirExcelCitas(visibles, this.exportDesde, this.exportHasta);
+        this.exportando = false;
+        this.mostrarRangoExport = false;
+      },
+      error: () => { this.toast.error('No se pudieron traer las citas del rango'); this.exportando = false; }
+    });
   }
 
   private construirExcelCitas(citas: Cita[], desde: string, hasta: string): void {
