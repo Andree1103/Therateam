@@ -41,6 +41,14 @@ export class ListaPacientesComponent implements OnInit {
   filtroCreadoDesde = '';
   filtroCreadoHasta = '';
 
+  // ── Rango de exportacion ──────────────────────────────────────────────────
+  // El filtro de la barra sigue donde estaba, porque sirve para VER a los pacientes de un
+  // rango. Este es otra cosa: elegir que periodo baja al Excel sin tener que cambiar la
+  // pantalla y dejarla como estaba despues.
+  mostrarRangoExport = false;
+  exportDesde = '';
+  exportHasta = '';
+
   // ── Paginación server-side ───────────────────────────────────────────────
   readonly tamanioPaginaOpciones = [5, 10, 15, 20];
   paginaActual = 0;
@@ -84,6 +92,15 @@ export class ListaPacientesComponent implements OnInit {
    * elegirlo y no se podía VER en pantalla a los pacientes de ese rango, solo bajarlos. Ahora es
    * un filtro más de la barra, así que exportar es un clic y siempre coincide con la lista.
    */
+  /** Abre el selector, proponiendo el rango que ya este filtrado en la lista. */
+  abrirRangoExport(): void {
+    if (!this.exportDesde) this.exportDesde = this.filtroCreadoDesde;
+    if (!this.exportHasta) this.exportHasta = this.filtroCreadoHasta;
+    this.mostrarRangoExport = true;
+  }
+
+  cerrarRangoExport(): void { this.mostrarRangoExport = false; }
+
   exportarExcel(): void {
     this.exportar('pacientes');
   }
@@ -106,17 +123,23 @@ export class ListaPacientesComponent implements OnInit {
    * pacientes exportados; pedirlos por paciente serían cien peticiones para cien pacientes.
    */
   private exportar(que: 'pacientes' | 'horarios_fijos'): void {
-    if (this.rangoAltaInvalido) {
+    if (this.rangoAltaInvalido
+        || (this.exportDesde && this.exportHasta && this.exportDesde > this.exportHasta)) {
       this.toast.warning('La fecha inicial no puede ser posterior a la final');
       return;
     }
+    this.mostrarRangoExport = false;
     this.exportando = true;
+    // El rango del selector manda sobre el de la barra: es el que se acaba de elegir.
+    const filtros = { ...this.filtrosActuales(),
+                      creadoDesde: this.exportDesde || this.filtroCreadoDesde || null,
+                      creadoHasta: this.exportHasta || this.filtroCreadoHasta || null };
     forkJoin({
-      pagina:   this.pacienteService.getAllPaged(0, 10000, this.filtrosActuales()),
+      pagina:   this.pacienteService.getAllPaged(0, 10000, filtros),
       // El null distingue "falló la consulta" de "nadie tiene horario": tragarse el error y
       // devolver [] hacía decir "ningún paciente tiene horario fijo" cuando en realidad el
       // servidor no había respondido — un mensaje que manda a revisar los datos, que estan bien.
-      horarios: this.pacienteService.getHorariosFijosDeTodos(this.filtrosActuales()).pipe(catchError(() => of(null))),
+      horarios: this.pacienteService.getHorariosFijosDeTodos(filtros).pipe(catchError(() => of(null))),
     }).subscribe({
       next: ({ pagina, horarios }) => {
         this.exportando = false;
@@ -203,9 +226,11 @@ export class ListaPacientesComponent implements OnInit {
   }
 
   /** Deja dicho en el nombre del archivo el rango de altas, cuando se filtró por él. */
+  /** El nombre del archivo dice el rango que trae, para no acabar con cinco "pacientes(3).xlsx". */
   private sufijoArchivo(): string {
-    return this.filtroCreadoDesde || this.filtroCreadoHasta
-      ? `_altas_${this.filtroCreadoDesde || 'inicio'}_a_${this.filtroCreadoHasta || 'hoy'}` : '';
+    const desde = this.exportDesde || this.filtroCreadoDesde;
+    const hasta = this.exportHasta || this.filtroCreadoHasta;
+    return desde || hasta ? `_altas_${desde || 'inicio'}_a_${hasta || 'hoy'}` : '';
   }
 
   get puedeCrear(): boolean { return this.authService.puedeCrear('PACIENTES'); }

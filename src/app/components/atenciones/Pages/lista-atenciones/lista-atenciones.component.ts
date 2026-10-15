@@ -45,6 +45,14 @@ export class ListaAtencionesComponent implements OnInit {
   filtroFechaDesde = '';
   filtroFechaHasta = '';
 
+  // ── Rango de exportacion ──────────────────────────────────────────────────
+  // Va aparte del filtro de la lista a proposito: lo que se exporta casi nunca es lo que se
+  // esta mirando —se mira un dia y se exporta el mes— y atar las dos cosas obligaba a cambiar
+  // la pantalla para bajar un Excel, y a devolverla despues.
+  mostrarRangoExport = false;
+  exportDesde = '';
+  exportHasta = '';
+
   paginaActual = 0;
   tamanioPagina = 20;
   totalElementos = 0;
@@ -260,13 +268,36 @@ export class ListaAtencionesComponent implements OnInit {
     this.atencionDetalle = null;
   }
 
-  /** Exporta TODAS las atenciones que cumplen el filtro actual (no solo la página visible). */
+  /** Abre el selector, proponiendo el rango que ya este filtrado en la lista. */
+  abrirRangoExport(): void {
+    if (!this.exportDesde) this.exportDesde = this.filtroFechaDesde;
+    if (!this.exportHasta) this.exportHasta = this.filtroFechaHasta;
+    this.mostrarRangoExport = true;
+  }
+
+  cerrarRangoExport(): void { this.mostrarRangoExport = false; }
+
+  /**
+   * Exporta TODAS las atenciones del rango elegido que cumplen los demas filtros (no solo la
+   * pagina visible). Si no se elige rango, salen todas: vaciar las dos fechas es la forma de
+   * pedir el historico completo.
+   */
   exportarExcel(): void {
+    if (this.exportDesde && this.exportHasta && this.exportHasta < this.exportDesde) {
+      this.toast.warning('La fecha inicial no puede ser posterior a la final');
+      return;
+    }
+    this.mostrarRangoExport = false;
     this.exportando = true;
-    this.citaService.getFiltroPaged(0, 10000, this.buildFiltros()).subscribe({
+    const filtros = {
+      ...this.buildFiltros(),
+      fechaInicio: this.exportDesde ? new Date(`${this.exportDesde}T00:00:00`) : undefined,
+      fechaFin:    this.exportHasta ? new Date(`${this.exportHasta}T23:59:59`) : undefined,
+    };
+    this.citaService.getFiltroPaged(0, 10000, filtros).subscribe({
       next: res => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay atenciones para exportar con el filtro actual'); return; }
+        if (res.content.length === 0) { this.toast.warning('No hay atenciones para exportar en ese rango'); return; }
         const filas = res.content.map(c => ({
           // El Excel sigue el mismo orden y las mismas columnas que la pantalla.
           'Registrada': fechaHoraAmPm(c.fecha_registro),

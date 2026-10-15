@@ -57,6 +57,13 @@ export class ListaTratamientosComponent implements OnInit {
   filtroTipoTerapiaId: number | null = null;
   filtroEstado = '';
 
+  // ── Rango de exportacion ──────────────────────────────────────────────────
+  // El listado no tiene filtro de fechas y tampoco hacia falta: se mira por paciente o por
+  // terapeuta. Pero para bajar "los paquetes de octubre" si, y por eso vive solo aqui.
+  mostrarRangoExport = false;
+  exportDesde = '';
+  exportHasta = '';
+
   // ── Paginación server-side ───────────────────────────────────────────────
   readonly tamanioPaginaOpciones = [5, 10, 15, 20];
   paginaActual = 0;
@@ -177,19 +184,32 @@ export class ListaTratamientosComponent implements OnInit {
     private excelExportService: ExcelExportService
   ) {}
 
-  /** Exporta TODOS los paquetes/cronogramas que cumplen los filtros activos (no solo la página visible). */
+  abrirRangoExport(): void { this.mostrarRangoExport = true; }
+  cerrarRangoExport(): void { this.mostrarRangoExport = false; }
+
+  /**
+   * Exporta TODOS los paquetes del rango elegido que cumplen los filtros activos (no solo la
+   * pagina visible). Sin rango salen todos: vaciar las dos fechas pide el historico completo.
+   */
   exportarExcel(): void {
+    if (this.exportDesde && this.exportHasta && this.exportDesde > this.exportHasta) {
+      this.toast.warning('La fecha inicial no puede ser posterior a la final');
+      return;
+    }
+    this.mostrarRangoExport = false;
     this.exportando = true;
     const filtros: TratamientoFiltros = {
       paciente: this.filtroPaciente,
       terapeuta: this.filtroTerapeuta,
       tipoTerapiaId: this.filtroTipoTerapiaId,
       estado: this.filtroEstado,
+      desde: this.exportDesde || null,
+      hasta: this.exportHasta || null,
     };
     this.tratamientoService.getAllPaged(0, 10000, filtros).subscribe({
       next: res => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay paquetes para exportar con los filtros actuales'); return; }
+        if (res.content.length === 0) { this.toast.warning('No hay paquetes para exportar en ese rango'); return; }
         const filas = res.content.map(t => ({
           'Paquete': t.nombre ?? '',
           'Paciente': tratamientoPaciente(t),

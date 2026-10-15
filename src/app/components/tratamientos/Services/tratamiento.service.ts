@@ -10,6 +10,9 @@ export interface TratamientoFiltros {
   terapeuta?: string;
   tipoTerapiaId?: number | null;
   estado?: string;
+  /** Acotan por la fecha de INICIO del paquete, en formato YYYY-MM-DD. */
+  desde?: string | null;
+  hasta?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +35,8 @@ export class TratamientoService {
       terapeuta: filtros.terapeuta?.trim() || undefined,
       tipoTerapiaId: filtros.tipoTerapiaId != null ? String(filtros.tipoTerapiaId) : undefined,
       estado: filtros.estado || undefined,
+      desde: filtros.desde || undefined,
+      hasta: filtros.hasta || undefined,
     });
   }
 
