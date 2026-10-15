@@ -55,7 +55,7 @@
 
       <div class="hora-corte-editor" *ngIf="!editandoHoraCorte">
         <span class="text-muted">Hora de corte: <strong>{{ horaCorte }}</strong></span>
-        <button type="button" class="btn-link" *ngIf="puedeEditar" (click)="abrirEdicionHoraCorte()">Editar</button>
+        <button type="button" class="btn-link" *ngIf="puedeEditarHoraCorte" (click)="abrirEdicionHoraCorte()">Editar</button>
       </div>
       <div class="hora-corte-editor" *ngIf="editandoHoraCorte">
         <input type="time" [(ngModel)]="horaCorteForm">

@@ -68,6 +68,7 @@
                   <span class="modulo-chip" *ngIf="r.puedeExportar" title="Puede descargar los listados en Excel">Exporta Excel</span>
                   <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
                   <span class="modulo-chip" *ngIf="r.puedeVerSaldoInicial" title="Ve el saldo inicial en Caja, que arrastra lo acumulado de dias anteriores">Ve saldo inicial</span>
+                  <span class="modulo-chip" *ngIf="r.puedeEditarHoraCorte" title="Puede mover la hora que separa el turno 1 del turno 2">Cambia hora de corte</span>
                 </div>
               </td>
               <td>
@@ -247,6 +248,10 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeVerSaldoInicial" name="puedeVerSaldoInicial">
             Este rol ve el saldo inicial de la caja (el acumulado del negocio)
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeEditarHoraCorte" name="puedeEditarHoraCorte">
+            Este rol puede cambiar la hora de corte entre turnos
           </label>
         </div>
         <div class="modal-footer">

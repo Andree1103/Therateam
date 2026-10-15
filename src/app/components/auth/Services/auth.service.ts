@@ -31,6 +31,8 @@ export interface User {
   puedeCorregirAtencion: boolean;
   /** Viene del ROL: si es false, Caja no muestra el saldo inicial. */
   puedeVerSaldoInicial: boolean;
+  /** Viene del ROL: si es false, no se puede cambiar la hora de corte de Caja. */
+  puedeEditarHoraCorte: boolean;
 }
 
 interface LoginResponse {
@@ -51,6 +53,7 @@ interface LoginResponse {
   /** Viene del ROL: si es false, no se muestra el boton "Corregir" en Atenciones. */
   puedeCorregirAtencion: boolean;
   puedeVerSaldoInicial: boolean;
+  puedeEditarHoraCorte: boolean;
 }
 
 @Injectable({
@@ -105,6 +108,7 @@ export class AuthService {
           puedeExportar: res.puedeExportar,
           puedeCorregirAtencion: res.puedeCorregirAtencion,
           puedeVerSaldoInicial: res.puedeVerSaldoInicial,
+          puedeEditarHoraCorte: res.puedeEditarHoraCorte,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -195,6 +199,10 @@ export class AuthService {
    */
   puedeVerSaldoInicial(): boolean {
     return this.currentUserValue?.puedeVerSaldoInicial ?? false;
+  }
+
+  puedeEditarHoraCorte(): boolean {
+    return this.currentUserValue?.puedeEditarHoraCorte ?? false;
   }
 
   puedeCorregirAtencion(): boolean {

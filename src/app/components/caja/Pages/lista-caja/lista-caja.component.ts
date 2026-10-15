@@ -23,6 +23,15 @@ export class ListaCajaComponent implements OnInit {
    */
   get puedeVerSaldoInicial(): boolean { return this.authService.puedeVerSaldoInicial(); }
 
+  /**
+   * Permiso propio, no el "editar" del modulo.
+   *
+   * Cambiar la hora de corte no es operar la caja del dia: es mover la linea que la parte en
+   * dos, y eso recalcula que entro en cada turno — incluidos los ya cerrados. Quien registra
+   * egresos o reabre un turno no tiene por que poder hacerlo.
+   */
+  get puedeEditarHoraCorte(): boolean { return this.authService.puedeEditarHoraCorte(); }
+
   /** Lo que entro menos lo que salio en este turno, sin arrastrar nada de dias anteriores. */
   get netoDelTurno(): number {
     if (!this.resumen) return 0;
