@@ -28,6 +28,7 @@ import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
 import { horaAmPm } from '../../../../core/utils/formato-hora';
 import { estaSaldada, tieneDeuda, colorEstadoPago } from '../../../../core/utils/estado-pago';
+import { ocupaSuHora } from '../../../../core/utils/estado-cita';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
 export interface Slot { h: number; m: number; lbl: string; }
@@ -915,15 +916,16 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Una cita anulada NO ocupa cupo: el terapeuta quedo libre a esa hora. Se usa en todos los
-   * calculos de capacidad — NO en el pintado de la agenda, donde las canceladas si deben verse
-   * (tienen su propio color en la leyenda).
+   * Si esta cita sigue reservando su horario. Se usa en todos los calculos de capacidad — NO en
+   * el pintado de la agenda, donde estas citas si deben verse (tienen su propio color en la
+   * leyenda) como rastro de que la hora se reservo y no se uso.
    *
-   * Sin esto, anular una cita dejaba el horario bloqueado en la UI: el terapeuta desaparecia
-   * del selector y el slot figuraba lleno, aunque el backend si aceptaba la cita nueva.
+   * La lista vive en core/utils/estado-cita y es espejo de la del backend. Estaba copiada aqui
+   * a medias —solo las tres canceladas— y por eso una inasistencia seguia bloqueando el hueco
+   * en pantalla aunque el servidor ya aceptaba la cita nueva.
    */
   private ocupaCupo(c: Cita): boolean {
-    return c.estado !== 'ANULADA' && c.estado !== 'CANCELADA_PACIENTE' && c.estado !== 'CANCELADA_CLINICA';
+    return ocupaSuHora(c.estado as string | null | undefined);
   }
 
   /**

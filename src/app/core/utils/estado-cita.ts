@@ -39,3 +39,30 @@ const YA_NO_SE_COBRA = [
 export function sePuedeCobrar(estadoKey?: string | null): boolean {
   return !YA_NO_SE_COBRA.includes((estadoKey ?? '').trim().toUpperCase());
 }
+
+/**
+ * Estados en los que la cita ya NO OCUPA su hora: ese hueco se puede volver a agendar.
+ *
+ * Espejo de EstadosDeCita.NO_OCUPAN_SU_HORA en el backend. Si las dos listas se separan, el
+ * servidor acepta la cita y la pantalla no deja crearla — que es exactamente lo que pasaba con
+ * las inasistencias: el terapeuta desaparecia del selector y el slot figuraba lleno aunque el
+ * back ya lo daba por libre.
+ */
+const NO_OCUPA_SU_HORA = [
+  'ANULADA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA',
+  'NO_ASISTIO', 'INASISTENCIA', 'INASISTENCIA SIN',
+  'REPROGRAMADA',
+];
+
+/**
+ * Si esta cita sigue reservando su horario.
+ *
+ * El paciente que no vino deja la hora libre de hecho, y guardarsela es regalar un hueco que se
+ * puede vender. La cita no se borra ni se oculta: sigue pintada en la agenda como rastro de que
+ * se reservo y no se uso. Lo unico que cambia es que deja de contar para el cupo.
+ *
+ * ASISTIDA no esta en la lista: esa sesion se dio y su hora estuvo realmente ocupada.
+ */
+export function ocupaSuHora(estadoKey?: string | null): boolean {
+  return !NO_OCUPA_SU_HORA.includes((estadoKey ?? '').trim().toUpperCase());
+}
