@@ -365,6 +365,47 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   /** Horario semanal general del terapeuta elegido (solo activo) — deshabilita días y acota la hora en la grilla. */
   bulkHorarioTerapeuta: TerapeutaHorario[] = [];
   bulkHorarioCargado = false;
+  // ── Corregir el medio de pago de una cita ────────────────────────────────
+  // El fallo que resuelve es de todos los dias: se cobra en Yape y se marca Efectivo. Hasta
+  // ahora la unica salida era borrar el pago y rehacerlo, que ademas movia el saldo del
+  // paciente si habia usado credito.
+  citaCambiandoMetodoId: string | null = null;
+  metodoCorregidoId: number | null = null;
+  guardandoMetodo = false;
+
+  abrirCambioDeMetodo(c: Cita, ev: Event): void {
+    ev.stopPropagation();
+    this.citaCambiandoMetodoId = c.id;
+    // Se precarga el que tiene para que el desplegable abra en lo que dice hoy, no en blanco.
+    this.metodoCorregidoId = this.metodosPago.find(m => m.nombre === c.metodo_pago_nombre)?.id ?? null;
+  }
+
+  cerrarCambioDeMetodo(ev?: Event): void {
+    ev?.stopPropagation();
+    this.citaCambiandoMetodoId = null;
+    this.metodoCorregidoId = null;
+  }
+
+  guardarCambioDeMetodo(c: Cita, ev: Event): void {
+    ev.stopPropagation();
+    if (this.metodoCorregidoId == null) { this.toast.warning('Elige el medio de pago'); return; }
+    this.guardandoMetodo = true;
+    this.citaService.corregirMetodoPago(c.id, this.metodoCorregidoId).subscribe({
+      next: () => {
+        this.guardandoMetodo = false;
+        this.cerrarCambioDeMetodo();
+        this.toast.success('Medio de pago corregido');
+        this.recargarSilencioso();
+      },
+      error: err => {
+        this.guardandoMetodo = false;
+        // El backend explica el porque —la caja cerrada, sobre todo— y ese texto es el que
+        // sirve: un "no se pudo" generico manda a adivinar.
+        this.toast.error(err?.error?.error ?? 'No se pudo cambiar el medio de pago');
+      }
+    });
+  }
+
   /** Paralelo a bulkPreview: true si esa fecha/hora choca con otra cita ya existente del terapeuta. */
   bulkConflictos: boolean[] = [];
   /** Si está activo (y no se eligió un paquete existente), las citas masivas comparten un

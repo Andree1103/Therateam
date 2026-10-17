@@ -121,6 +121,17 @@ export class CitaService {
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/correccion`, body).pipe(map(d => this.mapDTO(d)));
   }
 
+  /**
+   * Cambia el medio con el que se cobro una cita. Aparte de corregirAtencion a proposito: aquella
+   * exige que la cita este ASISTIDA, y equivocarse de medio pasa sobre todo al cobrar, cuando la
+   * cita todavia no ha ocurrido.
+   */
+  corregirMetodoPago(id: string | number, metodoPagoId: number, motivo?: string): Observable<Cita> {
+    const body: Record<string, unknown> = { metodoPagoId };
+    if (motivo?.trim()) body['motivo'] = motivo.trim();
+    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/metodo-pago`, body).pipe(map(d => this.mapDTO(d)));
+  }
+
   getFiltroPaged(page: number, size: number, filtros: {
     fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string;
     areaId?: number | null; metodoPagoId?: number | null;
