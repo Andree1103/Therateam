@@ -569,6 +569,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         'Paquete': c.tratamiento_nombre ?? '',
         'Comentarios': c.observacion ?? '',
         'Usuario creación': c.usuario_creacion_nombre ?? '',
+          // Quien la creo casi nunca es quien hizo el ultimo cambio: la agenda recepcion
+          // y la mueve o la cobra otra persona despues.
+          'Última edición por': c.usuario_modificacion_nombre ?? '',
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');

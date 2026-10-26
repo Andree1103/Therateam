@@ -137,3 +137,6 @@
    y en una columna estrecha eso parte en tres lineas. Con este ancho cabe en dos. */
 .data-table th.col-fecha{min-width:148px}
 
+
+/* Fecha de inicio y terapeuta del paquete, bajo el tipo de terapia. */
+.trat-meta{font-size:11.5px;color:#64748b;line-height:1.4}

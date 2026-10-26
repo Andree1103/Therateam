@@ -65,6 +65,8 @@ export interface Cita {
   metodo_pago_nombre?: string | null;
   lote_masivo_id?: string | null;
   usuario_creacion_nombre?: string | null;
+  usuario_modificacion_nombre?: string | null;
+  usuario_atencion_nombre?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -238,4 +240,6 @@ export interface CitaApiDTO {
   metodo_pago_nombre?: string | null;
   lote_masivo_id?: string | null;
   usuario_creacion_nombre?: string | null;
+  usuario_modificacion_nombre?: string | null;
+  usuario_atencion_nombre?: string | null;
 }

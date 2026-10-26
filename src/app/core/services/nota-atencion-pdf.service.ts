@@ -33,6 +33,16 @@ export interface CronogramaData {
   sesiones: CronogramaSesion[];
 }
 
+/**
+ * Los dias que el paciente tiene para usar lo que pago.
+ *
+ * Va aqui y no escrito dos veces en cada documento porque es una condicion comercial: si la
+ * clinica la cambia, se cambia en un sitio y los dos papeles dicen lo mismo. Que un recibo diga
+ * 60 y el cronograma 90 es la clase de diferencia que acaba en una discusion en el mostrador.
+ */
+const DIAS_DE_VALIDEZ = 60;
+const LEYENDA_VALIDEZ = `* VÁLIDO POR ${DIAS_DE_VALIDEZ} DÍAS A PARTIR DE LA FECHA DEL PAGO.`;
+
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -103,6 +113,7 @@ export class NotaAtencionPdfService {
       doc.text(lineas, 8, y);
       y += lineas.length * 4 + 3;
     };
+    nota(LEYENDA_VALIDEZ);
     nota('* RECUERDE ACUDIR 10 MINUTOS ANTES DE LA CITA.');
     nota('* EN CASO DE NO ACUDIR A LA CITA INDICADA, NO HAY LUGAR A REPROGRAMACIÓN, NI DEVOLUCIÓN DE DINERO.');
     nota('* EN CASO DE LLEGAR TARDE, SE LE ATENDERÁ EL TIEMPO RESTANTE.');
@@ -169,6 +180,7 @@ export class NotaAtencionPdfService {
       doc.text(lineas, 14, y);
       y += lineas.length * 4 + 2;
     };
+    nota(LEYENDA_VALIDEZ);
     nota('* RECUERDE ACUDIR 10 MINUTOS ANTES DE LA CITA.');
     nota('* EN CASO DE NO ACUDIR A LA CITA INDICADA, NO HAY LUGAR A REPROGRAMACIÓN, NI DEVOLUCIÓN DE DINERO.');
     nota('* SI EL PACIENTE LLEGA TARDE, SOLO SE LE ATENDERÁ EL TIEMPO RESTANTE.');

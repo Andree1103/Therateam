@@ -229,6 +229,42 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   ) {}
 
   /** Exporta TODOS los pagos que cumplen los filtros activos (no solo la página visible). */
+  exportandoSaldos = false;
+
+  /**
+   * Los pacientes que tienen saldo a favor sin consumir.
+   *
+   * No sale de los pagos: un paciente con saldo puede no tener ningun pago reciente, y su
+   * credito viene de un adelanto, de una anulacion o de un cobro de mas. La lista se pide al
+   * mismo endpoint que alimenta Adelantos, para que las dos digan lo mismo.
+   */
+  exportarPacientesConSaldo(): void {
+    this.exportandoSaldos = true;
+    this.pacienteService.getAdelantos(0, 10000).subscribe({
+      next: res => {
+        this.exportandoSaldos = false;
+        if (res.content.length === 0) { this.toast.warning('Ningún paciente tiene saldo a favor'); return; }
+        const filas = res.content
+          .slice()
+          .sort((a, b) => (b.saldoAFavor ?? 0) - (a.saldoAFavor ?? 0))
+          .map(p => ({
+            'Paciente': `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
+            'DNI': p.dni ?? '',
+            'Teléfono': p.telefono ?? '',
+            'Correo': p.correo ?? '',
+            'Saldo a favor (S/)': p.saldoAFavor ?? 0,
+          }));
+        const total = filas.reduce((t, f) => t + Number(f['Saldo a favor (S/)']), 0);
+        // El total va como una fila mas: quien abre esto quiere saber cuanto dinero de pacientes
+        // tiene la clinica sin consumir, y sumarlo a mano en Excel es un paso de mas.
+        filas.push({ 'Paciente': 'TOTAL', 'DNI': '', 'Teléfono': '', 'Correo': '',
+                     'Saldo a favor (S/)': Number(total.toFixed(2)) });
+        this.excelExportService.exportar(filas, 'saldos_a_favor');
+      },
+      error: () => { this.exportandoSaldos = false; this.toast.error('No se pudieron cargar los saldos a favor'); }
+    });
+  }
+
   exportarExcel(): void {
     this.exportando = true;
     const filtros: PagoFiltros = {

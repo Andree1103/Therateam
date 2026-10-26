@@ -316,7 +316,12 @@ export class ListaAtencionesComponent implements OnInit {
           'Hubo devolución': c.estado === 'NO_ASISTIO' ? (c.con_devolucion ? 'Sí' : 'No') : '',
           'Devuelto (S/)': c.con_devolucion ? (c.monto_devuelto ?? 0) : '',
           'Paquete': c.tratamiento_nombre ?? '',
-          'Usuario creación': c.usuario_creacion_nombre ?? '',
+          // Tres personas distintas pueden aparecer aqui: quien agendo la cita, quien la toco
+          // por ultima vez, y quien registro la atencion. Antes solo salia la primera, que es la
+          // menos util cuando lo que se revisa es la atencion.
+          'Usuario creación de la cita': c.usuario_creacion_nombre ?? '',
+          'Última edición de la cita': c.usuario_modificacion_nombre ?? '',
+          'Atención registrada por': c.usuario_atencion_nombre ?? '',
         }));
         this.excelExportService.exportar(filas, 'atenciones');
       },

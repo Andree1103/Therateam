@@ -171,6 +171,12 @@
           <div class="trat-info">
             <span class="trat-nombre">{{ t.nombre || ('Paquete #' + t.id) }}</span>
             <span class="trat-tipo">{{ t.tipoTerapiaNombre }} · {{ t.sesionesAtendidas ?? 0 }}/{{ t.totalSesiones ?? 0 }} sesiones</span>
+            <!-- Cuando empezo y con quien: sin esto, dos paquetes del mismo tipo se veian iguales. -->
+            <span class="trat-meta">
+              <ng-container *ngIf="t.fechaInicio">Desde el {{ t.fechaInicio | date:'d MMM y' }}</ng-container>
+              <ng-container *ngIf="t.fechaInicio && t.terapeutaNombre"> · </ng-container>
+              <ng-container *ngIf="t.terapeutaNombre">{{ t.terapeutaNombre }}</ng-container>
+            </span>
             <!-- Se avisa antes de que se agote, para poder ofrecer la renovacion a tiempo. -->
             <span class="trat-aviso" *ngIf="paquetePorAcabarse(t)">
               Por acabarse: {{ sesionesRestantes(t) }}

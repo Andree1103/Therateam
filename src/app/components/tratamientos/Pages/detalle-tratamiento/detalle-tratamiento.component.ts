@@ -514,18 +514,22 @@ export class DetalleTratamientoComponent implements OnInit {
   abrirAnularPaquete(): void { this.mostrarAnularPaquete = true; }
   cancelarAnularPaquete(): void { this.mostrarAnularPaquete = false; }
 
+  motivoAnularPaquete = '';
+
   confirmarAnularPaquete(devolucion: 'SALDO' | 'DINERO'): void {
     if (!this.tratamiento?.id) return;
+    if (!this.motivoAnularPaquete.trim()) { this.toast.warning('Escribe el motivo de la anulación'); return; }
     const msg = devolucion === 'SALDO'
       ? '¿Anular todas las citas pendientes de este paquete? Lo ya pagado por ellas quedará como saldo a favor del paciente. Las sesiones ya atendidas no se tocan.'
       : '¿Anular todas las citas pendientes y devolver el dinero? Se registra la devolución de cada sesión cancelada, sin generar saldo a favor. Las sesiones ya atendidas no se tocan.';
     if (!confirm(msg)) return;
     this.anulandoPaquete = true;
-    this.tratamientoService.anularPaquete(this.tratamiento.id, devolucion).subscribe({
+    this.tratamientoService.anularPaquete(this.tratamiento.id, devolucion, null, this.motivoAnularPaquete).subscribe({
       next: () => {
         this.toast.success('Citas pendientes del paquete anuladas correctamente');
         this.anulandoPaquete = false;
         this.mostrarAnularPaquete = false;
+        this.motivoAnularPaquete = '';
         this.cargar();
       },
       error: (err) => {

@@ -99,8 +99,12 @@ export class TratamientoService {
   }
 
   /** Anula todas las citas pendientes del paquete (no toca las ya atendidas ni las ya canceladas). */
-  anularPaquete(id: number, devolucion: 'SALDO' | 'DINERO' = 'SALDO', metodoId?: number | null): Observable<unknown> {
-    const qs = metodoId != null ? `?devolucion=${devolucion}&metodoId=${metodoId}` : `?devolucion=${devolucion}`;
-    return this.api.post<unknown>(`${this.PATH}/${id}/anular${qs}`, {});
+  anularPaquete(id: number, devolucion: 'SALDO' | 'DINERO' = 'SALDO', metodoId?: number | null,
+                motivo?: string): Observable<unknown> {
+    const q = new URLSearchParams({ devolucion });
+    if (metodoId != null) q.set('metodoId', String(metodoId));
+    // El backend ya guardaba el motivo en cada cita anulada; lo que faltaba era preguntarlo.
+    if (motivo?.trim()) q.set('motivo', motivo.trim());
+    return this.api.post<unknown>(`${this.PATH}/${id}/anular?${q.toString()}`, {});
   }
 }
