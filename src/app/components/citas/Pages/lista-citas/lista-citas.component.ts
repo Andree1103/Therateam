@@ -3186,13 +3186,20 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
               (this.fPagado || this.usarSaldoAFavor) && citas.length > 0) {
             const pacienteId = Number(citas[0].paciente_id);
             const citaId     = Number(citas[0].id);
+            // Las dos partes del cobro, por separado: lo que entra por caja y lo que sale de su
+            // saldo. Antes solo se mandaba el efectivo y el saldo iba siempre en cero, asi que
+            // marcar "usar saldo a favor" no descontaba nada: cuando el saldo cubria el precio
+            // entero el efectivo tambien daba cero y se grababa un pago que no movia nada — la
+            // cita quedaba SIN_PAGO y el paciente conservaba su credito.
+            const precio     = this.fPrecio ?? 0;
+            const delSaldo   = this.usarSaldoAFavor ? Math.min(this.pacienteSaldoAFavor, precio) : 0;
             const monto      = this.fPagado ? this.montoACobrarAhora : 0;
-            if (pacienteId) {
+            if (pacienteId && (monto > 0 || delSaldo > 0)) {
               cobrando = true;
               // La grilla se recarga recién cuando el pago terminó, para que la cita aparezca
               // con su estado de pago real y no como pendiente.
               this.crearPagoParaCita(pacienteId, monto, this.fMetodoPagoId, citaId,
-                                     () => this.recargarSilencioso());
+                                     () => this.recargarSilencioso(), delSaldo);
             }
           }
           this.toast.success('Cita creada correctamente');
@@ -3279,8 +3286,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
             // recarga final podía adelantarse a los últimos pagos y mostrarlos como pendientes.
             // Las primeras las cubre el saldo (sin dinero nuevo); el resto, en efectivo.
             const conSaldo = index < sesionesConSaldo;
-            if (pid) { this.crearPagoParaCita(pid, this.fPrecio, this.fMetodoPagoId, citaId,
-                                              () => crearSiguiente(index + 1), conSaldo); return; }
+            if (pid) { this.crearPagoParaCita(pid, conSaldo ? 0 : this.fPrecio, this.fMetodoPagoId, citaId,
+                                              () => crearSiguiente(index + 1), conSaldo ? this.fPrecio : 0); return; }
           }
           crearSiguiente(index + 1);
         },
@@ -3372,23 +3379,28 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     return Math.max(0, aPagar - this.sesionesQueCubreElSaldo);
   }
 
+  /**
+   * `monto` es lo que entra por caja y `delSaldo` lo que sale de su saldo a favor. Son dos cosas
+   * distintas y van separadas a proposito: un cobro puede ser todo efectivo, todo saldo, o mitad
+   * y mitad, y el backend necesita saber cuanto credito se le autoriza a consumir —
+   * `saldoAAplicar` en cero significa "no toques su saldo", no "usa el que haga falta".
+   *
+   * Lo demas (lo aplicado, el saldo que queda) lo calcula el servidor: mandarlo desde aqui solo
+   * servia para que dijeran cosas distintas.
+   */
   private crearPagoParaCita(pacienteId: number, monto: number, metodoId: number | null, citaId?: number,
-                            onDone?: () => void, soloConSaldo = false): void {
+                            onDone?: () => void, delSaldo = 0): void {
     const t = this.tratamientoExistenteSeleccionado;
+    const soloConSaldo = delSaldo > 0 && monto <= 0;
     const body: any = {
       tratamiento:   t ? { id: t.id } : undefined,
       paciente:      { id: pacienteId },
-      // Con saldo no entra dinero nuevo: se manda recibido 0 y el backend descuenta del saldo
-      // lo que haga falta para cubrir el precio.
-      montoRecibido: soloConSaldo ? 0 : monto,
-      montoAplicado: monto,
-      saldoAAplicar: soloConSaldo ? monto : 0,
-      saldoGenerado: 0,
-      saldoPrevio:   t?.saldoAFavor ?? 0,
+      montoRecibido: monto,
+      saldoAAplicar: delSaldo,
       notas:         soloConSaldo ? 'Cobrado con su saldo a favor al crear la cita'
                                   : 'Pagado al crear cita',
     };
-    if (metodoId && !soloConSaldo) body.metodo = { id: metodoId };
+    if (metodoId && monto > 0) body.metodo = { id: metodoId };
     if (citaId)   body.cita   = { id: citaId };
     if (this.fReferencia.trim()) body.referencia = this.fReferencia.trim();
     // Antes el error se ignoraba en silencio: la cita quedaba creada pero el pago no, y no había
