@@ -39,6 +39,13 @@
           <span class="pstat-val">{{ citas.length }}</span>
           <span class="pstat-lbl">Citas</span>
         </div>
+        <!-- Sesiones cobradas que todavia se le deben dar. Como las inasistencias, solo sale
+             cuando hay: a un paciente al dia no le sobra un cero en la cabecera. -->
+        <div class="pstat" *ngIf="pagadasPorDar.length > 0"
+             [title]="'Ya pago ' + pagadasPorDar.length + ' sesion(es) que todavia no recibe — S/ ' + valorPagadasPorDar.toFixed(2)">
+          <span class="pstat-val">{{ pagadasPorDar.length }}</span>
+          <span class="pstat-lbl">Pagadas por dar</span>
+        </div>
         <!-- Las inasistencias solo aparecen si las hay: un cero permanente es ruido. -->
         <div class="pstat pstat--warn" *ngIf="inasistencias.length > 0"
              [title]="devueltoPorInasistencias > 0 ? ('Se le devolvieron S/ ' + devueltoPorInasistencias.toFixed(2) + ' por inasistencias') : 'Ninguna tuvo devolución'">

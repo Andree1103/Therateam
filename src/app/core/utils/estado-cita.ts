@@ -66,3 +66,18 @@ const NO_OCUPA_SU_HORA = [
 export function ocupaSuHora(estadoKey?: string | null): boolean {
   return !NO_OCUPA_SU_HORA.includes((estadoKey ?? '').trim().toUpperCase());
 }
+
+/**
+ * Si esta cita es todavia una SESION POR DAR: va a ocurrir y no ha ocurrido.
+ *
+ * Espejo de EstadosDeCita.YA_NO_ES_UNA_SESION_POR_DAR en el backend, y se construye igual que
+ * alla: la lista de las que ya no se cobran mas ASISTIDA. La diferencia esta justo ahi — una
+ * sesion ya dada se puede cobrar (es una deuda legitima) pero ya no esta pendiente de darse.
+ *
+ * Se arma a partir de YA_NO_SE_COBRA en vez de escribir los ocho estados otra vez: esta lista
+ * ya se habia copiado tres veces y las tres se separaron.
+ */
+export function esUnaSesionPorDar(estadoKey?: string | null): boolean {
+  const k = (estadoKey ?? '').trim().toUpperCase();
+  return !YA_NO_SE_COBRA.includes(k) && k !== 'ASISTIDA';
+}

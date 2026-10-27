@@ -57,6 +57,8 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   formData: PagoForm = this.emptyForm();
 
   pagoAEliminar: Pago | null = null;
+  /** Por que se elimina. Obligatorio — viaja al historial del saldo y al libro. */
+  motivoEliminar = '';
   modalEliminar = false;
 
   pacientes: Paciente[] = [];
@@ -597,16 +599,36 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
   abrirEliminar(p: Pago): void {
     if (!this.puedeEliminar) return;
     this.pagoAEliminar = p;
+    this.motivoEliminar = '';
     this.modalEliminar = true;
   }
 
-  cerrarEliminar(): void { this.modalEliminar = false; this.pagoAEliminar = null; }
+  cerrarEliminar(): void { this.modalEliminar = false; this.pagoAEliminar = null; this.motivoEliminar = ''; }
+
+  /**
+   * Cuanto saldo a favor se le mueve al paciente si este pago desaparece.
+   *
+   * El efecto de un pago sobre el saldo es `saldoGenerado - saldoPrevio`: un adelanto de 200
+   * sobre saldo 0 vale +200, y un cobro que consumio 20 vale -20. Deshacerlo lo resta. Se
+   * muestra antes de confirmar porque es la parte que nadie tiene en la cabeza: borrar el
+   * adelanto equivocado le quita saldo al paciente, y eso hay que verlo, no deducirlo.
+   */
+  get efectoEnSaldoAlEliminar(): number {
+    const p = this.pagoAEliminar;
+    if (!p) return 0;
+    return (p.saldoGenerado ?? 0) - (p.saldoPrevio ?? 0);
+  }
+
+  get puedeConfirmarEliminar(): boolean {
+    return !this.eliminando && this.motivoEliminar.trim().length > 0;
+  }
 
   eliminar(): void {
     if (!this.pagoAEliminar?.id) return;
+    if (!this.motivoEliminar.trim()) { this.toast.warning('Escribe el motivo'); return; }
     this.eliminando = true;
     const id = this.pagoAEliminar.id;
-    this.pagoService.delete(id).subscribe({
+    this.pagoService.delete(id, this.motivoEliminar.trim()).subscribe({
       next: () => {
         this.toast.success('Pago eliminado correctamente');
         this.cerrarEliminar(); this.eliminando = false;

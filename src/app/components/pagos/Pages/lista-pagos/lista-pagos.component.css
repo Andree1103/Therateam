@@ -57,6 +57,9 @@
 .err-input{border-color:#ef4444!important}
 .err-msg{font-size:11px;color:#ef4444}
 .confirm-msg{font-size:14px;color:#334155;margin:0;line-height:1.6}
+/* Lo que el borrado le hace al saldo del paciente, y de donde queda constancia. */
+.confirm-saldo{font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin:0;line-height:1.5}
+.confirm-hint{font-size:11px;color:#64748b;margin:0}
 .txt-success{color:#15803d}
 .autocomplete-wrap{position:relative}
 .autocomplete-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;z-index:20}

@@ -60,7 +60,9 @@ export class PagoService {
     return this.api.post<Pago>(this.PATH, pago);
   }
 
-  delete(id: number): Observable<void> {
-    return this.api.delete<void>(`${this.PATH}/${id}`);
+  /** El motivo es obligatorio: el backend lo rechaza sin el, y queda en el historial del saldo. */
+  delete(id: number, motivo: string): Observable<void> {
+    const q = new URLSearchParams({ motivo }).toString();
+    return this.api.delete<void>(`${this.PATH}/${id}?${q}`);
   }
 }

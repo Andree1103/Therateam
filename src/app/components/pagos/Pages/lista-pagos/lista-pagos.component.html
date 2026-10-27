@@ -356,10 +356,29 @@
           de <strong>{{ pagoAEliminar?.paciente?.nombre }} {{ pagoAEliminar?.paciente?.apellido }}</strong>?
           Esta acción no se puede deshacer.
         </p>
+
+        <!-- Lo que le pasa al saldo del paciente. Es la parte que nadie tiene en la cabeza:
+             deshacer un adelanto le QUITA saldo, y deshacer un cobro que uso saldo se lo
+             devuelve. Se dice antes de confirmar, no después en el historial. -->
+        <p class="confirm-saldo" *ngIf="efectoEnSaldoAlEliminar > 0">
+          Se le <strong>retirarán S/ {{ efectoEnSaldoAlEliminar | number:'1.2-2' }}</strong>
+          de saldo a favor, porque este pago fue lo que se lo dejó.
+        </p>
+        <p class="confirm-saldo" *ngIf="efectoEnSaldoAlEliminar < 0">
+          Se le <strong>devolverán S/ {{ -efectoEnSaldoAlEliminar | number:'1.2-2' }}</strong>
+          de saldo a favor, que este pago había usado.
+        </p>
+
+        <div class="frow">
+          <label>Motivo *</label>
+          <textarea [(ngModel)]="motivoEliminar" [ngModelOptions]="{ standalone: true }"
+                    placeholder="Ej: se registró como saldo a favor por error, era el cobro de su cita"></textarea>
+          <p class="confirm-hint">Queda en el historial del paciente y en el libro de movimientos.</p>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
-        <button class="btn-danger" (click)="eliminar()" [disabled]="eliminando">
+        <button class="btn-danger" (click)="eliminar()" [disabled]="!puedeConfirmarEliminar">
           {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
         </button>
       </div>

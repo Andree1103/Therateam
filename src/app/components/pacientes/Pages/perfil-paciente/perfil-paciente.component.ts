@@ -19,6 +19,7 @@ import { AuthService } from '../../../auth/Services/auth.service';
 import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
   from '../../Models/horario-fijo.model';
 import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
+import { esUnaSesionPorDar } from '../../../../core/utils/estado-cita';
 import { ConfiguracionService } from '../../../../core/services/configuracion.service';
 
 type TabPerfilKey = 'datos' | 'tratamientos' | 'citas' | 'atenciones' | 'pagos' | 'saldo';
@@ -175,6 +176,27 @@ export class PerfilPacienteComponent implements OnInit {
 
   get devueltoPorInasistencias(): number {
     return this.inasistencias.reduce((t, c) => t + (c.con_devolucion ? (c.monto_devuelto ?? 0) : 0), 0);
+  }
+
+  /**
+   * Sesiones que el paciente YA PAGO y todavia no ha recibido.
+   *
+   * No es lo mismo que "cuantas citas se cobraron": eso es un dato de caja y se mira en Pagos.
+   * Esto es lo contrario, una obligacion — trabajo cobrado que la clinica todavia debe dar. Es
+   * el numero que importa antes de decirle a un paciente que no hay cupo, y el que hay que
+   * mirar si el paquete se vence.
+   *
+   * Se compara con PAGADA a mano, no con estaSaldada(): DESCONTADA tambien esta saldada y es
+   * justamente el caso contrario —el paciente no vino y la clinica se quedo el dinero— asi que
+   * no hay ninguna sesion por dar ahi.
+   */
+  get pagadasPorDar(): Cita[] {
+    return this.citas.filter(c => c.estado_pago_key === 'PAGADA' && esUnaSesionPorDar(c.estado));
+  }
+
+  /** Cuanto dinero representan esas sesiones: lo que habria que devolver si no se dieran. */
+  get valorPagadasPorDar(): number {
+    return this.pagadasPorDar.reduce((t, c) => t + (c.precio ?? 0), 0);
   }
 
   diaCorto(d: number): string { return DIAS_CORTOS[d]; }
