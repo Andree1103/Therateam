@@ -131,6 +131,37 @@
   padding:3px 9px; border-radius:999px; font-size:12px; font-weight:500; white-space:nowrap;
 }
 .conteo-chip strong{ font-size:13px; font-weight:700; }
+
+/* ── Tab Citas: resumen, filtros y paginacion ──────────────────────────────── */
+.citas-resumen{display:flex;flex-wrap:wrap;gap:10px}
+.cres{display:flex;flex-direction:column;gap:2px;padding:10px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;min-width:104px}
+.cres--ok{border-color:#bbf7d0;background:#f0fdf4}
+.cres--pend{border-color:#bfdbfe;background:#eff6ff}
+.cres-val{font-size:20px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}
+.cres--ok .cres-val{color:#15803d}
+.cres--pend .cres-val{color:#1d4ed8}
+.cres-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+
+.citas-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.citas-filtros select{padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;background:#fff;min-width:170px}
+.citas-filtros select:focus{outline:none;border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+.btn-limpiar{padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:inherit;color:#475569;cursor:pointer}
+.btn-limpiar:hover{background:#f8fafc;color:#0f172a}
+
+.data-table th.th-orden{cursor:pointer;user-select:none}
+.data-table th.th-orden:hover{color:#185FA5}
+.orden-flecha{font-size:9px;margin-left:2px}
+
+.state-box--chico{padding:22px 24px}
+
+.citas-pie{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.citas-pie-txt{font-size:12px;color:#64748b;font-variant-numeric:tabular-nums}
+.citas-pie-txt strong{color:#0f172a}
+.citas-pager{display:flex;align-items:center;gap:8px}
+.citas-pager button{padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:12px;font-family:inherit;color:#475569;cursor:pointer}
+.citas-pager button:hover:not(:disabled){background:#f8fafc;color:#0f172a}
+.citas-pager button:disabled{opacity:.45;cursor:not-allowed}
+.citas-pager-pos{font-size:12px;color:#64748b;font-variant-numeric:tabular-nums}
 @media (max-width:640px){ .conteo-citas{ gap:10px; } }
 
 /* La fecha lleva el dia de la semana desde que se pidio ("lunes, 26 oct. 2026, 03:00 p. m."),

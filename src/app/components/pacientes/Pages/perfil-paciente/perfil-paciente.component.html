@@ -218,6 +218,23 @@
       </div>
       <!-- Recuento de TODAS sus citas, no solo de las 50 que se listan: cuantas van de cada
            estado y de cada estado de pago, que es lo que se preguntaba contando filas a ojo. -->
+      <!-- Los dos numeros que se miran primero, separados del desglose por estado: cuantas se
+           dieron y cuantas siguen pendientes de darse. -->
+      <div class="citas-resumen" *ngIf="citas.length > 0">
+        <div class="cres cres--ok">
+          <span class="cres-val">{{ citasAtendidas }}</span>
+          <span class="cres-lbl">Atendidas</span>
+        </div>
+        <div class="cres cres--pend">
+          <span class="cres-val">{{ citasPorAtender }}</span>
+          <span class="cres-lbl">Por atender</span>
+        </div>
+        <div class="cres">
+          <span class="cres-val">{{ citas.length }}</span>
+          <span class="cres-lbl">Total</span>
+        </div>
+      </div>
+
       <div class="conteo-citas" *ngIf="citas.length > 0">
         <div class="conteo-grupo">
           <span class="conteo-tit">Estado</span>
@@ -234,22 +251,50 @@
           </span>
         </div>
       </div>
-      <table class="data-table" *ngIf="citas.length > 0">
+      <!-- Los desplegables se llenan con lo que ESTE paciente tiene, no con el catalogo entero:
+           filtrar por un terapeuta que nunca lo atendio no lleva a ningun sitio. -->
+      <div class="citas-filtros" *ngIf="citas.length > 0">
+        <select [(ngModel)]="fTerapeuta" (ngModelChange)="alCambiarFiltro()" [ngModelOptions]="{ standalone: true }">
+          <option value="">Todos los terapeutas</option>
+          <option *ngFor="let t of terapeutasDeSusCitas" [value]="t">{{ t }}</option>
+        </select>
+        <select [(ngModel)]="fEstado" (ngModelChange)="alCambiarFiltro()" [ngModelOptions]="{ standalone: true }">
+          <option value="">Todos los estados</option>
+          <option *ngFor="let e of estadosDeSusCitas" [value]="e.key">{{ e.label }}</option>
+        </select>
+        <select [(ngModel)]="fPago" (ngModelChange)="alCambiarFiltro()" [ngModelOptions]="{ standalone: true }">
+          <option value="">Todos los pagos</option>
+          <option *ngFor="let p of pagosDeSusCitas" [value]="p.key">{{ p.label }}</option>
+        </select>
+        <button type="button" class="btn-limpiar" *ngIf="hayFiltro" (click)="limpiarFiltrosCitas()">Limpiar</button>
+      </div>
+
+      <div class="state-box state-box--chico" *ngIf="citas.length > 0 && citasFiltradas.length === 0">
+        <p>Ninguna cita cumple el filtro</p>
+      </div>
+
+      <table class="data-table" *ngIf="citasFiltradas.length > 0">
         <thead>
           <tr>
             <!-- El numero de cita: es como se la nombra al reclamar o al buscarla en el Excel. -->
             <th>Cita</th>
-            <th class="col-fecha">Fecha y hora</th>
-            <th>Terapeuta</th>
+            <th class="col-fecha th-orden" (click)="ordenarPor('fecha')">
+              Fecha y hora <span class="orden-flecha" *ngIf="ordenCampo === 'fecha'">{{ ordenAsc ? '▲' : '▼' }}</span>
+            </th>
+            <th class="th-orden" (click)="ordenarPor('terapeuta')">
+              Terapeuta <span class="orden-flecha" *ngIf="ordenCampo === 'terapeuta'">{{ ordenAsc ? '▲' : '▼' }}</span>
+            </th>
             <th>Tipo</th>
             <th>Modalidad</th>
-            <th>Estado</th>
+            <th class="th-orden" (click)="ordenarPor('estado')">
+              Estado <span class="orden-flecha" *ngIf="ordenCampo === 'estado'">{{ ordenAsc ? '▲' : '▼' }}</span>
+            </th>
             <th>Pago</th>
             <th>Duración</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let c of citas | slice:0:50">
+          <tr *ngFor="let c of citasPagina">
             <td class="cita-num">
               #{{ c.id }}
               <!-- De una reprogramacion interesa de donde viene: es lo que permite seguir el
@@ -261,7 +306,8 @@
             <td>{{ c.tipo_terapia_nombre || '—' }}</td>
             <td>{{ c.modalidad || '—' }}</td>
             <td>
-              <span class="chip-estado">{{ estadoCitaLabel(c.estado) }}</span>
+              <span class="chip-estado" [style.background]="colorPagoFondo(colorEstadoCita(c.estado))"
+                    [style.color]="colorEstadoCita(c.estado)">{{ estadoCitaLabel(c.estado) }}</span>
             </td>
             <!-- El color lo manda el catálogo (cat_estados_pago_cita), igual que en la agenda:
                  así "Pagada" y "Sin pago" se distinguen de un vistazo sin leer la columna. -->
@@ -274,6 +320,21 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Antes la tabla cortaba en 50 y no lo decia. Ahora siempre se ve cuantas hay y donde
+           se esta, y el total es el del filtro puesto, no el de todas. -->
+      <div class="citas-pie" *ngIf="citasFiltradas.length > 0">
+        <span class="citas-pie-txt">
+          {{ desdeFila }}–{{ hastaFila }} de <strong>{{ citasFiltradas.length }}</strong>
+          {{ hayFiltro ? 'citas filtradas' : 'citas' }} · suman
+          <strong>S/ {{ totalFiltrado | number:'1.2-2' }}</strong>
+        </span>
+        <div class="citas-pager" *ngIf="totalPaginas > 1">
+          <button type="button" (click)="irAPagina(pagina - 1)" [disabled]="pagina === 0">‹ Anterior</button>
+          <span class="citas-pager-pos">Página {{ pagina + 1 }} de {{ totalPaginas }}</span>
+          <button type="button" (click)="irAPagina(pagina + 1)" [disabled]="pagina >= totalPaginas - 1">Siguiente ›</button>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: ATENCIONES -->

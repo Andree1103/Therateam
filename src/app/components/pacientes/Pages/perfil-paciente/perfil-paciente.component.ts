@@ -248,18 +248,30 @@ export class PerfilPacienteComponent implements OnInit {
    * la tabla se lean como lo mismo.
    */
   get conteoPorEstado(): { nombre: string; n: number; color: string }[] {
-    const COLORES: Record<string, string> = {
-      PROGRAMADA: '#3b82f6', CONFIRMADA: '#6366f1', EN_CURSO: '#f59e0b', ASISTIDA: '#22c55e',
-      NO_ASISTIO: '#ef4444', REPROGRAMADA: '#8b5cf6', ANULADA: '#64748b',
-    };
     const porKey = new Map<string, number>();
     for (const c of this.citas) {
       const k = c.estado ?? 'SIN_ESTADO';
       porKey.set(k, (porKey.get(k) ?? 0) + 1);
     }
     return [...porKey.entries()]
-      .map(([k, n]) => ({ nombre: this.estadoCitaLabel(k), n, color: COLORES[k] ?? '#64748b' }))
+      .map(([k, n]) => ({ nombre: this.estadoCitaLabel(k), n, color: this.colorEstadoCita(k) }))
       .sort((a, b) => b.n - a.n);
+  }
+
+  /**
+   * El color de un estado de cita.
+   *
+   * Estaba dentro del recuento, asi que los chips de la tabla salian todos grises y "Asistida",
+   * "Anulada" y "No asistio" se leian igual. Que el estado se distinga de un vistazo es lo que
+   * el cliente pidio al hablar de diferenciar las no atendidas.
+   */
+  colorEstadoCita(key?: string | null): string {
+    const COLORES: Record<string, string> = {
+      PROGRAMADA: '#3b82f6', CONFIRMADA: '#6366f1', EN_CURSO: '#f59e0b', ASISTIDA: '#22c55e',
+      NO_ASISTIO: '#ef4444', REPROGRAMADA: '#8b5cf6', ANULADA: '#64748b',
+      CANCELADA_PACIENTE: '#64748b', CANCELADA_CLINICA: '#64748b',
+    };
+    return COLORES[(key ?? '').trim().toUpperCase()] ?? '#64748b';
   }
 
   get conteoPorPago(): { nombre: string; n: number; color: string }[] {
@@ -281,6 +293,116 @@ export class PerfilPacienteComponent implements OnInit {
 
   colorPagoFondo(color?: string | null): string {
     return color ? `${color}26` : '#f1f5f9';
+  }
+
+  // ── Tab Citas: filtrar, ordenar y paginar ──────────────────────────────────
+  //
+  // La tabla listaba `citas | slice:0:50` y no decia nada de las demas. Un paciente con 123
+  // citas mostraba 50 y escondia 73 sin ningun aviso: lo que se veia parecia el historial
+  // completo y no lo era. Por eso esto es paginacion de verdad y no un "ver mas".
+  //
+  // Todo se calcula en memoria porque las citas del paciente ya vienen cargadas enteras (de ahi
+  // salen tambien los recuentos de arriba): pedirlas por pagina al servidor obligaria a pedir
+  // los totales aparte y a dejar los contadores mintiendo mientras se navega.
+
+  fTerapeuta = '';
+  fEstado = '';
+  fPago = '';
+  ordenCampo: 'fecha' | 'terapeuta' | 'estado' = 'fecha';
+  ordenAsc = false;            // la ficha se abre por lo mas reciente, que es lo que se consulta
+  pagina = 0;
+  readonly porPagina = 20;
+
+  /** Solo los terapeutas que ESTE paciente ha visto: un desplegable con los 30 de la clinica no
+   *  sirve para filtrar la ficha de alguien que vio a dos. */
+  get terapeutasDeSusCitas(): string[] {
+    return [...new Set(this.citas.map(c => c.terapeuta_nombre).filter((n): n is string => !!n))]
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  get estadosDeSusCitas(): { key: string; label: string }[] {
+    return [...new Set(this.citas.map(c => c.estado).filter((k): k is string => !!k))]
+      .map(k => ({ key: k, label: this.estadoCitaLabel(k) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  get pagosDeSusCitas(): { key: string; label: string }[] {
+    const porKey = new Map<string, string>();
+    for (const c of this.citas) {
+      if (c.estado_pago_key) porKey.set(c.estado_pago_key, c.estado_pago_nombre ?? c.estado_pago_key);
+    }
+    return [...porKey.entries()].map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  get citasFiltradas(): Cita[] {
+    const filtradas = this.citas.filter(c =>
+      (!this.fTerapeuta || c.terapeuta_nombre === this.fTerapeuta) &&
+      (!this.fEstado    || c.estado === this.fEstado) &&
+      (!this.fPago      || c.estado_pago_key === this.fPago));
+
+    const signo = this.ordenAsc ? 1 : -1;
+    return filtradas.sort((a, b) => {
+      if (this.ordenCampo === 'terapeuta') {
+        return signo * (a.terapeuta_nombre ?? '').localeCompare(b.terapeuta_nombre ?? '');
+      }
+      if (this.ordenCampo === 'estado') {
+        return signo * this.estadoCitaLabel(a.estado).localeCompare(this.estadoCitaLabel(b.estado));
+      }
+      return signo * (new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime());
+    });
+  }
+
+  get totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.citasFiltradas.length / this.porPagina));
+  }
+
+  /** La pagina se recorta aqui y no al filtrar: asi un filtro que deja menos paginas nunca
+   *  muestra una tabla vacia por haberse quedado en la pagina 5. */
+  get citasPagina(): Cita[] {
+    const p = Math.min(this.pagina, this.totalPaginas - 1);
+    return this.citasFiltradas.slice(p * this.porPagina, (p + 1) * this.porPagina);
+  }
+
+  get desdeFila(): number { return this.citasFiltradas.length === 0 ? 0 : Math.min(this.pagina, this.totalPaginas - 1) * this.porPagina + 1; }
+  get hastaFila(): number { return Math.min(this.desdeFila + this.porPagina - 1, this.citasFiltradas.length); }
+
+  /** Lo que suman las citas que se estan viendo, no todas: es el total del filtro puesto. */
+  get totalFiltrado(): number {
+    return this.citasFiltradas.reduce((t, c) => t + (c.precio ?? 0), 0);
+  }
+
+  get hayFiltro(): boolean { return !!(this.fTerapeuta || this.fEstado || this.fPago); }
+
+  alCambiarFiltro(): void { this.pagina = 0; }
+
+  limpiarFiltrosCitas(): void {
+    this.fTerapeuta = ''; this.fEstado = ''; this.fPago = ''; this.pagina = 0;
+  }
+
+  ordenarPor(campo: 'fecha' | 'terapeuta' | 'estado'): void {
+    if (this.ordenCampo === campo) this.ordenAsc = !this.ordenAsc;
+    else { this.ordenCampo = campo; this.ordenAsc = campo !== 'fecha'; }
+    this.pagina = 0;
+  }
+
+  irAPagina(p: number): void {
+    this.pagina = Math.max(0, Math.min(p, this.totalPaginas - 1));
+  }
+
+  /**
+   * Atendidas y por atender, los dos numeros que el cliente queria separados.
+   *
+   * "Por atender" no es "todo lo que no esta asistido": una anulada o una inasistencia tampoco
+   * esta atendida y no hay nada que hacer con ellas. Son las que siguen pendientes de darse, la
+   * misma regla que usa el contador de la cabecera.
+   */
+  get citasAtendidas(): number {
+    return this.citas.filter(c => c.estado === 'ASISTIDA').length;
+  }
+
+  get citasPorAtender(): number {
+    return this.citas.filter(c => esUnaSesionPorDar(c.estado)).length;
   }
 
   /** Tooltip de la columna Pago: cuánto se cubrió del precio, que es la pregunta que sigue
