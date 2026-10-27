@@ -93,3 +93,16 @@
 .export-pop-nota{margin:2px 0 10px;font-size:11px;color:#64748b;line-height:1.4}
 .export-pop-btns{display:flex;justify-content:flex-end;gap:8px}
 
+
+
+/* ── Historial: turnos con movimiento, cerrados y sin cerrar ──────────────── */
+.hist-resumen{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px 0}
+.hist-chip{display:inline-flex;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.hist-chip--ok{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+.hist-chip--pend{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+.hist-nota{font-size:11px;color:#64748b}
+
+.chip-cierre{display:inline-flex;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#f0fdf4;color:#15803d}
+.chip-cierre--pend{background:#fffbeb;color:#b45309}
+.fila-sin-cerrar td{background:#fffdf7}
+.sin-dato{color:#cbd5e1}

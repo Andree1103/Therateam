@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CajaService } from '../../Services/caja.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { CajaResumen, CierreCaja } from '../../Models/caja.model';
+import { CajaResumen } from '../../Models/caja.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 
@@ -48,7 +48,16 @@ export class ListaCajaComponent implements OnInit {
   egresosForm: number | null = null;
   comentarioForm = '';
 
-  historial: CierreCaja[] = [];
+  /**
+   * El historial lista TURNOS CON MOVIMIENTO, no cierres.
+   *
+   * Antes salia de /caja/historial, que devuelve los cierres guardados. Si nadie cierra, la
+   * tabla aparece vacia y el boton de exportar deshabilitado — con el dinero cobrado y todo.
+   * Esa es la version suave; la dura es peor: cuando se cierra la manana y nunca la tarde, el
+   * historial enseña media verdad y parece completo. Pasandolo a resumen-rango, un turno que
+   * movio plata y no se cerro aparece igual, marcado, y el agujero se ve.
+   */
+  historial: CajaResumen[] = [];
   cargandoHistorial = false;
 
   // ── Hora de corte entre turno 1 y turno 2 (editable) ──────────────────────
@@ -115,8 +124,14 @@ export class ListaCajaComponent implements OnInit {
     const desdeDate = new Date();
     desdeDate.setDate(desdeDate.getDate() - 30);
     const desde = this.fechaLocalISO(desdeDate);
-    this.cajaService.getHistorial(desde, hasta).subscribe({
-      next: d => { this.historial = d; this.cargandoHistorial = false; },
+    this.cajaService.getResumenRango(desde, hasta).subscribe({
+      next: d => {
+        // El servidor los manda de mas viejo a mas nuevo; aqui interesa al reves, porque lo que
+        // se consulta es "que paso estos dias", empezando por ayer.
+        this.historial = [...d].sort((a, b) =>
+          b.fecha.localeCompare(a.fecha) || b.turno - a.turno);
+        this.cargandoHistorial = false;
+      },
       error: () => { this.cargandoHistorial = false; }
     });
   }
@@ -200,23 +215,46 @@ export class ListaCajaComponent implements OnInit {
     ];
   }
 
-  /** Exporta el historial de cierres visible (últimos 30 días) — mismo rango que se ve en pantalla. */
+  /** Turnos del rango que movieron plata y nadie cerro. Es el numero que delata el agujero. */
+  get turnosSinCerrar(): number {
+    return this.historial.filter(h => !h.cerrado).length;
+  }
+
+  get turnosCerrados(): number {
+    return this.historial.filter(h => h.cerrado).length;
+  }
+
+  /**
+   * El saldo acumulado solo tiene sentido en un turno CERRADO.
+   *
+   * El saldo inicial sale del ultimo cierre anterior; si no se cerro, ese cierre puede ser de
+   * hace una semana y el "saldo final" que resulta no es un acumulado sino lo que entro ese
+   * turno, sumado a un arrastre viejo. Mostrarlo como saldo seria dar por cuadrado algo que
+   * nadie cuadro, asi que en esas filas va una raya.
+   */
+  tieneAcumulado(h: CajaResumen): boolean { return h.cerrado; }
+
+  /** Exporta lo mismo que se ve: los turnos con movimiento de los ultimos 30 dias. */
   exportarHistorial(): void {
     if (this.historial.length === 0) return;
     this.exportando = true;
+    const raya = '—';
     const filas = this.historial.map(h => ({
-      'Fecha': new Date(h.fecha).toLocaleDateString('es-PE'),
+      'Fecha': new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-PE'),
       'Turno': h.turno,
+      'Cierre': h.cerrado ? 'Cerrado' : 'SIN CERRAR',
+      'Cerrado por': h.cerradoPorNombre ?? '',
       // El acumulado solo va para quien puede verlo en pantalla. Si no, el Excel seria la
       // puerta de atras del permiso.
-      ...(this.puedeVerSaldoInicial ? { 'Saldo inicial (S/)': h.saldoInicial } : {}),
-      'Ingresos (S/)': h.totalIngresos,
-      'Egresos (S/)': h.egresos,
       ...(this.puedeVerSaldoInicial
-            ? { 'Saldo final (S/)': h.saldoFinal }
-            : { 'Neto del turno (S/)': h.totalIngresos - (h.egresos ?? 0) }),
+            ? { 'Saldo inicial (S/)': h.cerrado ? h.saldoInicial : raya }
+            : {}),
+      'Ingresos (S/)': h.totalIngresos,
+      'Egresos (S/)': h.cerrado ? h.egresos : raya,
+      ...(this.puedeVerSaldoInicial
+            ? { 'Saldo final (S/)': h.cerrado ? h.saldoFinal : raya }
+            : { 'Neto del turno (S/)': h.cerrado ? h.totalIngresos - (h.egresos ?? 0) : raya }),
       'Comentario': h.comentario ?? '',
-      'Usuario creación': h.cerradoPor ? `${h.cerradoPor.nombre ?? ''} ${h.cerradoPor.apellido ?? ''}`.trim() : '',
     }));
     this.excelExportService.exportar(filas, 'caja_historial');
     this.exportando = false;

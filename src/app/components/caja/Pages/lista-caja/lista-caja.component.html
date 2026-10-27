@@ -195,33 +195,63 @@
 
     <div class="card">
       <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center">
-        Historial (últimos 30 días)
+        Turnos con movimiento (últimos 30 días)
         <button *ngIf="puedeExportar" type="button" class="btn-secondary" (click)="exportarHistorial()" [disabled]="exportando || historial.length === 0">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
         </button>
       </div>
       <div class="state-box small" *ngIf="!cargandoHistorial && historial.length === 0">
-        <p>Sin cierres registrados en este rango</p>
+        <p>Sin movimientos de caja en este rango</p>
       </div>
+
+      <!-- Cuantos turnos movieron plata y cuantos quedaron sin cuadrar. Si nadie cierra la
+           tarde, aqui se ve en un numero en vez de contando filas. -->
+      <div class="hist-resumen" *ngIf="historial.length > 0">
+        <span class="hist-chip hist-chip--ok">{{ turnosCerrados }} cerrados</span>
+        <span class="hist-chip hist-chip--pend" *ngIf="turnosSinCerrar > 0">
+          {{ turnosSinCerrar }} sin cerrar
+        </span>
+        <span class="hist-nota" *ngIf="turnosSinCerrar > 0">
+          Un turno sin cerrar no tiene arqueo: si falta dinero, no hay contra qué compararlo.
+        </span>
+      </div>
+
       <table class="data-table" *ngIf="historial.length > 0">
         <thead>
-          <tr><th>Fecha</th><th>Turno</th>
+          <tr><th>Fecha</th><th>Turno</th><th>Cierre</th>
               <th *ngIf="puedeVerSaldoInicial">Saldo inicial</th>
               <th>Ingresos</th><th>Egresos</th>
               <th>{{ puedeVerSaldoInicial ? 'Saldo final' : 'Neto del turno' }}</th></tr>
         </thead>
         <tbody>
-          <tr *ngFor="let h of historial">
+          <tr *ngFor="let h of historial" [class.fila-sin-cerrar]="!h.cerrado">
             <td>{{ h.fecha | date:'d MMM yyyy' }}</td>
             <td>{{ h.turno }}</td>
-            <td *ngIf="puedeVerSaldoInicial">S/ {{ h.saldoInicial | number:'1.2-2' }}</td>
+            <td>
+              <span class="chip-cierre" [class.chip-cierre--pend]="!h.cerrado"
+                    [title]="h.cerrado ? (h.cerradoPorNombre || 'Cerrado') : 'Hubo cobros y nadie cuadró este turno'">
+                {{ h.cerrado ? (h.cerradoPorNombre || 'Cerrado') : 'Sin cerrar' }}
+              </span>
+            </td>
+            <!-- Sin cierre no hay acumulado que enseñar: el saldo inicial vendría del último
+                 cierre, que puede ser de hace días, y el final no sería un saldo. -->
+            <td *ngIf="puedeVerSaldoInicial">
+              <ng-container *ngIf="tieneAcumulado(h); else sinDato">S/ {{ h.saldoInicial | number:'1.2-2' }}</ng-container>
+            </td>
             <td class="txt-success">S/ {{ h.totalIngresos | number:'1.2-2' }}</td>
-            <td class="txt-danger">S/ {{ h.egresos | number:'1.2-2' }}</td>
-            <td class="monto">S/ {{ (puedeVerSaldoInicial ? h.saldoFinal : (h.totalIngresos - (h.egresos ?? 0))) | number:'1.2-2' }}</td>
+            <td class="txt-danger">
+              <ng-container *ngIf="tieneAcumulado(h); else sinDato">S/ {{ h.egresos | number:'1.2-2' }}</ng-container>
+            </td>
+            <td class="monto">
+              <ng-container *ngIf="tieneAcumulado(h); else sinDato">
+                S/ {{ (puedeVerSaldoInicial ? h.saldoFinal : (h.totalIngresos - (h.egresos ?? 0))) | number:'1.2-2' }}
+              </ng-container>
+            </td>
           </tr>
         </tbody>
       </table>
+      <ng-template #sinDato><span class="sin-dato" title="Este turno no se cerró">—</span></ng-template>
     </div>
 
   </div>

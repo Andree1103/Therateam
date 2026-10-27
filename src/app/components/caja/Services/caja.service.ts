@@ -22,6 +22,13 @@ export class CajaService {
     return this.api.post<CajaResumen>(`${this.PATH}/cerrar`, req);
   }
 
+  /**
+   * Los cierres GUARDADOS del rango — solo los turnos que alguien cuadro.
+   *
+   * La pantalla de caja ya no lo usa: lista turnos con movimiento (getResumenRango) para que un
+   * turno cobrado y sin cerrar no desaparezca. Esto sigue aqui porque responde otra pregunta,
+   * "que se cuadro", que es legitima; no es lo mismo que "que paso".
+   */
   getHistorial(desde: string, hasta: string): Observable<CierreCaja[]> {
     return this.api.get<CierreCaja[]>(`${this.PATH}/historial`, { desde, hasta });
   }
