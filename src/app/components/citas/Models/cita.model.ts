@@ -67,6 +67,9 @@ export interface Cita {
   usuario_creacion_nombre?: string | null;
   usuario_modificacion_nombre?: string | null;
   usuario_atencion_nombre?: string | null;
+  /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
+  validada?: boolean;
+  validada_por_nombre?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -242,4 +245,7 @@ export interface CitaApiDTO {
   usuario_creacion_nombre?: string | null;
   usuario_modificacion_nombre?: string | null;
   usuario_atencion_nombre?: string | null;
+  /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
+  validada?: boolean;
+  validada_por_nombre?: string | null;
 }

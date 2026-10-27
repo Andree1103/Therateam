@@ -33,6 +33,7 @@ export interface User {
   puedeVerSaldoInicial: boolean;
   /** Viene del ROL: si es false, no se puede cambiar la hora de corte de Caja. */
   puedeEditarHoraCorte: boolean;
+  puedeValidarCita: boolean;
 }
 
 interface LoginResponse {
@@ -54,6 +55,7 @@ interface LoginResponse {
   puedeCorregirAtencion: boolean;
   puedeVerSaldoInicial: boolean;
   puedeEditarHoraCorte: boolean;
+  puedeValidarCita: boolean;
 }
 
 @Injectable({
@@ -109,6 +111,7 @@ export class AuthService {
           puedeCorregirAtencion: res.puedeCorregirAtencion,
           puedeVerSaldoInicial: res.puedeVerSaldoInicial,
           puedeEditarHoraCorte: res.puedeEditarHoraCorte,
+          puedeValidarCita: res.puedeValidarCita,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -203,6 +206,11 @@ export class AuthService {
 
   puedeEditarHoraCorte(): boolean {
     return this.currentUserValue?.puedeEditarHoraCorte ?? false;
+  }
+
+  /** Dar el visto bueno a una cita (doble validacion). Permiso propio, no el de editar Citas. */
+  puedeValidarCita(): boolean {
+    return this.currentUserValue?.puedeValidarCita ?? false;
   }
 
   puedeCorregirAtencion(): boolean {

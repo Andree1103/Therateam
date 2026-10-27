@@ -737,3 +737,28 @@ tbody tr{height:var(--slot-h)}
                        font-family:inherit;font-size:12.5px;background:#fff}
 .hc-metodo-nota{margin:6px 0 8px;font-size:10.5px;color:#64748b;line-height:1.35}
 .hc-metodo-btns{display:flex;justify-content:flex-end;gap:6px}
+
+
+/* ── Doble validacion ───────────────────────────────────────────────────────
+   El sello se ve en la tarjeta flotante de la cita y en el formulario de edicion. El estado
+   "sin validar" se pinta siempre, no solo el validado: lo que interesa ver de un vistazo es
+   lo que falta por revisar. */
+.hc-valid{margin-left:auto;padding:2px 7px;border-radius:20px;font-size:9.5px;font-weight:700;
+          background:#fffbeb;color:#b45309;border:1px solid #fde68a;white-space:nowrap}
+.hc-valid--si{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+.hc-btn-valid{padding:5px 9px;border:1px solid #fde68a;border-radius:7px;background:#fffbeb;
+              color:#b45309;font-size:10.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.hc-btn-valid:hover:not(:disabled){background:#fef3c7}
+.hc-btn-valid--si{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+.hc-btn-valid--si:hover:not(:disabled){background:#dcfce7}
+.hc-btn-valid:disabled{opacity:.6;cursor:not-allowed}
+
+.valid-caja{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+            padding:10px 12px;border:1px solid #fde68a;background:#fffbeb;border-radius:8px}
+.valid-caja--si{border-color:#bbf7d0;background:#f0fdf4}
+.valid-txt{font-size:12.5px;color:#92400e}
+.valid-caja--si .valid-txt{color:#166534}
+.valid-btn{padding:6px 12px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;
+           font-size:12px;font-family:inherit;color:#334155;cursor:pointer;font-weight:600}
+.valid-btn:hover:not(:disabled){background:#f8fafc;color:#0f172a}
+.valid-btn:disabled{opacity:.6;cursor:not-allowed}

@@ -620,6 +620,48 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   /** Registrar pago desde el modal de cita usa el mismo permiso que el módulo Pagos. */
   get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
 
+  /**
+   * Dar el visto bueno a una cita: permiso propio, NO el de editar Citas.
+   *
+   * Si fuera el de editar, quien carga la cita podria aprobarse a si mismo y la doble validacion
+   * no seria doble. Se activa en Seguridad > Roles, y el servidor ademas rechaza que la valide
+   * quien la creo.
+   */
+  get puedeValidarCitas(): boolean { return this.authService.puedeValidarCita(); }
+
+  /** Id de la cita cuyo visto bueno se esta guardando — para no dejar pulsar dos veces. */
+  validandoCitaId: string | null = null;
+
+  /**
+   * Pone o quita el visto bueno de una cita.
+   *
+   * El cambio se refleja en la fila sin recargar el listado: recargar cerraria la tarjeta
+   * flotante justo cuando acabas de pulsar, y con una agenda de semana completa es un parpadeo
+   * entero por cada visto bueno.
+   */
+  alternarValidacion(c: Cita, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!this.puedeValidarCitas || this.validandoCitaId) return;
+    const quiere = !c.validada;
+    this.validandoCitaId = c.id;
+    this.citaService.cambiarValidacion(c.id, quiere).subscribe({
+      next: actualizada => {
+        c.validada = actualizada.validada;
+        c.validada_por_nombre = actualizada.validada_por_nombre;
+        if (this.citaEditando && this.citaEditando.id === c.id) {
+          this.citaEditando.validada = actualizada.validada;
+          this.citaEditando.validada_por_nombre = actualizada.validada_por_nombre;
+        }
+        this.validandoCitaId = null;
+        this.toast.success(quiere ? 'Visto bueno registrado' : 'Visto bueno retirado');
+      },
+      error: err => {
+        this.validandoCitaId = null;
+        this.toast.error(err?.error?.error || 'No se pudo cambiar la validación');
+      },
+    });
+  }
+
   // ── Getters ─────────────────────────────────────────────────────────────────
 
   /** Tipos de terapia del área seleccionada en el modal — reemplaza las pestañas fijas Regular/Kids/Consultas. */

@@ -279,6 +279,14 @@
                     <div class="hc-hdr">
                       <span class="hc-estado-dot" [style.background]="getEstadoColor(c.estado)"></span>
                       <span class="hc-estado">{{ c.estado }}</span>
+                      <!-- Doble validacion. Se muestra siempre, validada o no: un sello que solo
+                           aparece cuando esta puesto no deja ver lo que falta por revisar. -->
+                      <span class="hc-valid" [class.hc-valid--si]="c.validada"
+                            [title]="c.validada
+                                     ? ('Visto bueno de ' + (c.validada_por_nombre || 'otra persona'))
+                                     : 'Nadie ha dado el visto bueno a esta cita'">
+                        {{ c.validada ? '✓ Validada' : 'Sin validar' }}
+                      </span>
                       <span class="hc-pago-badge"
                             *ngIf="c.estado_pago_key"
                             [style.background]="getPagoColor(c.estado_pago_key) + '22'"
@@ -405,6 +413,15 @@
                     </div>
 
                     <div class="hc-footer">
+                      <!-- Solo para quien tiene el permiso. El servidor ademas rechaza que la
+                           valide quien la cargo, y ese aviso llega como toast. -->
+                      <button class="hc-btn-valid" *ngIf="puedeValidarCitas"
+                              [class.hc-btn-valid--si]="c.validada"
+                              [disabled]="validandoCitaId === c.id"
+                              [title]="c.validada ? 'Retirar el visto bueno' : 'Dar el visto bueno a esta cita'"
+                              (click)="alternarValidacion(c, $event)">
+                        {{ validandoCitaId === c.id ? '...' : (c.validada ? 'Quitar visto bueno' : 'Dar visto bueno') }}
+                      </button>
                       <button class="hc-btn-edit" (click)="abrirEditar(c, $event)">Editar</button>
                       <button class="hc-btn-pagar"
                               *ngIf="!estaSaldada(c) && citaPagandoId !== c.id && puedeRegistrarPago"
@@ -1000,28 +1017,36 @@
           </div>
         </div>
 
-        <!-- Tipo de cita: fijo / eventual / solo por hoy -->
-        <div class="frow">
-          <label>Tipo de cita</label>
-          <div class="modalidad-opts">
-            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'FIJO'">
-              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="FIJO" style="display:none">
-              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.7V12a4 4 0 0 1 4-4h14"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.3V12a4 4 0 0 1-4 4H3"/></svg></span>
-              Fijo
-            </label>
-            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'EVENTUAL'">
-              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="EVENTUAL" style="display:none">
-              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-              Eventual
-            </label>
-            <label class="modalidad-radio" [class.selected]="fTipoRecurrencia === 'SOLO_HOY'">
-              <input type="radio" [(ngModel)]="fTipoRecurrencia" [name]="'tipoRecurrencia'" value="SOLO_HOY" style="display:none">
-              <span class="mod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-              Solo por hoy
-            </label>
+        <!-- ── DOBLE VALIDACIÓN ────────────────────────────────────────
+             Aquí estaba "Tipo de cita" (fijo / eventual / solo por hoy). La clínica no lo usa
+             —casi todas las citas quedaban en el valor por defecto— y este es el espacio que
+             pidieron para el visto bueno. El campo tipo_recurrencia NO se reutiliza para esto:
+             sigue existiendo con su significado y su valor por defecto; lo que se quitó es el
+             formulario, no el dato. -->
+        <div class="frow" *ngIf="citaEditando">
+          <label>Validación</label>
+          <div class="valid-caja" [class.valid-caja--si]="citaEditando.validada">
+            <div class="valid-txt">
+              <strong>{{ citaEditando.validada ? 'Validada' : 'Sin validar' }}</strong>
+              <span *ngIf="citaEditando.validada && citaEditando.validada_por_nombre">
+                · visto bueno de {{ citaEditando.validada_por_nombre }}
+              </span>
+            </div>
+            <button type="button" class="valid-btn" *ngIf="puedeValidarCitas"
+                    [disabled]="validandoCitaId === citaEditando.id"
+                    (click)="alternarValidacion(citaEditando)">
+              {{ validandoCitaId === citaEditando.id
+                   ? 'Guardando...'
+                   : (citaEditando.validada ? 'Quitar visto bueno' : 'Dar visto bueno') }}
+            </button>
           </div>
-          <p class="pago-hint" *ngIf="fTipoRecurrencia === 'FIJO'">Horario recurrente permanente del paciente.</p>
-          <p class="pago-hint" *ngIf="fTipoRecurrencia === 'SOLO_HOY'">Cita única, sin intención de repetirse.</p>
+          <p class="pago-hint">
+            Si cambias el terapeuta, la fecha, el tipo, el precio o el estado, el visto bueno se
+            retira y hay que volver a darlo.
+          </p>
+          <p class="pago-hint" *ngIf="!puedeValidarCitas">
+            Tu rol no puede validar citas. Se activa en Seguridad &gt; Roles.
+          </p>
         </div>
 
         <!-- ── FECHA Y HORA (time picker libre) ─────────────────────── -->
