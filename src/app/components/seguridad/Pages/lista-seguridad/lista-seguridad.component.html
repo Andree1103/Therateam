@@ -69,7 +69,7 @@
                   <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
                   <span class="modulo-chip" *ngIf="r.puedeVerSaldoInicial" title="Ve el saldo inicial en Caja, que arrastra lo acumulado de dias anteriores">Ve saldo inicial</span>
                   <span class="modulo-chip" *ngIf="r.puedeEditarHoraCorte" title="Puede mover la hora que separa el turno 1 del turno 2">Cambia hora de corte</span>
-                  <span class="modulo-chip" *ngIf="r.puedeValidarCita" title="Puede dar el visto bueno a una cita cargada por otra persona">Valida citas</span>
+                  <span class="modulo-chip" *ngIf="r.puedeValidarCita" title="Puede dar el visto bueno a una cita">Valida citas</span>
                 </div>
               </td>
               <td>
@@ -249,7 +249,7 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeValidarCita" name="puedeValidarCita">
             Este rol puede dar el visto bueno a una cita
-            <span class="check-nota">Nadie puede validar una cita que cargó esa misma persona.</span>
+            <span class="check-nota">Queda registrado quién dio el visto bueno y cuándo.</span>
           </label>
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeVerSaldoInicial" name="puedeVerSaldoInicial">
