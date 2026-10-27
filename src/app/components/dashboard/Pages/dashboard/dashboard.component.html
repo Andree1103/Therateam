@@ -14,6 +14,27 @@
 
   <div class="page-body" *ngIf="!loading">
 
+    <!-- TURNOS DE CAJA SIN CERRAR -->
+    <div class="aviso" *ngIf="turnosSinCerrar.length > 0">
+      <div class="aviso-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      </div>
+      <div class="aviso-txt">
+        <strong>
+          {{ turnosSinCerrar.length }}
+          {{ turnosSinCerrar.length === 1 ? 'turno de caja sin cerrar' : 'turnos de caja sin cerrar' }}
+          · S/ {{ dineroSinCerrar.toFixed(2) }} sin cuadrar
+        </strong>
+        <div class="aviso-turnos">
+          <span class="aviso-chip" *ngFor="let h of turnosSinCerrar | slice:0:5">{{ etiquetaTurno(h) }}</span>
+          <span class="aviso-chip aviso-chip--mas" *ngIf="turnosSinCerrar.length > 5">
+            +{{ turnosSinCerrar.length - 5 }}
+          </span>
+        </div>
+      </div>
+      <a class="aviso-btn" routerLink="/caja">Ir a Caja</a>
+    </div>
+
     <!-- KPI CARDS -->
     <div class="kpi-grid">
 
