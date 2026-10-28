@@ -35,7 +35,9 @@
 .btn-link-muted{color:#94a3b8}
 .text-muted{color:#64748b}
 
-.cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;flex-shrink:0}
+/* Auto-fit y no cuatro fijas: el turno enseña cuatro cifras o cinco segun haya habido
+   devoluciones, y con cuatro columnas clavadas el Saldo final caia solo a otra fila. */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;flex-shrink:0}
 .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .stat-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
 .stat-val{font-size:20px;font-weight:700;color:#0f172a}

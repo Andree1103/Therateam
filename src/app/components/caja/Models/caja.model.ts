@@ -52,6 +52,15 @@ export interface CajaResumen {
   ingresosFueraDeCaja: IngresoMetodo[];
   totalFueraDeCaja: number;
   totalIngresos: number;
+  /**
+   * Lo devuelto en el turno: dinero que salió del cajón, así que resta del saldo final.
+   *
+   * No está descontado de `totalIngresos`: los ingresos siguen siendo lo que se cobró, sin
+   * mezclar reintegros de cobros viejos. Es una salida, y va con los egresos.
+   */
+  devoluciones: number;
+  /** A quién se le devolvió y por qué — el detalle detrás de esa cifra. */
+  detalleDevoluciones: CobroAdicional[];
   egresos: number;
   comentario: string | null;
   saldoFinal: number;

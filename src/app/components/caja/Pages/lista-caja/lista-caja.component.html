@@ -94,6 +94,13 @@
           <span class="stat-lbl">Egresos</span>
           <span class="stat-val">S/ {{ (egresosForm ?? 0) | number:'1.2-2' }}</span>
         </div>
+        <!-- Lo devuelto sale del cajon igual que un egreso, pero no se teclea: lo calcula el
+             sistema a partir de las devoluciones del turno. Por eso va aparte y no sumado
+             dentro de "Egresos", donde parecerian tecleadas por alguien. -->
+        <div class="stat-card stat-card--danger" *ngIf="devolucionesDelTurno > 0">
+          <span class="stat-lbl">Devuelto</span>
+          <span class="stat-val">S/ {{ devolucionesDelTurno | number:'1.2-2' }}</span>
+        </div>
         <div class="stat-card stat-card--total">
           <!-- Sin el permiso se enseña el neto del turno y no el saldo final: el final
                arrastra el inicial, asi que seria el mismo dato por otra puerta. -->
@@ -174,6 +181,25 @@
         </ng-container>
       </div>
 
+      <!-- Que se devolvio y a quien. Sin esto, la cifra de arriba obliga a salir a Pagos a
+           averiguar de que era — justo lo que no se puede hacer con el cajon abierto. -->
+      <div class="card" *ngIf="resumen.detalleDevoluciones?.length">
+        <div class="card-hdr">Devoluciones del turno</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Hora</th><th>Paciente</th><th>Concepto</th><th>Monto</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let d of resumen.detalleDevoluciones">
+              <td class="text-muted">{{ d.fecha | date:'HH:mm' }}</td>
+              <td>{{ d.paciente || '—' }}</td>
+              <td>{{ d.concepto || '—' }}</td>
+              <td class="monto">− S/ {{ d.monto | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="card">
         <div class="card-hdr">Egresos del turno</div>
         <div class="egresos-form">
@@ -221,7 +247,7 @@
         <thead>
           <tr><th>Fecha</th><th>Turno</th><th>Cierre</th>
               <th *ngIf="puedeVerSaldoInicial">Saldo inicial</th>
-              <th>Ingresos</th><th>Egresos</th>
+              <th>Ingresos</th><th>Egresos</th><th>Devuelto</th>
               <th>{{ puedeVerSaldoInicial ? 'Saldo final' : 'Neto del turno' }}</th></tr>
         </thead>
         <tbody>
@@ -243,9 +269,11 @@
             <td class="txt-danger">
               <ng-container *ngIf="tieneAcumulado(h); else sinDato">S/ {{ h.egresos | number:'1.2-2' }}</ng-container>
             </td>
+            <!-- Lo devuelto no espera al cierre: el dinero salio del cajon cuando se devolvio. -->
+            <td class="txt-danger">S/ {{ (h.devoluciones ?? 0) | number:'1.2-2' }}</td>
             <td class="monto">
               <ng-container *ngIf="tieneAcumulado(h); else sinDato">
-                S/ {{ (puedeVerSaldoInicial ? h.saldoFinal : (h.totalIngresos - (h.egresos ?? 0))) | number:'1.2-2' }}
+                S/ {{ (puedeVerSaldoInicial ? h.saldoFinal : (h.totalIngresos - (h.egresos ?? 0) - (h.devoluciones ?? 0))) | number:'1.2-2' }}
               </ng-container>
             </td>
           </tr>

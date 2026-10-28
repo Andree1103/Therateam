@@ -35,7 +35,12 @@ export class ListaCajaComponent implements OnInit {
   /** Lo que entro menos lo que salio en este turno, sin arrastrar nada de dias anteriores. */
   get netoDelTurno(): number {
     if (!this.resumen) return 0;
-    return this.resumen.totalIngresos - (this.resumen.egresos ?? 0);
+    return this.resumen.totalIngresos - (this.resumen.egresos ?? 0) - this.devolucionesDelTurno;
+  }
+
+  /** Lo devuelto en el turno. Sale del cajón igual que un egreso, así que resta en las dos cifras. */
+  get devolucionesDelTurno(): number {
+    return this.resumen?.devoluciones ?? 0;
   }
 
 
@@ -251,9 +256,12 @@ export class ListaCajaComponent implements OnInit {
             : {}),
       'Ingresos (S/)': h.totalIngresos,
       'Egresos (S/)': h.cerrado ? h.egresos : raya,
+      // Lo devuelto va sin condicion: salio del cajon se cerrara el turno o no.
+      'Devuelto (S/)': h.devoluciones ?? 0,
       ...(this.puedeVerSaldoInicial
             ? { 'Saldo final (S/)': h.cerrado ? h.saldoFinal : raya }
-            : { 'Neto del turno (S/)': h.cerrado ? h.totalIngresos - (h.egresos ?? 0) : raya }),
+            : { 'Neto del turno (S/)': h.cerrado
+                  ? h.totalIngresos - (h.egresos ?? 0) - (h.devoluciones ?? 0) : raya }),
       'Comentario': h.comentario ?? '',
     }));
     this.excelExportService.exportar(filas, 'caja_historial');
@@ -269,7 +277,7 @@ export class ListaCajaComponent implements OnInit {
   get saldoFinalPreview(): number {
     if (!this.resumen) return 0;
     const egresos = this.egresosForm ?? 0;
-    return this.resumen.saldoInicial + this.resumen.totalIngresos - egresos;
+    return this.resumen.saldoInicial + this.resumen.totalIngresos - egresos - this.devolucionesDelTurno;
   }
 
   cerrarCaja(): void {
