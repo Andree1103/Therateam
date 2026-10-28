@@ -572,6 +572,11 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           // Quien la creo casi nunca es quien hizo el ultimo cambio: la agenda recepcion
           // y la mueve o la cobra otra persona despues.
           'Última edición por': c.usuario_modificacion_nombre ?? '',
+          // El visto bueno va con las demas columnas de "quien hizo que": es lo que permite
+          // responder fuera del sistema quien aprobo una cita, que es justo para lo que se
+          // pide el Excel. Vacio en vez de "—" para que Excel pueda filtrar por la columna.
+          'Visto bueno': c.validada ? 'Sí' : 'No',
+          'Visto bueno por': c.validada_por_nombre ?? '',
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
