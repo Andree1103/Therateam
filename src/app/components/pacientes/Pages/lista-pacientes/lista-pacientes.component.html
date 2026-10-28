@@ -462,14 +462,17 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="confirm-msg">
+        <p class="confirm-msg" *ngIf="!errorEliminar">
           ¿Eliminar a <strong>{{ pacienteAEliminar?.nombre }} {{ pacienteAEliminar?.apellido }}</strong>?
           Esta acción no se puede deshacer.
         </p>
+        <p class="eliminar-bloqueado" *ngIf="errorEliminar">{{ errorEliminar }}</p>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
-        <button class="btn-danger" (click)="eliminar()" [disabled]="eliminando">
+        <button class="btn-secondary" (click)="cerrarEliminar()">
+          {{ errorEliminar ? 'Entendido' : 'Cancelar' }}
+        </button>
+        <button class="btn-danger" *ngIf="!errorEliminar" (click)="eliminar()" [disabled]="eliminando">
           {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
         </button>
       </div>

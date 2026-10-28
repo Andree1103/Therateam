@@ -61,6 +61,8 @@ export class ListaPacientesComponent implements OnInit {
 
   pacienteAEliminar: Paciente | null = null;
   modalEliminar = false;
+  /** Por qué la base no deja borrarlo. Se muestra dentro del modal, que no se cierra solo. */
+  errorEliminar: string | null = null;
 
   sedes: Sede[] = [];
   origenes: CatalogItem[] = [];
@@ -817,10 +819,13 @@ export class ListaPacientesComponent implements OnInit {
   abrirEliminar(p: Paciente): void {
     if (!this.puedeEliminar) return;
     this.pacienteAEliminar = p;
+    this.errorEliminar = null;
     this.modalEliminar = true;
   }
 
-  cerrarEliminar(): void { this.modalEliminar = false; this.pacienteAEliminar = null; }
+  cerrarEliminar(): void {
+    this.modalEliminar = false; this.pacienteAEliminar = null; this.errorEliminar = null;
+  }
 
   eliminar(): void {
     if (!this.pacienteAEliminar?.id) return;
@@ -838,7 +843,13 @@ export class ListaPacientesComponent implements OnInit {
           this.paginaActual--; this.cargar();
         }
       },
-      error: () => { this.toast.error('Error al eliminar el paciente'); this.eliminando = false; }
+      // El backend dice qué lo impide —citas, pagos, paquetes— y qué hacer en su lugar.
+      // Va dentro del modal y no en un toast: es un párrafo, y el toast se va en 4 segundos
+      // llevándose la única explicación. Aquí se queda hasta que lo cierren.
+      error: (err) => {
+        this.errorEliminar = err?.error?.error || 'No se pudo eliminar el paciente.';
+        this.eliminando = false;
+      }
     });
   }
 
