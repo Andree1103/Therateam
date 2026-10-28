@@ -357,6 +357,7 @@ export class CitaService {
       usuario_creacion_nombre: dto.usuario_creacion_nombre ?? null,
       validada:            dto.validada ?? false,
       validada_por_nombre: dto.validada_por_nombre ?? null,
+      validada_en:         dto.validada_en ?? null,
     };
   }
 

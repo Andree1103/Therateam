@@ -26,7 +26,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
-import { horaAmPm } from '../../../../core/utils/formato-hora';
+import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 import { estaSaldada, tieneDeuda, colorEstadoPago } from '../../../../core/utils/estado-pago';
 import { ocupaSuHora } from '../../../../core/utils/estado-cita';
 
@@ -577,6 +577,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           // pide el Excel. Vacio en vez de "—" para que Excel pueda filtrar por la columna.
           'Visto bueno': c.validada ? 'Sí' : 'No',
           'Visto bueno por': c.validada_por_nombre ?? '',
+          // Fecha y hora, no solo fecha: con el visto bueno importa si llego antes o despues
+          // de que la cita pasara, y eso en el mismo dia solo lo responde la hora.
+          'Visto bueno el': fechaHoraAmPm(c.validada_en),
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');

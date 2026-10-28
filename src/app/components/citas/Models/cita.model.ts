@@ -70,6 +70,7 @@ export interface Cita {
   /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
   validada?: boolean;
   validada_por_nombre?: string | null;
+  validada_en?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -248,4 +249,5 @@ export interface CitaApiDTO {
   /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
   validada?: boolean;
   validada_por_nombre?: string | null;
+  validada_en?: string | null;
 }
