@@ -109,6 +109,17 @@ export class PacienteService {
     return this.api.delete<void>(`${this.PATH}/${id}`);
   }
 
+  /**
+   * Baja a mano el saldo a favor, hasta cero si hace falta.
+   *
+   * `tipo` dice qué pasó con el dinero, y de eso depende si la caja se mueve: DEVOLUCION se le
+   * entregó (sale del arqueo del turno), CORRECCION es un número mal puesto (no sale nada).
+   */
+  ajustarSaldo(id: number, body: { nuevoSaldo: number; tipo: 'DEVOLUCION' | 'CORRECCION';
+                                   metodoId?: number | null; motivo: string }): Observable<Paciente> {
+    return this.api.post<Paciente>(`${this.PATH}/${id}/ajustar-saldo`, body);
+  }
+
   /** Dar de baja o volver a dar de alta, sin reenviar la ficha entera. */
   cambiarActivo(id: number, activo: boolean): Observable<Paciente> {
     return this.api.patch<Paciente>(`${this.PATH}/${id}/activo`, null, { activo: String(activo) });

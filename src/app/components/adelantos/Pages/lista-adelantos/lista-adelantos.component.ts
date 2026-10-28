@@ -6,6 +6,8 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 import { Router } from '@angular/router';
+import { CatalogService } from '../../../../core/services/catalog.service';
+import { CatalogItem } from '../../../../core/models/catalog.model';
 
 @Component({
   selector: 'app-lista-adelantos',
@@ -27,6 +29,35 @@ export class ListaAdelantosComponent implements OnInit {
   /** Modal para registrar un adelanto. Ver AgregarSaldoComponent. */
   modalSaldo = false;
 
+  // ── Bajar el saldo a mano ─────────────────────────────────────────────────
+  // Hasta ahora el saldo solo bajaba gastándolo: el que dejaba de venir con S/ 40 encima se los
+  // quedaba para siempre. Son dos casos distintos y hay que decir cuál, porque uno mueve la caja
+  // y el otro no.
+  ajustando: Paciente | null = null;
+  ajusteNuevoSaldo: number | null = 0;
+  ajusteTipo: 'DEVOLUCION' | 'CORRECCION' = 'DEVOLUCION';
+  ajusteMetodoId: number | null = null;
+  ajusteMotivo = '';
+  guardandoAjuste = false;
+  metodosPago: CatalogItem[] = [];
+
+  get puedeAjustar(): boolean { return this.authService.puedeEditar('PAGOS'); }
+
+  /** Cuánto se le baja. Es lo que sale del cajón si se eligió devolución. */
+  get ajusteBaja(): number {
+    const actual = this.ajustando?.saldoAFavor ?? 0;
+    return Math.max(0, actual - (this.ajusteNuevoSaldo ?? 0));
+  }
+
+  get ajustePuedeGuardar(): boolean {
+    if (this.guardandoAjuste || !this.ajustando) return false;
+    const n = this.ajusteNuevoSaldo;
+    if (n == null || n < 0 || n > (this.ajustando.saldoAFavor ?? 0)) return false;
+    if (this.ajusteBaja <= 0 || !this.ajusteMotivo.trim()) return false;
+    // Si salió dinero hay que decir por dónde: el arqueo del turno lo necesita.
+    return this.ajusteTipo !== 'DEVOLUCION' || !!this.ajusteMetodoId;
+  }
+
   exportando = false;
 
   filtroPaciente = '';
@@ -43,10 +74,54 @@ export class ListaAdelantosComponent implements OnInit {
     private toast: ToastService,
     private router: Router
   ,
+    private catalogService: CatalogService,
     private authService: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();
+    this.catalogService.getMetodosPago().subscribe({
+      next: m => {
+        // Se ofrece por donde SALIO el dinero, asi que "Devolucion" no es una opcion: es lo que
+        // ya se esta haciendo, no una forma de pago.
+        this.metodosPago = m.filter(x => (x.key ?? '').toUpperCase() !== 'DEVOLUCION');
+        this.ajusteMetodoId = this.metodosPago[0]?.id ?? null;
+      },
+      error: () => { this.metodosPago = []; }
+    });
+  }
+
+  abrirAjuste(p: Paciente): void {
+    if (!this.puedeAjustar) return;
+    this.ajustando = p;
+    this.ajusteNuevoSaldo = 0;
+    this.ajusteTipo = 'DEVOLUCION';
+    this.ajusteMetodoId = this.metodosPago[0]?.id ?? null;
+    this.ajusteMotivo = '';
+  }
+
+  cerrarAjuste(): void { this.ajustando = null; this.guardandoAjuste = false; }
+
+  guardarAjuste(): void {
+    if (!this.ajustePuedeGuardar || !this.ajustando?.id) return;
+    this.guardandoAjuste = true;
+    this.pacienteService.ajustarSaldo(this.ajustando.id, {
+      nuevoSaldo: this.ajusteNuevoSaldo!,
+      tipo: this.ajusteTipo,
+      metodoId: this.ajusteTipo === 'DEVOLUCION' ? this.ajusteMetodoId : null,
+      motivo: this.ajusteMotivo.trim(),
+    }).subscribe({
+      next: () => {
+        this.toast.success(this.ajusteTipo === 'DEVOLUCION'
+          ? `Devueltos S/ ${this.ajusteBaja.toFixed(2)}. Salen del arqueo de este turno.`
+          : `Saldo corregido. No se movió nada de la caja.`);
+        this.cerrarAjuste();
+        this.cargar();
+      },
+      error: err => {
+        this.toast.error(err?.error?.error || 'No se pudo ajustar el saldo');
+        this.guardandoAjuste = false;
+      }
+    });
   }
 
   cargar(): void {

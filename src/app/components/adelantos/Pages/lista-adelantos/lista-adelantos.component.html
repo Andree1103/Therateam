@@ -71,7 +71,11 @@
             </td>
             <td>{{ p.saldoUltimoTerapeuta || '—' }}</td>
             <td class="monto txt-success">S/ {{ (p.saldoAFavor ?? 0) | number:'1.2-2' }}</td>
-            <td><button class="btn-link" (click)="$event.stopPropagation(); verEstadoDeCuenta(p)">Estado de cuenta</button></td>
+            <td class="acciones nowrap">
+              <button class="btn-link" (click)="$event.stopPropagation(); verEstadoDeCuenta(p)">Estado de cuenta</button>
+              <button class="btn-link" *ngIf="puedeAjustar"
+                      (click)="$event.stopPropagation(); abrirAjuste(p)">Ajustar</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -144,3 +148,62 @@
                    (guardado)="modalSaldo = false; cargar()"
                    (irACobrar)="modalSaldo = false; irAPagos()">
 </app-agregar-saldo>
+
+<!-- ── BAJAR EL SALDO A MANO ─────────────────────────────────────────────────
+     Dos casos con la misma pantalla, porque la diferencia no se ve en el numero
+     sino en donde fue el dinero: devolverlo lo saca del arqueo del turno;
+     corregirlo no mueve la caja. Por eso hay que elegir. -->
+<div class="modal-overlay" *ngIf="ajustando" (click)="cerrarAjuste()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>Ajustar saldo a favor</h2>
+      <button class="modal-close" (click)="cerrarAjuste()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="aj-quien">
+        <strong>{{ ajustando.nombre }} {{ ajustando.apellido }}</strong>
+        tiene <strong>S/ {{ (ajustando.saldoAFavor ?? 0) | number:'1.2-2' }}</strong> a favor.
+      </p>
+
+      <label class="aj-lbl">¿Qué pasó con ese dinero?</label>
+      <div class="aj-tipos">
+        <button type="button" class="aj-tipo" [class.on]="ajusteTipo === 'DEVOLUCION'"
+                (click)="ajusteTipo = 'DEVOLUCION'">
+          <strong>Se le devolvió</strong>
+          <small>Sale del arqueo de este turno</small>
+        </button>
+        <button type="button" class="aj-tipo" [class.on]="ajusteTipo === 'CORRECCION'"
+                (click)="ajusteTipo = 'CORRECCION'">
+          <strong>Estaba mal puesto</strong>
+          <small>No se mueve nada de la caja</small>
+        </button>
+      </div>
+
+      <label class="aj-lbl" for="ajNuevo">Saldo que le queda</label>
+      <input id="ajNuevo" type="number" class="aj-input" min="0" step="0.01"
+             [max]="ajustando.saldoAFavor ?? 0" [(ngModel)]="ajusteNuevoSaldo" name="ajNuevo">
+      <p class="aj-hint" *ngIf="ajusteBaja > 0">
+        {{ ajusteTipo === 'DEVOLUCION' ? 'Se le devuelven' : 'Se le quitan' }}
+        <strong>S/ {{ ajusteBaja | number:'1.2-2' }}</strong>.
+      </p>
+
+      <ng-container *ngIf="ajusteTipo === 'DEVOLUCION'">
+        <label class="aj-lbl" for="ajMetodo">¿Por dónde salió?</label>
+        <select id="ajMetodo" class="aj-input" [(ngModel)]="ajusteMetodoId" name="ajMetodo">
+          <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+        </select>
+      </ng-container>
+
+      <label class="aj-lbl" for="ajMotivo">Motivo</label>
+      <input id="ajMotivo" type="text" class="aj-input" [(ngModel)]="ajusteMotivo" name="ajMotivo"
+             placeholder="Ej. ya no continúa el tratamiento" maxlength="200">
+      <p class="aj-hint">Queda en el estado de cuenta del paciente, con tu nombre.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cerrarAjuste()">Cancelar</button>
+      <button class="btn-primary" (click)="guardarAjuste()" [disabled]="!ajustePuedeGuardar">
+        {{ guardandoAjuste ? 'Guardando...' : 'Guardar ajuste' }}
+      </button>
+    </div>
+  </div>
+</div>
