@@ -362,7 +362,8 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
         this.buscandoPacientes = true;
         const texto = q.trim();
         if (!texto) {
-          return this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, {}).pipe(
+          // Solo activos: a un paciente dado de baja no se le cobra nada nuevo.
+          return this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { activo: true }).pipe(
             map(r => r.content ?? []),
             catchError(() => of([] as Paciente[]))
           );
@@ -372,8 +373,8 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
         // sea solo digitos — los carnes de extranjeria llevan letras (AN724382).
         const vacio = () => of({ content: [] as Paciente[] } as any);
         return forkJoin([
-          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { nombre: texto }).pipe(catchError(vacio)),
-          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { dni: texto }).pipe(catchError(vacio)),
+          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { nombre: texto, activo: true }).pipe(catchError(vacio)),
+          this.pacienteService.getAllPaged(0, this.LIMITE_SUGERENCIAS, { dni: texto, activo: true }).pipe(catchError(vacio)),
         ]).pipe(
           map(([porNombre, porDni]) => {
             const juntos = [...(porNombre.content ?? []), ...(porDni.content ?? [])];

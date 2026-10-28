@@ -19,9 +19,11 @@ export class CitaService {
   }
 
   // ── Buscar pacientes por nombre (autocompletado) ──────────────────────────
+  // Solo pacientes activos: a uno dado de baja no se le agenda. Si de verdad vuelve, se le
+  // reactiva desde su ficha y vuelve a aparecer aqui.
   buscarPorNombre(nombre: string): Observable<PacienteResumen[]> {
     return this.api.get<{ content: PacienteResumen[] } | PacienteResumen[]>(
-      '/api/pacientes', { nombre, size: '8' }
+      '/api/pacientes', { nombre, size: '8', activo: 'true' }
     ).pipe(
       map(r => Array.isArray(r) ? r : r.content),
       catchError(() => of([]))

@@ -108,4 +108,9 @@ export class PacienteService {
   delete(id: number): Observable<void> {
     return this.api.delete<void>(`${this.PATH}/${id}`);
   }
+
+  /** Dar de baja o volver a dar de alta, sin reenviar la ficha entera. */
+  cambiarActivo(id: number, activo: boolean): Observable<Paciente> {
+    return this.api.patch<Paciente>(`${this.PATH}/${id}/activo`, null, { activo: String(activo) });
+  }
 }

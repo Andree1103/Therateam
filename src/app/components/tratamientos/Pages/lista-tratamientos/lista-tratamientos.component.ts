@@ -350,7 +350,8 @@ export class ListaTratamientosComponent implements OnInit {
     if (q.length < 2) { this.pac.resultadosBusqueda = []; this.pac.buscando = false; return; }
     this.pac.buscando = true;
     this.debounceBusquedaPac = setTimeout(() => {
-      this.pacienteService.getAllPaged(0, 8, { nombre: q }).subscribe({
+      // Solo activos: no se le abre un paquete nuevo a quien esta dado de baja.
+      this.pacienteService.getAllPaged(0, 8, { nombre: q, activo: true }).subscribe({
         next: res => { this.pac.resultadosBusqueda = res.content; this.pac.buscando = false; },
         error: () => { this.pac.resultadosBusqueda = []; this.pac.buscando = false; }
       });

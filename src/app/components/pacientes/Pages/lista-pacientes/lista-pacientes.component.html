@@ -469,11 +469,14 @@
         <p class="eliminar-bloqueado" *ngIf="errorEliminar">{{ errorEliminar }}</p>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" (click)="cerrarEliminar()">
-          {{ errorEliminar ? 'Entendido' : 'Cancelar' }}
-        </button>
+        <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
         <button class="btn-danger" *ngIf="!errorEliminar" (click)="eliminar()" [disabled]="eliminando">
           {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
+        </button>
+        <!-- La salida, aqui mismo: el que no se puede borrar casi siempre es el que hay que
+             dar de baja, y mandarlo a Editar -> Estado eran tres pasos mas. -->
+        <button class="btn-primary" *ngIf="errorEliminar" (click)="desactivar()" [disabled]="desactivando">
+          {{ desactivando ? 'Dando de baja...' : 'Dar de baja' }}
         </button>
       </div>
     </div>

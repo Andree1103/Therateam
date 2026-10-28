@@ -36,7 +36,10 @@ export class ListaPacientesComponent implements OnInit {
   filtroDni = '';
   filtroCorreo = '';
   filtroSedeId: number | null = null;
-  filtroActivo = '';
+  // Arranca en Activos, no en Todos. Dar de baja a un paciente tiene que sacarlo de en medio;
+  // si siguiera saliendo aqui mezclado con los demas, no significaria nada. Quien lo busque lo
+  // encuentra cambiando el selector a Inactivos o a Todos, que estan al lado.
+  filtroActivo = 'true';
   // Rango de fecha de ALTA. Filtra la lista y, con ella, lo que se exporta.
   filtroCreadoDesde = '';
   filtroCreadoHasta = '';
@@ -63,6 +66,7 @@ export class ListaPacientesComponent implements OnInit {
   modalEliminar = false;
   /** Por qué la base no deja borrarlo. Se muestra dentro del modal, que no se cierra solo. */
   errorEliminar: string | null = null;
+  desactivando = false;
 
   sedes: Sede[] = [];
   origenes: CatalogItem[] = [];
@@ -312,7 +316,7 @@ export class ListaPacientesComponent implements OnInit {
     this.filtroDni = '';
     this.filtroCorreo = '';
     this.filtroSedeId = null;
-    this.filtroActivo = '';
+    this.filtroActivo = 'true';
     this.filtroCreadoDesde = '';
     this.filtroCreadoHasta = '';
     this.buscar();
@@ -849,6 +853,38 @@ export class ListaPacientesComponent implements OnInit {
       error: (err) => {
         this.errorEliminar = err?.error?.error || 'No se pudo eliminar el paciente.';
         this.eliminando = false;
+      }
+    });
+  }
+
+  /**
+   * La salida, en el mismo sitio donde se topó con la pared.
+   *
+   * Mandar al usuario a Editar → Estado era pedirle que cerrara el modal, abriera otro y buscara
+   * un desplegable: tres pasos para lo que casi siempre quería hacer desde el principio. Y como
+   * la lista arranca en Activos, el paciente desaparece de ella igual que si lo hubiera borrado,
+   * que es lo que esperaba ver.
+   */
+  desactivar(): void {
+    if (!this.pacienteAEliminar?.id) return;
+    this.desactivando = true;
+    const id = this.pacienteAEliminar.id;
+    this.pacienteService.cambiarActivo(id, false).subscribe({
+      next: () => {
+        this.toast.success('Paciente dado de baja. Su historia queda intacta.');
+        this.cerrarEliminar(); this.desactivando = false;
+        if (this.filtroActivo === 'true') {
+          this.pacientes = this.pacientes.filter(p => p.id !== id);
+          this.totalElementos = Math.max(0, this.totalElementos - 1);
+          if (this.pacientes.length === 0 && this.paginaActual > 0) { this.paginaActual--; }
+          this.cargar();
+        } else {
+          this.pacientes = this.pacientes.map(p => p.id === id ? { ...p, activo: false } : p);
+        }
+      },
+      error: (err) => {
+        this.errorEliminar = err?.error?.error || 'No se pudo dar de baja al paciente.';
+        this.desactivando = false;
       }
     });
   }
