@@ -92,6 +92,9 @@
 .res-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
 .res-atendida{background:#dcfce7;color:#15803d}
 .res-novino{background:#fee2e2;color:#b91c1c}
+/* Ambar y no rojo: no es que el paciente faltara, es que falta el dato. Lo que pide es que
+   alguien vaya a marcarla, no una conversacion con el paciente. */
+.res-sinmarca{background:#fef3c7;color:#92400e}
 .res-motivo{display:block;margin-top:3px;font-size:11px;color:#64748b;max-width:220px}
 .res-dev{display:block;margin-top:3px;font-size:10.5px;font-weight:700;color:#b45309}
 .res-dev-no{color:#64748b;font-weight:600}

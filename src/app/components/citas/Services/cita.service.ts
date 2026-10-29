@@ -160,7 +160,7 @@ export class CitaService {
 
   getFiltroPaged(page: number, size: number, filtros: {
     fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string;
-    areaId?: number | null; metodoPagoId?: number | null;
+    areaId?: number | null; metodoPagoId?: number | null; sinMarca?: boolean;
   }, sort?: string): Observable<PageResponse<Cita>> {
     return this.api.get<PageResponse<CitaApiDTO>>(`${this.PATH}/filtro`, {
       page: String(page), size: String(size),
@@ -171,6 +171,9 @@ export class CitaService {
       paciente:    filtros.paciente || undefined,
       areaId:      filtros.areaId != null ? String(filtros.areaId) : undefined,
       metodoPagoId: filtros.metodoPagoId != null ? String(filtros.metodoPagoId) : undefined,
+      // Suma las citas que ya pasaron y nadie marco. No es un estado: es «sigue Programada con
+      // su hora ya pasada», y por eso va aparte de estadoKey.
+      sinMarca:    filtros.sinMarca ? 'true' : undefined,
       sort:        sort || undefined,
     }).pipe(map(r => ({ ...r, content: r.content.map(d => this.mapDTO(d)) })));
   }

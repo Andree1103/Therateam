@@ -39,6 +39,14 @@
     <div class="filters-bar">
       <input type="text" class="search-inp" [(ngModel)]="busquedaPaciente" (keyup.enter)="buscar()" placeholder="Paciente...">
       <input type="text" class="search-inp" [(ngModel)]="busquedaTerapeuta" (keyup.enter)="buscar()" placeholder="Terapeuta...">
+      <!-- Tres resultados, no dos. «Sin marca» son las citas que ya pasaron y nadie marco: ni
+           asistio ni falto. No se las da por ausentes, es que nadie dijo nada. -->
+      <select class="filter-sel" [(ngModel)]="busquedaResultado" title="Qué pasó con la cita">
+        <option value="TODOS">Todos los resultados</option>
+        <option value="SIN_MARCA">Sin marca</option>
+        <option value="NO_ASISTIO">No asistió</option>
+        <option value="ASISTIDA">Sí asistió</option>
+      </select>
       <select class="filter-sel" [(ngModel)]="busquedaAreaId">
         <option [ngValue]="null">Todas las áreas</option>
         <option *ngFor="let a of areas" [ngValue]="a.id">{{ a.nombre }}</option>
@@ -107,7 +115,13 @@
               </span>
             </td>
             <td>
-              <ng-container *ngIf="c.estado === 'NO_ASISTIO'; else fueAtendida">
+              <!-- Ni atendida ni inasistencia: nadie la marco. Se dice asi de claro, porque
+                   la fila existe justo para que alguien vaya a arreglarla. -->
+              <ng-container *ngIf="esSinMarca(c)">
+                <span class="res-badge res-sinmarca">Sin marca</span>
+                <span class="res-motivo">Nadie marcó si vino o no</span>
+              </ng-container>
+              <ng-container *ngIf="!esSinMarca(c) && c.estado === 'NO_ASISTIO'; else fueAtendida">
                 <span class="res-badge res-novino">No asistió</span>
                 <!-- El motivo va aquí y no en un detalle aparte: es lo primero que se pregunta al
                      ver una inasistencia, y sin el la fila solo repite el estado. -->
@@ -120,13 +134,22 @@
                 </span>
                 <span class="res-dev res-dev-no" *ngIf="c.con_devolucion === false">Se cobró igual</span>
               </ng-container>
-              <ng-template #fueAtendida><span class="res-badge res-atendida">Atendida</span></ng-template>
+              <ng-template #fueAtendida>
+                <span class="res-badge res-atendida" *ngIf="!esSinMarca(c)">Atendida</span>
+              </ng-template>
             </td>
             <td class="td-acciones">
-              <button type="button" class="btn-link" *ngIf="c.estado !== 'NO_ASISTIO'" (click)="verDetalle(c)">Ver atención</button>
+              <!-- La sin marca no tiene atencion que ver: lo que hace falta es ir a la cita
+                   y marcarla, asi que el enlace lleva alli directamente. -->
+              <a class="btn-link" *ngIf="esSinMarca(c)" [routerLink]="['/citas']"
+                 [queryParams]="{ cita: c.id }">Marcar</a>
+              <button type="button" class="btn-link"
+                      *ngIf="!esSinMarca(c) && c.estado !== 'NO_ASISTIO'" (click)="verDetalle(c)">Ver atención</button>
               <!-- Corregir una carga mal hecha: permiso por rol, y por un endpoint aparte del
                    PUT normal (que sigue prohibiendo tocar una cita atendida). -->
-              <button type="button" class="btn-link" *ngIf="puedeCorregir && c.estado !== 'NO_ASISTIO'" (click)="abrirCorreccion(c, $event)">Corregir</button>
+              <button type="button" class="btn-link"
+                      *ngIf="!esSinMarca(c) && puedeCorregir && c.estado !== 'NO_ASISTIO'"
+                      (click)="abrirCorreccion(c, $event)">Corregir</button>
             </td>
           </tr>
         </tbody>

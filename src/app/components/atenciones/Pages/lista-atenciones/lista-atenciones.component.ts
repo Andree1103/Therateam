@@ -37,6 +37,16 @@ export class ListaAtencionesComponent implements OnInit {
   busquedaMetodoId: number | null = null;
   busquedaFechaDesde = '';
   busquedaFechaHasta = '';
+  /**
+   * Que paso con la cita. 'TODOS' trae tambien las que nadie marco.
+   *
+   * «Sin marca» no es un estado del catalogo: es una cita que sigue Programada cuando su hora
+   * ya paso. Hasta ahora esta pantalla solo pedia ASISTIDA y NO_ASISTIO, asi que esas citas no
+   * salian en ninguna fila de ningun listado — ni como atendidas ni como inasistencias. No se
+   * las daba por ausentes: simplemente desaparecian, y nadie se enteraba de que a la encargada
+   * se le habia pasado marcarlas.
+   */
+  busquedaResultado: 'TODOS' | 'SIN_MARCA' | 'NO_ASISTIO' | 'ASISTIDA' = 'TODOS';
 
   filtroPaciente = '';
   filtroTerapeuta = '';
@@ -44,6 +54,7 @@ export class ListaAtencionesComponent implements OnInit {
   filtroMetodoId: number | null = null;
   filtroFechaDesde = '';
   filtroFechaHasta = '';
+  filtroResultado: 'TODOS' | 'SIN_MARCA' | 'NO_ASISTIO' | 'ASISTIDA' = 'TODOS';
 
   // ── Rango de exportacion ──────────────────────────────────────────────────
   // Va aparte del filtro de la lista a proposito: lo que se exporta casi nunca es lo que se
@@ -174,11 +185,36 @@ export class ListaAtencionesComponent implements OnInit {
     });
   }
 
+  /**
+   * Que paso con esta cita, en una palabra.
+   *
+   * Tres resultados, no dos: «Sin marca» es la que ya paso y nadie toco. Antes esa fila no
+   * existia —la pantalla solo pedia atendidas e inasistencias—, asi que un olvido de la
+   * encargada no se veia en ningun sitio.
+   */
+  resultadoDe(c: Cita): 'Sin marca' | 'No asistió' | 'Atendida' {
+    if (c.estado === 'NO_ASISTIO') return 'No asistió';
+    if (c.estado === 'ASISTIDA') return 'Atendida';
+    return 'Sin marca';
+  }
+
+  esSinMarca(c: Cita): boolean { return this.resultadoDe(c) === 'Sin marca'; }
+
   private buildFiltros() {
+    // Tambien las inasistencias: son parte de lo que paso con las citas del dia, y verlas junto
+    // a las atendidas es lo que permite contarlas y hablar con el paciente. Y las que nadie
+    // marco, que son las que de verdad hay que ir a resolver.
+    const porResultado: Record<string, { estadoKey?: string; sinMarca?: boolean }> = {
+      TODOS:      { estadoKey: 'ASISTIDA,NO_ASISTIO', sinMarca: true },
+      // Sin estadoKey: el parametro sinMarca es el que las trae, y mandar uno ademas las
+      // sumaria en vez de acotarlas.
+      SIN_MARCA:  { sinMarca: true },
+      NO_ASISTIO: { estadoKey: 'NO_ASISTIO' },
+      ASISTIDA:   { estadoKey: 'ASISTIDA' },
+    };
+    const cual = porResultado[this.filtroResultado] ?? porResultado['TODOS'];
     return {
-      // Tambien las inasistencias: son parte de lo que paso con las citas del dia, y verlas junto
-      // a las atendidas es lo que permite contarlas y hablar con el paciente.
-      estadoKey: 'ASISTIDA,NO_ASISTIO',
+      ...cual,
       paciente: this.filtroPaciente || undefined,
       terapeuta: this.filtroTerapeuta || undefined,
       areaId: this.filtroAreaId,
@@ -227,22 +263,23 @@ export class ListaAtencionesComponent implements OnInit {
     this.filtroMetodoId = this.busquedaMetodoId;
     this.filtroFechaDesde = this.busquedaFechaDesde;
     this.filtroFechaHasta = this.busquedaFechaHasta;
+    this.filtroResultado = this.busquedaResultado;
     this.paginaActual = 0;
     this.cargar();
   }
 
   limpiarFiltros(): void {
     this.busquedaPaciente = ''; this.busquedaTerapeuta = ''; this.busquedaAreaId = null; this.busquedaMetodoId = null;
-    this.busquedaFechaDesde = ''; this.busquedaFechaHasta = '';
+    this.busquedaFechaDesde = ''; this.busquedaFechaHasta = ''; this.busquedaResultado = 'TODOS';
     this.filtroPaciente = ''; this.filtroTerapeuta = ''; this.filtroAreaId = null; this.filtroMetodoId = null;
-    this.filtroFechaDesde = ''; this.filtroFechaHasta = '';
+    this.filtroFechaDesde = ''; this.filtroFechaHasta = ''; this.filtroResultado = 'TODOS';
     this.paginaActual = 0;
     this.cargar();
   }
 
   get hayFiltrosActivos(): boolean {
     return !!(this.filtroPaciente || this.filtroTerapeuta || this.filtroAreaId || this.filtroMetodoId
-           || this.filtroFechaDesde || this.filtroFechaHasta);
+           || this.filtroFechaDesde || this.filtroFechaHasta || this.filtroResultado !== 'TODOS');
   }
 
   irAPagina(p: number): void {
@@ -311,7 +348,7 @@ export class ListaAtencionesComponent implements OnInit {
           'Estado de pago': c.estado_pago_nombre ?? '',
           'Medio de pago': c.metodo_pago_nombre ?? '',
           'Estado de cita': c.estado_nombre ?? c.estado ?? '',
-          'Resultado': c.estado === 'NO_ASISTIO' ? 'No asistio' : 'Atendida',
+          'Resultado': this.resultadoDe(c),
           'Motivo de inasistencia': c.estado === 'NO_ASISTIO' ? (c.motivo_estado ?? '') : '',
           'Hubo devolución': c.estado === 'NO_ASISTIO' ? (c.con_devolucion ? 'Sí' : 'No') : '',
           'Devuelto (S/)': c.con_devolucion ? (c.monto_devuelto ?? 0) : '',
