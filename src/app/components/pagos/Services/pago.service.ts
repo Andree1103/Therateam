@@ -31,6 +31,21 @@ export class PagoService {
     );
   }
 
+  /**
+   * Lo cobrado entre dos fechas y cuantos cobros fueron — sumado en el servidor.
+   *
+   * El Dashboard lo sumaba en el navegador sobre "los primeros mil pagos". Pasados los mil, eso
+   * dejo de ser el total del mes y paso a ser un trozo del pasado, sin avisar.
+   */
+  resumenEntreFechas(desde: Date, hasta: Date): Observable<{ total: number; cantidad: number }> {
+    const iso = (d: Date) => {
+      const p = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+    };
+    return this.api.get<{ total: number; cantidad: number }>(`${this.PATH}/resumen`,
+      { fechaInicio: iso(desde), fechaFin: iso(hasta) });
+  }
+
   /** Para el listado paginado (server-side): page 0-based, tamaño, búsqueda y filtros por back. */
   getAllPaged(page: number, size: number, filtros: PagoFiltros = {}): Observable<PageResponse<Pago>> {
     return this.api.get<PageResponse<Pago>>(this.PATH, {

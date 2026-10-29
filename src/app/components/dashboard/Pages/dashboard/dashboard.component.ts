@@ -1,12 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { CitaService } from '../../../citas/Services/cita.service';
 import { TratamientoService } from '../../../tratamientos/Services/tratamiento.service';
 import { PagoService } from '../../../pagos/Services/pago.service';
 import { Cita } from '../../../citas/Models/cita.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
-import { Pago } from '../../../pagos/Models/pago.model';
 import { CajaService } from '../../../caja/Services/caja.service';
 import { CajaResumen } from '../../../caja/Models/caja.model';
 import { AuthService } from '../../../auth/Services/auth.service';
@@ -21,9 +20,23 @@ interface EstadoResumen { key: string; nombre: string; color: string; count: num
 export class DashboardComponent implements OnInit {
 
   loading = true;
-  citas: Cita[] = [];
   tratamientos: Tratamiento[] = [];
-  pagos: Pago[] = [];
+
+  /**
+   * Cada cifra se pide ya acotada, en vez de bajarse la tabla entera y recortarla aqui.
+   *
+   * Antes esta pantalla pedia "las primeras mil citas" y "los primeros mil pagos" y calculaba
+   * todo en el navegador. Mil parecia de sobra hasta que dejo de serlo: con 1.809 citas, esas
+   * mil eran las mas VIEJAS —del 1 al 26 de octubre—, asi que las de hoy y las proximas no
+   * entraban y los dos paneles salian vacios con la agenda llena. Los ingresos del mes y la
+   * tasa de asistencia salian del mismo trozo, o sea que tambien estaban mal, solo que sin
+   * dar la cara.
+   */
+  citasDeHoy: Cita[] = [];
+  citasDeLaSemana: Cita[] = [];
+  ingresosDelMes = 0;
+  pagosDelMes = 0;
+  tasaAsistencia = 0;
 
   /**
    * Turnos de caja con dinero que ya terminaron y nadie cerro.
@@ -45,16 +58,30 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    const hoy0 = new Date(); hoy0.setHours(0, 0, 0, 0);
+    const hoy24 = new Date(hoy0); hoy24.setDate(hoy24.getDate() + 1);
+    const enUnaSemana = new Date(hoy0); enUnaSemana.setDate(enUnaSemana.getDate() + 7);
+    const primeroDelMes = new Date(hoy0.getFullYear(), hoy0.getMonth(), 1);
+    const ahora = new Date();
+
     forkJoin({
-      citas:        this.citaService.getCitas().pipe(catchError(() => of([] as Cita[]))),
+      citasHoy:     this.citaService.getCitas({ fechaInicio: hoy0, fechaFin: hoy24 })
+                        .pipe(catchError(() => of([] as Cita[]))),
+      citasSemana:  this.citaService.getCitas({ fechaInicio: hoy0, fechaFin: enUnaSemana })
+                        .pipe(catchError(() => of([] as Cita[]))),
+      pagosDelMes:  this.pagoService.resumenEntreFechas(primeroDelMes, ahora)
+                        .pipe(catchError(() => of({ total: 0, cantidad: 0 }))),
+      asistencia:   this.asistenciaHistorica(),
       tratamientos: this.tratamientoService.getAll().pipe(catchError(() => of([] as Tratamiento[]))),
-      pagos:        this.pagoService.getAll().pipe(catchError(() => of([] as Pago[]))),
       caja:         this.cajaDelUltimoMes(),
     }).subscribe({
-      next: ({ citas, tratamientos, pagos, caja }) => {
-        this.citas        = citas;
-        this.tratamientos = tratamientos;
-        this.pagos        = pagos;
+      next: ({ citasHoy, citasSemana, pagosDelMes, asistencia, tratamientos, caja }) => {
+        this.citasDeHoy      = citasHoy;
+        this.citasDeLaSemana = citasSemana;
+        this.ingresosDelMes  = pagosDelMes.total ?? 0;
+        this.pagosDelMes     = pagosDelMes.cantidad ?? 0;
+        this.tasaAsistencia  = asistencia;
+        this.tratamientos    = tratamientos;
         // Del mas viejo al mas nuevo: el olvidado hace una semana es el que urge, no el de ayer.
         this.turnosSinCerrar = caja
           .filter(h => !h.cerrado && this.yaTermino(h))
@@ -115,23 +142,26 @@ export class DashboardComponent implements OnInit {
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
 
-  get citasHoy(): Cita[] {
-    const hoy = new Date();
-    return this.citas.filter(c => {
-      const f = new Date(c.fecha_inicio);
-      return f.getFullYear() === hoy.getFullYear() &&
-             f.getMonth()    === hoy.getMonth()    &&
-             f.getDate()     === hoy.getDate();
-    });
-  }
+  get citasHoy(): Cita[] { return this.citasDeHoy; }
 
-  get citasSemana(): Cita[] {
-    const hoy = new Date(); hoy.setHours(0,0,0,0);
-    const fin = new Date(hoy); fin.setDate(fin.getDate() + 7);
-    return this.citas.filter(c => {
-      const f = new Date(c.fecha_inicio);
-      return f >= hoy && f < fin;
-    });
+  get citasSemana(): Cita[] { return this.citasDeLaSemana; }
+
+  /**
+   * La tasa historica, contada donde estan los datos.
+   *
+   * Son cinco peticiones de una fila cada una: solo interesa el total de la pagina. Sale mas
+   * barato que traerse las citas y mucho mas barato que equivocarse, que es lo que pasaba
+   * cuando se calculaba sobre el trozo que cupiera en mil filas.
+   */
+  private asistenciaHistorica() {
+    const CUENTAN = ['ASISTIDA', 'NO_ASISTIO', 'ANULADA', 'CANCELADA_PACIENTE', 'CANCELADA_CLINICA'];
+    return forkJoin(CUENTAN.map(k => this.citaService.contarPorEstado(k))).pipe(
+      map(totales => {
+        const relevantes = totales.reduce((a, b) => a + b, 0);
+        return relevantes > 0 ? Math.round((totales[0] / relevantes) * 100) : 0;
+      }),
+      catchError(() => of(0))
+    );
   }
 
   get tratamientosActivos(): Tratamiento[] {
@@ -144,23 +174,7 @@ export class DashboardComponent implements OnInit {
     }, 0);
   }
 
-  get ingresosMes(): number {
-    const hoy = new Date();
-    return this.pagos
-      .filter(p => {
-        const f = new Date(p.fechaPago ?? '');
-        return f.getFullYear() === hoy.getFullYear() && f.getMonth() === hoy.getMonth();
-      })
-      .reduce((s, p) => s + (p.montoRecibido ?? 0), 0);
-  }
-
-  get tasaAsistencia(): number {
-    const asistidas = this.citas.filter(c => c.estado === 'ASISTIDA').length;
-    const relevantes = this.citas.filter(c =>
-      ['ASISTIDA','NO_ASISTIO','ANULADA','CANCELADA_PACIENTE','CANCELADA_CLINICA'].includes(c.estado)
-    ).length;
-    return relevantes > 0 ? Math.round((asistidas / relevantes) * 100) : 0;
-  }
+  get ingresosMes(): number { return this.ingresosDelMes; }
 
   get resumenEstados(): EstadoResumen[] {
     const map: Record<string, { nombre: string; color: string; count: number }> = {};
@@ -173,7 +187,7 @@ export class DashboardComponent implements OnInit {
 
   get proximasCitas(): Cita[] {
     const ahora = new Date();
-    return this.citas
+    return this.citasDeLaSemana
       .filter(c => new Date(c.fecha_inicio) >= ahora &&
         !['ANULADA','CANCELADA_PACIENTE','CANCELADA_CLINICA','NO_ASISTIO'].includes(c.estado))
       .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())

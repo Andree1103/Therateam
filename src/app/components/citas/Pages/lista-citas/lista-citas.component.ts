@@ -27,7 +27,7 @@ import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } f
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
 import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
-import { estaSaldada, tieneDeuda, colorEstadoPago } from '../../../../core/utils/estado-pago';
+import { estaSaldada, tieneDeuda, colorEstadoPago, tieneDineroAplicado } from '../../../../core/utils/estado-pago';
 import { ocupaSuHora } from '../../../../core/utils/estado-cita';
 
 export interface DiaSemana { nombre: string; fecha: Date; }
@@ -129,6 +129,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     { value: 'PARCIAL', label: 'Pago parcial' },
     { value: 'PAGADA', label: 'Pagada' },
     { value: 'DESCONTADA', label: 'Descontada' },
+    // Las dos salidas de una anulacion. Se filtran por separado porque la pregunta que se hace
+    // recepcion es justo esa: de lo anulado, que se devolvio y que quedo a favor.
+    { value: 'DEVUELTO', label: 'Devuelto' },
+    { value: 'A_FAVOR', label: 'Saldo a favor' },
   ];
 
   get estadoOpcionesFiltradas(): CatalogItem[] {
@@ -3489,8 +3493,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** La cita tiene dinero aplicado, así que anularla obliga a decidir qué pasa con él. */
   get anularTienePago(): boolean {
-    const k = this.citaEditando?.estado_pago_key;
-    return !!k && k !== 'SIN_PAGO';
+    return tieneDineroAplicado(this.citaEditando?.estado_pago_key);
   }
 
   abrirAnular(): void {
@@ -3609,8 +3612,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   /** La cita tiene dinero cobrado, asi que hay que decidir si se le devuelve al paciente. */
   get inasistenciaTienePago(): boolean {
-    const k = this.citaEditando?.estado_pago_key;
-    return !!k && k !== 'SIN_PAGO';
+    return tieneDineroAplicado(this.citaEditando?.estado_pago_key);
   }
 
   /**

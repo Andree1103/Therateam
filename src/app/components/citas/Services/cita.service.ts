@@ -79,6 +79,18 @@ export class CitaService {
    * entera para descartar en el navegador lo que no cumple es memoria y red gastadas en filas que
    * nadie va a ver, y se multiplica por cada persona que tenga la agenda abierta.
    */
+  /**
+   * Cuantas citas hay con ese estado, sin traerselas.
+   *
+   * Se pide una sola fila y se lee el total de la pagina. Lo usa el Dashboard para la tasa de
+   * asistencia, que antes se calculaba sobre "las primeras mil citas" — un trozo, y el mas
+   * viejo, en cuanto la clinica paso de mil.
+   */
+  contarPorEstado(estadoKey: string): Observable<number> {
+    return this.api.get<PageResponse<CitaApiDTO>>(`${this.PATH}/filtro`, { estadoKey, size: '1' })
+      .pipe(map(r => r.totalElements ?? 0), catchError(() => of(0)));
+  }
+
   getCitasAgenda(f: {
     desde: Date;
     hasta: Date;
