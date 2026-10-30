@@ -86,7 +86,7 @@ export class DetalleTratamientoComponent implements OnInit {
     }).subscribe({
       next: ({ tratamiento, sesiones }) => {
         this.tratamiento = tratamiento;
-        this.sesiones = [...sesiones].sort((a, b) => a.numero - b.numero);
+        this.sesiones = this.enOrdenDeFecha(sesiones);
         this.loading = false;
         this.cargarAtenciones();
         // El saldo solo se leia al abrir el modal de cobro. Como `cargar()` corre despues de
@@ -98,6 +98,26 @@ export class DetalleTratamientoComponent implements OnInit {
         this.loading = false;
         this.toast.error('Error al cargar el tratamiento');
       }
+    });
+  }
+
+  /**
+   * Las sesiones en el orden en que van a pasar, no en el que se planearon.
+   *
+   * El backend ya las manda asi; esto mantiene el orden si alguna vez llegan de otra via.
+   * Ordenar por numero —como se hacia— mostraba el paquete desordenado en cuanto se
+   * reprogramaba una cita: la fecha se movia, el numero no. El numero se queda donde esta
+   * porque es como se llama a la sesion en la cita y en el historial. Las que aun no tienen
+   * cita no tienen fecha: van al final, entre ellas por numero.
+   */
+  private enOrdenDeFecha(sesiones: Sesion[]): Sesion[] {
+    return [...sesiones].sort((a, b) => {
+      const fa = a.citaActiva?.fechaInicio;
+      const fb = b.citaActiva?.fechaInicio;
+      if (!fa && !fb) return a.numero - b.numero;
+      if (!fa) return 1;
+      if (!fb) return -1;
+      return fa.localeCompare(fb) || a.numero - b.numero;
     });
   }
 
