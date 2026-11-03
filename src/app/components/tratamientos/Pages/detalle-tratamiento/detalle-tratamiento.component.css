@@ -29,6 +29,9 @@
 .stat-icon--green{background:#dcfce7;color:#15803d}
 .stat-icon--red{background:#fee2e2;color:#dc2626}
 .stat-icon--slate{background:#f1f5f9;color:#475569}
+/* Ambar para "por devolver": no es un error como el rojo de la deuda ni un ingreso como el
+   verde de lo cobrado. Es dinero que entro y que todavia no es de la clinica. */
+.stat-icon--amber{background:#fef3c7;color:#b45309}
 .stat-val{font-size:20px;font-weight:700;color:#0f172a;line-height:1}
 .stat-lbl{font-size:11px;color:#64748b}
 

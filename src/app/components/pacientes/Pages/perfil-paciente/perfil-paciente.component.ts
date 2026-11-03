@@ -13,7 +13,7 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
 import { Paciente, SaldoMovimiento } from '../../Models/paciente.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
-import { Cita } from '../../../citas/Models/cita.model';
+import { Cita, PorDevolver } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
@@ -108,14 +108,16 @@ export class PerfilPacienteComponent implements OnInit {
       citas:        this.citaService.getByPaciente(this.pacienteId).pipe(catchError(() => of([] as Cita[]))),
       saldo:        this.pacienteService.getSaldoMovimientos(this.pacienteId).pipe(catchError(() => of([] as SaldoMovimiento[]))),
       horarios:     this.pacienteService.getHorariosFijos(this.pacienteId).pipe(catchError(() => of([] as HorarioFijo[]))),
+      porDevolver:  this.citaService.porDevolverDePaciente(this.pacienteId),
     }).subscribe({
-      next: ({ paciente, tratamientos, pagos, citas, saldo, horarios }) => {
+      next: ({ paciente, tratamientos, pagos, citas, saldo, horarios, porDevolver }) => {
         this.movimientosSaldo = saldo;
         this.horariosFijos = horarios;
         this.paciente     = paciente;
         this.tratamientos = tratamientos;
         this.pagos        = pagos;
         this.citas        = citas;
+        this.porDevolver  = porDevolver;
         this.loading = false;
         this.cargarAtenciones();
       },
@@ -179,25 +181,27 @@ export class PerfilPacienteComponent implements OnInit {
   }
 
   /**
-   * Sesiones que el paciente YA PAGO y todavia no ha recibido.
+   * Sesiones que el paciente YA PAGO y todavia no ha recibido, y lo que habria que devolverle si
+   * dejara todo hoy. Lo calcula el backend.
    *
    * No es lo mismo que "cuantas citas se cobraron": eso es un dato de caja y se mira en Pagos.
-   * Esto es lo contrario, una obligacion — trabajo cobrado que la clinica todavia debe dar. Es
-   * el numero que importa antes de decirle a un paciente que no hay cupo, y el que hay que
-   * mirar si el paquete se vence.
+   * Esto es lo contrario, una obligacion — trabajo cobrado que la clinica todavia debe dar. Es el
+   * numero que importa antes de decirle a un paciente que no hay cupo, el que hay que mirar si el
+   * paquete se vence, y el que se pide en el mostrador cuando alguien deja el tratamiento.
    *
-   * Se compara con PAGADA a mano, no con estaSaldada(): DESCONTADA tambien esta saldada y es
-   * justamente el caso contrario —el paciente no vino y la clinica se quedo el dinero— asi que
-   * no hay ninguna sesion por dar ahi.
+   * Antes se contaban aqui las citas con estado_pago PAGADA y se sumaba su PRECIO, y eso fallaba
+   * por tres lados:
+   *   - sumaba el precio, no lo cobrado. Si se bajo el precio de una cita despues de cobrarla
+   *     —pasa— decia el precio nuevo y no el dinero que de verdad entro.
+   *   - solo contaba las PAGADA, asi que una cita a medio pagar no aportaba nada.
+   *   - y no veia el dinero de un paquete que no llego a ninguna cita, porque el reparto solo
+   *     alcanza a las sesiones ya agendadas. Al que pago las diez sesiones de golpe se le
+   *     devolvia de menos, que es el error caro.
+   *
+   * Ver PorDevolver y CitaService#porDevolverDePaciente. Null mientras carga o si falla: es un
+   * dato de apoyo y el perfil tiene que abrirse igual sin el.
    */
-  get pagadasPorDar(): Cita[] {
-    return this.citas.filter(c => c.estado_pago_key === 'PAGADA' && esUnaSesionPorDar(c.estado));
-  }
-
-  /** Cuanto dinero representan esas sesiones: lo que habria que devolver si no se dieran. */
-  get valorPagadasPorDar(): number {
-    return this.pagadasPorDar.reduce((t, c) => t + (c.precio ?? 0), 0);
-  }
+  porDevolver: PorDevolver | null = null;
 
   diaCorto(d: number): string { return DIAS_CORTOS[d]; }
   soloHora(h?: string | null): string { return soloHoraYMinuto(h); }

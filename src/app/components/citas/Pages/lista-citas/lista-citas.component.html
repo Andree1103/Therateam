@@ -1420,6 +1420,26 @@
           </div>
         </div>
 
+        <!-- Lo que este paciente ya pago por sesiones que todavia no recibe. Sale aqui porque la
+             pregunta "¿cuanto le devuelvo?" llega mientras se mira una de sus citas, y hasta
+             ahora obligaba a salir del modal, abrir su perfil y sumar a mano. Solo cuando hay. -->
+        <div class="frow" *ngIf="(porDevolverDelPaciente?.total ?? 0) > 0">
+          <div class="pordevolver-aviso">
+            <strong>S/ {{ (porDevolverDelPaciente?.total ?? 0) | number:'1.2-2' }}</strong>
+            cobrados a este paciente que todavía no se le dieron
+            <span class="pordevolver-desglose">
+              — {{ porDevolverDelPaciente?.citas }}
+              {{ porDevolverDelPaciente?.citas === 1 ? 'cita cobrada y sin dar' : 'citas cobradas y sin dar' }}
+              <ng-container *ngIf="(porDevolverDelPaciente?.sin_repartir ?? 0) > 0">
+                · S/ {{ (porDevolverDelPaciente?.sin_repartir ?? 0) | number:'1.2-2' }} de paquete aún sin agendar
+              </ng-container>
+              <ng-container *ngIf="(porDevolverDelPaciente?.saldo_a_favor ?? 0) > 0">
+                · S/ {{ (porDevolverDelPaciente?.saldo_a_favor ?? 0) | number:'1.2-2' }} de saldo a favor
+              </ng-container>
+            </span>
+          </div>
+        </div>
+
         <!-- Atención clínica: mismo acceso que desde la grilla y la hover card, para no tener
              que cerrar el modal y buscar la cita otra vez. -->
         <div class="frow" *ngIf="citaEditando && !esCitaCancelada(citaEditando)">
@@ -1649,6 +1669,40 @@
         </div>
       </div>
 
+      <!-- No marco: el tercer resultado. Ni se atendio ni se anoto inasistencia — nadie dijo
+           nada. No afirma nada sobre el paciente: lo que guarda es que YA SE REVISO y sigue sin
+           saberse. Con dos resultados eso no se podia decir, y la cita que nadie habia mirado se
+           veia igual que la que ya se habia repasado. -->
+      <div class="edit-pago-section" *ngIf="citaEditando && mostrarNoMarco">
+        <div class="edit-pago-hdr">{{ yaEstaSinMarca ? 'Ya está anotada como sin marca' : 'Nadie marcó esta cita' }}</div>
+        <p class="anu-nota" *ngIf="!yaEstaSinMarca">
+          Queda la constancia de que se revisó y no se sabe qué pasó, con tu nombre y la fecha.
+          <strong>No dice que el paciente no vino</strong>: no mueve dinero, no cuenta como sesión
+          dada y la cita se queda como está. Sigue saliendo en Atenciones como «sin marca» hasta
+          que alguien la resuelva.
+        </p>
+        <p class="anu-nota" *ngIf="yaEstaSinMarca">
+          Alguien ya la revisó. Puedes dejar anotado algo más; lo demás se mantiene.
+        </p>
+        <p class="anu-nota">
+          Si sí sabes qué pasó, usa <strong>Registrar atención</strong> o <strong>No vino</strong>
+          — desde aquí se puede igual, esto no cierra nada.
+        </p>
+
+        <label class="anu-label" for="motivoNoMarco">POR QUÉ SE PASÓ <span class="anu-req anu-req--opt">opcional</span></label>
+        <textarea id="motivoNoMarco" class="anu-motivo" rows="2" maxlength="255"
+                  [(ngModel)]="motivoNoMarco" [ngModelOptions]="{standalone: true}"
+                  placeholder="Si lo sabes: día cargado, cambio de turno, se cayó el sistema..."></textarea>
+
+        <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px; margin-top:10px">
+          <button class="btn-accion btn-accion--sinmarca" [disabled]="marcandoNoMarco"
+                  (click)="confirmarNoMarco()">
+            {{ marcandoNoMarco ? 'Guardando...' : (yaEstaSinMarca ? 'Guardar nota' : 'Anotar que nadie marcó') }}
+          </button>
+          <button class="hc-btn-cancel-pago" [disabled]="marcandoNoMarco" (click)="cancelarNoMarco()">Cancelar</button>
+        </div>
+      </div>
+
       <!-- Reprogramar: la cita original se queda como constancia y nace una nueva con los mismos
            datos. Se abre aqui, dentro del modal, para no perder de vista de que cita se habla. -->
       <div class="edit-pago-section" *ngIf="citaEditando && mostrarReprogramar">
@@ -1753,19 +1807,25 @@
              separadas de Cancelar/Actualizar: no son "guardar lo escrito", son decisiones sobre
              lo que paso con la cita. Cada una con el color de lo que significa. -->
         <div class="acciones-estado">
-          <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
+          <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarNoMarco && !mostrarReprogramar && !mostrarAnularOpciones"
                   class="btn-accion btn-accion--novino" (click)="abrirInasistencia()"
                   title="El paciente no vino: pide el motivo y que hacer con lo pagado">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             {{ citaEditando?.estado === 'NO_ASISTIO' ? 'Editar inasistencia' : 'No vino' }}
           </button>
-          <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones && !mostrarInasistencia"
+          <button *ngIf="citaEditando && puedeEditarCitas && puedeMarcarNoMarco(citaEditando) && !mostrarNoMarco && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
+                  class="btn-accion btn-accion--sinmarca" (click)="abrirNoMarco()"
+                  title="Nadie dijo si vino o no: deja la constancia de que ya se revisó">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ yaEstaSinMarca ? 'Revisada sin marca' : 'No marcó' }}
+          </button>
+          <button *ngIf="citaEditando && puedeEditarCitas && puedeReprogramar(citaEditando) && !mostrarReprogramar && !mostrarAnularOpciones && !mostrarInasistencia && !mostrarNoMarco"
                   class="btn-accion btn-accion--reprogramar" (click)="abrirReprogramar()"
                   title="Mover la cita a otra fecha: crea una nueva y deja esta como constancia">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             Reprogramar
           </button>
-          <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar && !mostrarInasistencia"
+          <button *ngIf="citaEditando && puedeEliminarCitas && citaEditando.estado !== 'ASISTIDA' && !esCitaCancelada(citaEditando) && !esCitaReprogramada(citaEditando) && !mostrarAnularOpciones && !mostrarReprogramar && !mostrarInasistencia && !mostrarNoMarco"
                   class="btn-accion btn-accion--anular" (click)="abrirAnular()"
                   title="La cita no va: pide el motivo y resuelve el pago">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>

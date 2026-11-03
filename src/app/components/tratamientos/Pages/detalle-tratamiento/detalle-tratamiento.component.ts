@@ -14,6 +14,8 @@ import { ConfiguracionService } from '../../../../core/services/configuracion.se
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { CitaService } from '../../../citas/Services/cita.service';
+import { PorDevolver } from '../../../citas/Models/cita.model';
 import { tieneDeuda } from '../../../../core/utils/estado-pago';
 import { fechaHoraConDia, fechaConDia } from '../../../../core/utils/fecha';
 import { sePuedeCobrar } from '../../../../core/utils/estado-cita';
@@ -63,8 +65,22 @@ export class DetalleTratamientoComponent implements OnInit {
     private configuracionService: ConfiguracionService,
     private notaAtencionPdfService: NotaAtencionPdfService,
     private authService: AuthService,
-    private pacienteService: PacienteService
+    private pacienteService: PacienteService,
+    private citaService: CitaService
   ) {}
+
+  /**
+   * Lo cobrado de sesiones que todavia no se han dado: lo que habria que devolver si el paciente
+   * deja el paquete hoy.
+   *
+   * No se calcula aqui con (totalSesiones - atendidas) x precioPorSesion, que es como se hacia a
+   * mano: falla en cuanto una sesion lleva otro precio —se reajustan— y no ve el dinero cobrado
+   * al paquete que todavia no esta sobre ninguna cita, porque el reparto solo alcanza a las
+   * sesiones ya agendadas. Esa parte era la que hacia devolver de menos.
+   *
+   * Null mientras carga o si falla: es un dato de apoyo y la pantalla se abre igual sin el.
+   */
+  porDevolver: PorDevolver | null = null;
 
   /** Registrar un pago usa el permiso del módulo Pagos, igual que en Citas — el backend lo
    *  exige con MODULO_PAGOS_CREAR, así que sin esto el botón devolvía 403. */
@@ -83,10 +99,12 @@ export class DetalleTratamientoComponent implements OnInit {
       sesiones: this.tratamientoService.getSesiones(this.tratamientoId).pipe(
         catchError(() => of([] as Sesion[]))
       ),
+      porDevolver: this.citaService.porDevolverDeTratamiento(this.tratamientoId),
     }).subscribe({
-      next: ({ tratamiento, sesiones }) => {
+      next: ({ tratamiento, sesiones, porDevolver }) => {
         this.tratamiento = tratamiento;
         this.sesiones = this.enOrdenDeFecha(sesiones);
+        this.porDevolver = porDevolver;
         this.loading = false;
         this.cargarAtenciones();
         // El saldo solo se leia al abrir el modal de cobro. Como `cargar()` corre despues de

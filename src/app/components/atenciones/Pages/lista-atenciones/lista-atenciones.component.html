@@ -116,10 +116,16 @@
             </td>
             <td>
               <!-- Ni atendida ni inasistencia: nadie la marco. Se dice asi de claro, porque
-                   la fila existe justo para que alguien vaya a arreglarla. -->
+                   la fila existe justo para que alguien vaya a arreglarla.
+                   Y se distingue si YA SE REVISO: antes las dos se veian igual, asi que cada
+                   repaso del mes volvia a empezar por las mismas filas sin saber cuales ya se
+                   habian mirado. -->
               <ng-container *ngIf="esSinMarca(c)">
                 <span class="res-badge res-sinmarca">Sin marca</span>
-                <span class="res-motivo">Nadie marcó si vino o no</span>
+                <span class="res-motivo" *ngIf="!yaRevisadaSinMarca(c)">Nadie marcó si vino o no</span>
+                <span class="res-revisada" *ngIf="yaRevisadaSinMarca(c)">
+                  Revisada el {{ c.fecha_registro | date:'dd/MM/yy' }} — sigue sin saberse
+                </span>
               </ng-container>
               <ng-container *ngIf="!esSinMarca(c) && c.estado === 'NO_ASISTIO'; else fueAtendida">
                 <span class="res-badge res-novino">No asistió</span>

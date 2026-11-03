@@ -200,6 +200,21 @@ export class ListaAtencionesComponent implements OnInit {
 
   esSinMarca(c: Cita): boolean { return this.resultadoDe(c) === 'Sin marca'; }
 
+  /**
+   * Sin marca, pero alguien ya la reviso y dejo constancia.
+   *
+   * Es la distincion que hacia falta para que el repaso del mes avanzara. Las dos filas se veian
+   * identicas —"Sin marca"— tanto si nadie la habia mirado nunca como si ya se habia revisado sin
+   * poder reconstruir que paso, asi que cada repaso volvia a empezar por las mismas citas.
+   *
+   * Se sabe por fecha_registro, que es cuando se anoto el resultado: una cita sin marcar que
+   * ademas tiene fecha de registro solo puede tener una fila "no se marco" (ver
+   * AtencionClinica#tipo en el backend).
+   */
+  yaRevisadaSinMarca(c: Cita): boolean {
+    return this.esSinMarca(c) && !!c.fecha_registro;
+  }
+
   private buildFiltros() {
     // Tambien las inasistencias: son parte de lo que paso con las citas del dia, y verlas junto
     // a las atendidas es lo que permite contarlas y hablar con el paciente. Y las que nadie

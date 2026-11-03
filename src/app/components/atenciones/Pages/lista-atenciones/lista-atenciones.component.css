@@ -96,6 +96,9 @@
    alguien vaya a marcarla, no una conversacion con el paciente. */
 .res-sinmarca{background:#fef3c7;color:#92400e}
 .res-motivo{display:block;margin-top:3px;font-size:11px;color:#64748b;max-width:220px}
+/* La que ya se reviso: mismo tamaño que el motivo pero en gris pizarra y no en gris texto,
+   para poder barrer la columna y ver de un golpe cuales quedan por mirar. */
+.res-revisada{display:block;margin-top:3px;font-size:11px;color:#94a3b8;font-style:italic;max-width:220px}
 .res-dev{display:block;margin-top:3px;font-size:10.5px;font-weight:700;color:#b45309}
 .res-dev-no{color:#64748b;font-weight:600}
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map, catchError, of } from 'rxjs';
 import { PageResponse } from '../../../core/models/page.model';
-import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, LoteResumen, PacienteResumen, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
+import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, LoteResumen, PacienteResumen, PorDevolver, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
 import { ApiService } from '../../../core/services/api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -185,6 +185,28 @@ export class CitaService {
   /** Cuántas citas de un lote de "citas masivas" faltan/ya se atendieron/se cancelaron. */
   getResumenLote(loteMasivoId: string): Observable<LoteResumen | null> {
     return this.api.get<LoteResumen>(`${this.PATH}/lote/${loteMasivoId}/resumen`).pipe(
+      catchError(() => of(null))
+    );
+  }
+
+  /**
+   * Cuanto habria que devolverle al paciente si dejara todo hoy.
+   *
+   * Sus citas ya cobradas y todavia sin darse, mas lo que entro a sus paquetes sin llegar a
+   * repartirse a ninguna cita, mas su saldo a favor. Ver PorDevolver.
+   *
+   * Devuelve null si falla en vez de romper la pantalla: es un dato de apoyo, y el perfil del
+   * paciente tiene que abrirse igual sin el.
+   */
+  porDevolverDePaciente(pacienteId: number): Observable<PorDevolver | null> {
+    return this.api.get<PorDevolver>(`${this.PATH}/por-devolver/paciente/${pacienteId}`).pipe(
+      catchError(() => of(null))
+    );
+  }
+
+  /** Lo mismo acotado a un paquete — sin el saldo a favor, que no es dinero de ese paquete. */
+  porDevolverDeTratamiento(tratamientoId: number): Observable<PorDevolver | null> {
+    return this.api.get<PorDevolver>(`${this.PATH}/por-devolver/tratamiento/${tratamientoId}`).pipe(
       catchError(() => of(null))
     );
   }

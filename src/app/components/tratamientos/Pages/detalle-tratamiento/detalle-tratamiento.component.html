@@ -115,6 +115,23 @@
         <div class="stat-lbl">Deuda pendiente</div>
       </div>
 
+      <!-- Lo cobrado de sesiones que todavia no se han dado: lo que habria que devolver si el
+           paciente deja el paquete hoy. Solo sale cuando hay algo que devolver.
+           La cifra viene del backend y no se calcula aqui con (totales - atendidas) x precio: eso
+           falla en cuanto una sesion lleva otro precio, y no ve el dinero cobrado que aun no
+           llego a ninguna cita porque esas sesiones no estan agendadas. Ver PorDevolver. -->
+      <div class="stat-card" *ngIf="(porDevolver?.total ?? 0) > 0"
+           [title]="'S/ ' + (porDevolver?.cobrado_sin_dar ?? 0).toFixed(2) + ' sobre ' + porDevolver?.citas + ' cita(s) cobradas y sin dar'
+                    + ((porDevolver?.sin_repartir ?? 0) > 0
+                        ? ' + S/ ' + (porDevolver?.sin_repartir ?? 0).toFixed(2) + ' cobrado al paquete que aun no esta sobre ninguna cita'
+                        : '')">
+        <div class="stat-icon stat-icon--amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+        </div>
+        <div class="stat-val">S/ {{ (porDevolver?.total ?? 0).toFixed(2) }}</div>
+        <div class="stat-lbl">Por devolver</div>
+      </div>
+
       <div class="stat-card" [class.stat-card--blue]="(tratamiento.saldoAFavor ?? 0) > 0">
         <div class="stat-icon stat-icon--blue">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22V12"/><path d="m5 12 7-7 7 7"/></svg>

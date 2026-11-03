@@ -8,8 +8,13 @@ export interface AtencionMetrica {
 
 export interface AtencionClinica {
   /** ATENDIDA = la sesion se dio; INASISTENCIA = el paciente no vino. */
-  tipo?: 'ATENDIDA' | 'INASISTENCIA';
-  /** Por que no vino. Solo con valor cuando tipo es INASISTENCIA. */
+  /**
+   * Que paso con la cita. Tres respuestas, no dos: NO_MARCO es la cita que ya paso y a la que
+   * nadie le dijo si el paciente vino o no. Es el valor por defecto a proposito — hasta que
+   * alguien diga que paso, lo que paso es que no se marco.
+   */
+  tipo?: 'ATENDIDA' | 'INASISTENCIA' | 'NO_MARCO';
+  /** Por que no vino (INASISTENCIA) o por que se paso (NO_MARCO, opcional). */
   motivo?: string | null;
   id?: number;
   citaId: number;

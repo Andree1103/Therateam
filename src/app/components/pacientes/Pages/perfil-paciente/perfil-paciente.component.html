@@ -39,12 +39,26 @@
           <span class="pstat-val">{{ citas.length }}</span>
           <span class="pstat-lbl">Citas</span>
         </div>
-        <!-- Sesiones cobradas que todavia se le deben dar. Como las inasistencias, solo sale
-             cuando hay: a un paciente al dia no le sobra un cero en la cabecera. -->
-        <div class="pstat" *ngIf="pagadasPorDar.length > 0"
-             [title]="'Ya pago ' + pagadasPorDar.length + ' sesion(es) que todavia no recibe — S/ ' + valorPagadasPorDar.toFixed(2)">
-          <span class="pstat-val">{{ pagadasPorDar.length }}</span>
+        <!-- Sesiones cobradas que todavia se le deben dar, y cuanto dinero son. Como las
+             inasistencias, solo sale cuando hay: a un paciente al dia no le sobra un cero en la
+             cabecera.
+             La cifra la calcula el backend y no se suma aqui: tiene que contar lo COBRADO (no el
+             precio, que puede haberse corregido despues de cobrar) e incluir el dinero de un
+             paquete que todavia no llego a ninguna cita. Ver PorDevolver. -->
+        <div class="pstat" *ngIf="(porDevolver?.citas ?? 0) > 0"
+             [title]="'Ya pago ' + porDevolver?.citas + ' sesion(es) que todavia no recibe — S/ ' + (porDevolver?.cobrado_sin_dar ?? 0).toFixed(2)
+                      + ((porDevolver?.sin_repartir ?? 0) > 0 ? ', mas S/ ' + (porDevolver?.sin_repartir ?? 0).toFixed(2) + ' cobrado de sesiones que aun no estan agendadas' : '')">
+          <span class="pstat-val">{{ porDevolver?.citas }}</span>
           <span class="pstat-lbl">Pagadas por dar</span>
+        </div>
+        <!-- Lo que habria que devolverle si deja el tratamiento hoy: el dato que se pedia a gritos
+             en el mostrador y se calculaba a mano con (sesiones - dadas) x precio. -->
+        <div class="pstat pstat--warn" *ngIf="(porDevolver?.total ?? 0) > 0"
+             [title]="'Si deja el tratamiento hoy: S/ ' + (porDevolver?.cobrado_sin_dar ?? 0).toFixed(2) + ' de sesiones cobradas sin dar'
+                      + ' + S/ ' + (porDevolver?.sin_repartir ?? 0).toFixed(2) + ' cobrado sin repartir a ninguna cita'
+                      + ' + S/ ' + (porDevolver?.saldo_a_favor ?? 0).toFixed(2) + ' de saldo a favor'">
+          <span class="pstat-val">S/ {{ (porDevolver?.total ?? 0).toFixed(2) }}</span>
+          <span class="pstat-lbl">Por devolver</span>
         </div>
         <!-- Las inasistencias solo aparecen si las hay: un cero permanente es ruido. -->
         <div class="pstat pstat--warn" *ngIf="inasistencias.length > 0"

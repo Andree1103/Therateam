@@ -161,6 +161,34 @@ export interface CrearCitaConPacienteRequest {
   loteMasivoId?: string;
 }
 
+/**
+ * Dinero ya cobrado por sesiones que todavia no se han dado: lo que habria que devolver si el
+ * paciente dejara el tratamiento hoy.
+ *
+ * La pregunta llega en el mostrador con el paciente delante —pago diez sesiones, vino a cinco,
+ * quiere su dinero— y se contestaba a mano con (10 - 5) x precio, que falla por los dos lados:
+ * el precio puede cambiar de una sesion a otra, y parte de lo cobrado puede no estar sobre
+ * ninguna cita.
+ *
+ * Viene partido porque las tres mitades salen de sitios distintos y conviene poder senalar cada
+ * una por separado delante del paciente.
+ */
+export interface PorDevolver {
+  /** Cuantas citas estan cobradas y todavia sin darse. El contador. */
+  citas: number;
+  /** Lo cobrado que esta aplicado a esas citas. */
+  cobrado_sin_dar: number;
+  /**
+   * Lo que entro al paquete y no llego a ninguna cita, porque esas sesiones aun no tienen cita
+   * creada. Es el que se olvidaba al calcularlo a mano, y olvidarlo hace devolver de MENOS.
+   */
+  sin_repartir: number;
+  /** Saldo a favor del paciente, el que no pertenece a ninguna cita. Cero en la vista de paquete. */
+  saldo_a_favor: number;
+  /** La suma de las tres. */
+  total: number;
+}
+
 export interface LoteResumen {
   loteMasivoId: string;
   total: number;

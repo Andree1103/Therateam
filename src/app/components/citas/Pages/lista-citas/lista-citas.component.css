@@ -182,6 +182,20 @@ tbody tr{height:var(--slot-h)}
 .btn-accion--reprogramar{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
 .btn-accion--reprogramar:hover{background:#e0e7ff;border-color:#818cf8}
 
+/* "No marco" en gris pizarra, a proposito: no es una advertencia ni una inasistencia, es un
+   "no se sabe". Amarillo o rojo lo leerian como un problema del paciente, y el problema es que
+   falta el dato. */
+/* Lo cobrado y no dado de este paciente: ambar, que es como se marca en el perfil y en el
+   paquete. No es una advertencia —nadie hizo nada mal— es dinero que entro y todavia no es de la
+   clinica. */
+.pordevolver-aviso{width:100%;padding:8px 10px;border-radius:8px;background:#fffbeb;
+                   border:1px solid #fde68a;color:#78350f;font-size:12px;line-height:1.45}
+.pordevolver-aviso strong{font-size:13px}
+.pordevolver-desglose{color:#92400e;opacity:.85}
+
+.btn-accion--sinmarca{background:#f8fafc;border-color:#cbd5e1;color:#475569}
+.btn-accion--sinmarca:hover{background:#f1f5f9;border-color:#94a3b8}
+
 .btn-accion--anular{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
 .btn-accion--anular:hover{background:#fee2e2;border-color:#f87171}
 
@@ -633,6 +647,9 @@ tbody tr{height:var(--slot-h)}
 .anu-label{display:block;margin:8px 0 4px;font-size:10.5px;font-weight:700;letter-spacing:.5px;
            text-transform:uppercase;color:#64748b}
 .anu-req{margin-left:6px;font-weight:600;letter-spacing:0;text-transform:none;color:#b91c1c}
+/* El mismo sello cuando el campo NO es obligatorio: en gris, para que no se lea como una
+   exigencia mas. */
+.anu-req--opt{color:#94a3b8}
 .anu-motivo{width:100%;padding:8px 10px;border:1px solid #dbe4f0;border-radius:8px;resize:vertical;
             font-family:inherit;font-size:12.5px;color:#1c2f52;background:#fff}
 .anu-motivo:focus{outline:none;border-color:#185FA5}
