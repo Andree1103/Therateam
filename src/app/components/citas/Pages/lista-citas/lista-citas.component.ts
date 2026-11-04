@@ -633,6 +633,20 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
 
   /**
+   * Marcar QUE PASO con la cita —no vino, nadie la marco— no es editarla.
+   *
+   * El servidor pide MODULO_CITAS_CREAR para las tres respuestas (AtencionClinicaController:
+   * registrar, inasistencia y no-marco), el mismo permiso con el que ya se registra la atencion.
+   * Esta pantalla pedia el de EDITAR, y eso dejaba mudo justo al rol que marca todos los dias:
+   * Encargado crea citas y da el visto bueno, pero no edita, asi que podia decir "si vino" y no
+   * podia decir "no vino" ni "nadie la marco" — aunque el servidor se las habria aceptado.
+   *
+   * Reprogramar (MODULO_CITAS_EDITAR) y Anular (MODULO_CITAS_ELIMINAR) si son otra cosa y se
+   * quedan con su permiso: mover o deshacer una cita no es anotar que paso con ella.
+   */
+  get puedeMarcarResultado(): boolean { return this.authService.puedeCrear('CITAS'); }
+
+  /**
    * Dar el visto bueno a una cita: permiso propio, NO el de editar Citas.
    *
    * Si fuera el de editar, quien carga la cita podria aprobarse a si mismo y la doble validacion
