@@ -33,8 +33,13 @@ export interface User {
   puedeVerSaldoInicial: boolean;
   /** Viene del ROL: si es false, no se puede cambiar la hora de corte de Caja. */
   puedeEditarHoraCorte: boolean;
-  /** Del ROL: puede marcar que paso con una cita (asistio, no asistio, no marco). */
-  puedeMarcarCita: boolean;
+  /**
+   * Del ROL: puede marcar que paso con una cita (asistio, no asistio, no marco).
+   *
+   * Opcional porque el usuario guardado puede venir de una sesion abierta antes de que el campo
+   * existiera, o de un backend todavia sin desplegar. Ver puedeMarcarCita().
+   */
+  puedeMarcarCita?: boolean;
 }
 
 interface LoginResponse {
@@ -218,7 +223,16 @@ export class AuthService {
    * del paquete. Es el permiso que nacio para el visto bueno, con el nombre de lo que hace ahora.
    */
   puedeMarcarCita(): boolean {
-    return this.currentUserValue?.puedeMarcarCita ?? false;
+    const puede = this.currentUserValue?.puedeMarcarCita;
+    if (puede === undefined || puede === null) {
+      // El campo no esta: o la sesion se abrio antes de este cambio, o el backend todavia no se
+      // desplego. En los dos casos la regla que valia era que marcar iba con crear citas, y se
+      // respeta — si no, la pantalla se queda sin las tres respuestas y nadie puede marcar el
+      // dia hasta que todo cuadre. Es la misma salida que toma el servidor con los tokens
+      // viejos (JwtAuthFilter), y por eso tampoco importa cual de los dos se publique primero.
+      return this.puedeCrear('CITAS');
+    }
+    return puede;
   }
 
   puedeCorregirAtencion(): boolean {
