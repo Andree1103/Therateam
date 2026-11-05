@@ -33,7 +33,8 @@ export interface User {
   puedeVerSaldoInicial: boolean;
   /** Viene del ROL: si es false, no se puede cambiar la hora de corte de Caja. */
   puedeEditarHoraCorte: boolean;
-  puedeValidarCita: boolean;
+  /** Del ROL: puede marcar que paso con una cita (asistio, no asistio, no marco). */
+  puedeMarcarCita: boolean;
 }
 
 interface LoginResponse {
@@ -55,7 +56,8 @@ interface LoginResponse {
   puedeCorregirAtencion: boolean;
   puedeVerSaldoInicial: boolean;
   puedeEditarHoraCorte: boolean;
-  puedeValidarCita: boolean;
+  /** Del ROL: puede marcar que paso con una cita (asistio, no asistio, no marco). */
+  puedeMarcarCita: boolean;
 }
 
 @Injectable({
@@ -111,7 +113,7 @@ export class AuthService {
           puedeCorregirAtencion: res.puedeCorregirAtencion,
           puedeVerSaldoInicial: res.puedeVerSaldoInicial,
           puedeEditarHoraCorte: res.puedeEditarHoraCorte,
-          puedeValidarCita: res.puedeValidarCita,
+          puedeMarcarCita: res.puedeMarcarCita,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -206,6 +208,17 @@ export class AuthService {
 
   puedeEditarHoraCorte(): boolean {
     return this.currentUserValue?.puedeEditarHoraCorte ?? false;
+  }
+
+  /**
+   * Marcar que paso con una cita: asistio, no asistio o "nadie la marco".
+   *
+   * Permiso propio del rol, no el de crear Citas. Antes iba con el de crear, asi que quien podia
+   * agendar podia ademas decir que habia pasado — y eso es lo que mueve el dinero y las sesiones
+   * del paquete. Es el permiso que nacio para el visto bueno, con el nombre de lo que hace ahora.
+   */
+  puedeMarcarCita(): boolean {
+    return this.currentUserValue?.puedeMarcarCita ?? false;
   }
 
   puedeCorregirAtencion(): boolean {

@@ -66,6 +66,7 @@
                   <span class="text-muted" *ngIf="!r.permisos?.length">Sin módulos</span>
                   <span class="modulo-chip" *ngIf="r.pacientesVerTelefono" title="Ve el celular de los pacientes">Ve celulares</span>
                   <span class="modulo-chip" *ngIf="r.puedeExportar" title="Puede descargar los listados en Excel">Exporta Excel</span>
+                  <span class="modulo-chip" *ngIf="r.puedeMarcarCita" title="Puede decir que paso con una cita: asistio, no asistio o nadie la marco">Marca citas</span>
                   <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
                   <span class="modulo-chip" *ngIf="r.puedeVerSaldoInicial" title="Ve el saldo inicial en Caja, que arrastra lo acumulado de dias anteriores">Ve saldo inicial</span>
                   <span class="modulo-chip" *ngIf="r.puedeEditarHoraCorte" title="Puede mover la hora que separa el turno 1 del turno 2">Cambia hora de corte</span>
@@ -240,6 +241,12 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeExportar" name="puedeExportar">
             Este rol puede exportar a Excel
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeMarcarCita" name="puedeMarcarCita">
+            Este rol puede marcar qué pasó con una cita
+            <span class="check-nota">Asistió, no asistió o «nadie la marcó». Va aparte de crear citas:
+              marcar mueve el dinero de la cita y las sesiones del paquete.</span>
           </label>
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeCorregirAtencion" name="puedeCorregirAtencion">
