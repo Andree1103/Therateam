@@ -13,7 +13,7 @@ import { ExcelExportService } from '../../../../core/services/excel-export.servi
 import { Paciente, SaldoMovimiento } from '../../Models/paciente.model';
 import { Tratamiento } from '../../../tratamientos/Models/tratamiento.model';
 import { Pago } from '../../../pagos/Models/pago.model';
-import { Cita, PorDevolver } from '../../../citas/Models/cita.model';
+import { Cita, nombreMarca, PorDevolver } from '../../../citas/Models/cita.model';
 import { AtencionClinica } from '../../../atencion-clinica/Models/atencion.model';
 import { AuthService } from '../../../auth/Services/auth.service';
 import { HorarioFijo, DIAS_SEMANA, DIAS_CORTOS, soloHoraYMinuto, nombreTerapeutaDeHorario }
@@ -469,6 +469,9 @@ export class PerfilPacienteComponent implements OnInit {
       'Se movió a la cita #': c.reprogramada_en ?? '',
       // Misma columna que en el export de Citas: si una hoja contesta "¿quién le dio el visto
       // bueno?" y la otra no, la pregunta acaba volviendo igual.
+      'Marca': nombreMarca(c.marca),
+      'Marcado por': c.marca_por_nombre ?? '',
+      'Marcado el': f(c.marca_en),
     }));
 
     const atenciones = this.atenciones.map(a => {

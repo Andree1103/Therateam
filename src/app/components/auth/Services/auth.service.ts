@@ -216,23 +216,21 @@ export class AuthService {
   }
 
   /**
-   * Marcar que paso con una cita: asistio, no asistio o "nadie la marco".
+   * Poner la marca de asistencia de una cita: asistio, no asistio o "nadie la marco".
    *
-   * Permiso propio del rol, no el de crear Citas. Antes iba con el de crear, asi que quien podia
-   * agendar podia ademas decir que habia pasado — y eso es lo que mueve el dinero y las sesiones
-   * del paquete. Es el permiso que nacio para el visto bueno, con el nombre de lo que hace ahora.
+   * Permiso propio del rol, que se da y se quita en Seguridad > Roles. Es el sello de auditoria
+   * que antes era el visto bueno, con los tres valores que hacian falta, y como aquel no lo tiene
+   * cualquiera que agende: la marca es lo que despues se cuenta en los reportes.
+   *
+   * Nada que ver con atender, anotar la inasistencia o anular — eso va con los permisos del
+   * modulo Citas, como siempre, porque eso si cambia el estado y mueve el dinero.
+   *
+   * Si el campo no esta —sesion abierta antes del cambio, o backend todavia sin desplegar— la
+   * respuesta es no. La marca no existia, asi que esconder el control no le quita a nadie nada
+   * que ya pudiera hacer, y ofrecerlo contra un backend viejo solo daria un error al pulsarlo.
    */
   puedeMarcarCita(): boolean {
-    const puede = this.currentUserValue?.puedeMarcarCita;
-    if (puede === undefined || puede === null) {
-      // El campo no esta: o la sesion se abrio antes de este cambio, o el backend todavia no se
-      // desplego. En los dos casos la regla que valia era que marcar iba con crear citas, y se
-      // respeta — si no, la pantalla se queda sin las tres respuestas y nadie puede marcar el
-      // dia hasta que todo cuadre. Es la misma salida que toma el servidor con los tokens
-      // viejos (JwtAuthFilter), y por eso tampoco importa cual de los dos se publique primero.
-      return this.puedeCrear('CITAS');
-    }
-    return puede;
+    return this.currentUserValue?.puedeMarcarCita ?? false;
   }
 
   puedeCorregirAtencion(): boolean {

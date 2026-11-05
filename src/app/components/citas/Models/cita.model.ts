@@ -1,3 +1,25 @@
+/**
+ * La marca de asistencia de una cita. Dato de auditoria para los reportes: no cambia el estado
+ * de la cita, no mueve dinero y no toca el paquete.
+ */
+export type MarcaCita = 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO' | null;
+
+/**
+ * El nombre de la marca tal como se lee en pantalla y en el Excel.
+ *
+ * Vive aqui y no en cada pantalla para que la agenda, el perfil del paciente y el Excel digan
+ * exactamente lo mismo: en un reporte que se cuenta por columna, "No asistio" y "No asistio."
+ * son dos cosas distintas.
+ */
+export function nombreMarca(m: MarcaCita | undefined): string {
+  switch (m) {
+    case 'ASISTIO':    return 'Asistió';
+    case 'NO_ASISTIO': return 'No asistió';
+    case 'NO_MARCO':   return 'No marcó';
+    default:           return '';
+  }
+}
+
 export interface TipoTerapia {
   id: string;           // usa key del DB (ej: 'CONVENCIONAL', 'KIDS')
   nombre: string;
@@ -67,10 +89,16 @@ export interface Cita {
   usuario_creacion_nombre?: string | null;
   usuario_modificacion_nombre?: string | null;
   usuario_atencion_nombre?: string | null;
-  /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
-  validada?: boolean;
-  validada_por_nombre?: string | null;
-  validada_en?: string | null;
+  /**
+   * Marca de asistencia: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO', o null si nadie la puso.
+   *
+   * Es un dato de auditoria para los reportes y nada mas: no cambia el estado de la cita, no
+   * mueve dinero y no toca el paquete. Reemplaza al visto bueno, que era un si/no y por eso no
+   * podia anotar el caso que mas se da — que nadie llego a marcarla.
+   */
+  marca?: MarcaCita;
+  marca_por_nombre?: string | null;
+  marca_en?: string | null;
 }
 
 export interface CrearCitaRequest {
@@ -274,8 +302,14 @@ export interface CitaApiDTO {
   usuario_creacion_nombre?: string | null;
   usuario_modificacion_nombre?: string | null;
   usuario_atencion_nombre?: string | null;
-  /** Doble validacion: si una segunda persona dio el visto bueno, y quien. */
-  validada?: boolean;
-  validada_por_nombre?: string | null;
-  validada_en?: string | null;
+  /**
+   * Marca de asistencia: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO', o null si nadie la puso.
+   *
+   * Es un dato de auditoria para los reportes y nada mas: no cambia el estado de la cita, no
+   * mueve dinero y no toca el paquete. Reemplaza al visto bueno, que era un si/no y por eso no
+   * podia anotar el caso que mas se da — que nadie llego a marcarla.
+   */
+  marca?: MarcaCita;
+  marca_por_nombre?: string | null;
+  marca_en?: string | null;
 }

@@ -176,14 +176,6 @@ tbody tr{height:var(--slot-h)}
                  font-size:10.5px;font-weight:700;font-family:inherit;cursor:pointer;
                  transition:background .13s,border-color .13s}
 .multi-cita-nota:hover{background:#e2e8f0;border-color:#94a3b8}
-/* "Asistio" en verde, al lado de los otros dos resultados: las tres respuestas juntas, cada una
-   con el color de lo que significa. */
-.btn-accion--asistio{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
-.btn-accion--asistio:hover{background:#dcfce7;border-color:#4ade80}
-/* Un resultado que no se puede dar se queda a la vista con su motivo en el titulo, no se esconde:
-   lo que falta (cobrar la cita, deshacer la atencion) es justo lo que hay que resolver. */
-.btn-accion:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
-.btn-accion:disabled:hover{box-shadow:none}
 .btn-accion--novino{background:#fffbeb;border-color:#fcd34d;color:#b45309}
 .btn-accion--novino:hover{background:#fef3c7;border-color:#f59e0b}
 
@@ -452,25 +444,6 @@ tbody tr{height:var(--slot-h)}
 .hc-pac{font-weight:600;color:#0f172a}
 .hc-dni{color:#94a3b8;font-size:11px}
 .hc-dur{color:#94a3b8;font-size:11px;margin-left:2px}
-/* Las tres respuestas, en su propia fila y con su etiqueta: es UNA pregunta con tres opciones, no
-   tres acciones sueltas entre Editar y Nota PDF. En rejilla de tres columnas iguales y no en flex:
-   la tarjeta mide 240px y con texto de ancho distinto la tercera se descolgaba sola. */
-.hc-res{margin-top:9px;padding-top:8px;border-top:1px solid #f1f5f9}
-.hc-res-lbl{display:block;margin-bottom:5px;font-size:9.5px;font-weight:700;letter-spacing:.05em;
-            text-transform:uppercase;color:#94a3b8}
-.hc-res-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.hc-res-btn{padding:4px 2px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#475569;
-            font-size:10.5px;font-weight:600;font-family:inherit;cursor:pointer;text-align:center;
-            transition:background .13s,border-color .13s,color .13s}
-.hc-res-btn:hover:not(:disabled){background:#f8fafc;border-color:#cbd5e1}
-.hc-res-btn:disabled{opacity:.45;cursor:not-allowed}
-/* La que esta puesta se rellena con su color. Eso es lo que no se podia leer con dos botones: de
-   un golpe se ve cual es la respuesta y, sobre todo, cual sigue sin ninguna. */
-.hc-res-btn--on{font-weight:700}
-.hc-res-btn--on.hc-res-btn--si{background:#f0fdf4;border-color:#86efac;color:#15803d}
-.hc-res-btn--on.hc-res-btn--no{background:#fffbeb;border-color:#fcd34d;color:#b45309}
-.hc-res-btn--on.hc-res-btn--sm{background:#f1f5f9;border-color:#94a3b8;color:#334155}
-.hc-res-nota{margin:5px 0 0;font-size:10.5px;line-height:1.35;color:#64748b}
 .hc-footer{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;flex-wrap:wrap}
 .hc-btn-edit{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#374151;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .hc-btn-at{padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;color:#15803d;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
@@ -787,3 +760,44 @@ tbody tr{height:var(--slot-h)}
 .hc-metodo-btns{display:flex;justify-content:flex-end;gap:6px}
 
 
+/* ── Marca de asistencia ────────────────────────────────────────────────────
+   El sello se ve en la tarjeta flotante de la cita y en el formulario de edicion. El estado
+   "sin marcar" se pinta siempre, no solo el marcado: lo que interesa ver de un vistazo es
+   lo que falta por marcar, que es justo lo que el reporte sale a buscar. */
+.hc-marca{margin-left:auto;padding:2px 7px;border-radius:20px;font-size:9.5px;font-weight:700;
+          background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;white-space:nowrap}
+.hc-marca--si{background:#eef2ff;color:#4338ca;border-color:#c7d2fe}
+
+/* Las tres opciones en su propia fila, en rejilla de tres columnas iguales: la tarjeta mide
+   240px y en flex la tercera se descolgaba sola por medir mas el texto. */
+.hc-marca-fila{margin-top:9px;padding-top:8px;border-top:1px solid #f1f5f9}
+.hc-marca-lbl{display:block;margin-bottom:5px;font-size:9.5px;font-weight:700;letter-spacing:.05em;
+              text-transform:uppercase;color:#94a3b8}
+.hc-marca-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.hc-marca-btn{padding:4px 2px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#475569;
+              font-size:10.5px;font-weight:600;font-family:inherit;cursor:pointer;text-align:center;
+              transition:background .13s,border-color .13s,color .13s}
+.hc-marca-btn:hover:not(:disabled){background:#f8fafc;border-color:#cbd5e1}
+.hc-marca-btn:disabled{opacity:.5;cursor:not-allowed}
+/* La que esta puesta se rellena con su color. Con un si/no esto no se podia leer: de un golpe
+   se ve cual es la marca y, sobre todo, cual cita sigue sin ninguna. */
+.hc-marca-btn--on{font-weight:700}
+.hc-marca-btn--on.hc-marca-btn--si{background:#f0fdf4;border-color:#86efac;color:#15803d}
+.hc-marca-btn--on.hc-marca-btn--no{background:#fffbeb;border-color:#fcd34d;color:#b45309}
+.hc-marca-btn--on.hc-marca-btn--sm{background:#f1f5f9;border-color:#94a3b8;color:#334155}
+.hc-marca-quien{margin:5px 0 0;font-size:10.5px;line-height:1.35;color:#64748b}
+
+/* La misma marca en el modal de la cita, con sitio para decir quien y cuando. */
+.marca-caja{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+            padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px}
+.marca-caja--si{border-color:#c7d2fe;background:#eef2ff}
+.marca-opts{display:flex;gap:6px;flex-wrap:wrap}
+.marca-btn{padding:6px 12px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;
+           font-size:12px;font-family:inherit;color:#334155;cursor:pointer;font-weight:600;
+           transition:background .13s,border-color .13s,color .13s}
+.marca-btn:hover:not(:disabled){background:#f1f5f9}
+.marca-btn:disabled{opacity:.55;cursor:not-allowed}
+.marca-btn--on.marca-btn--si{background:#f0fdf4;border-color:#86efac;color:#15803d}
+.marca-btn--on.marca-btn--no{background:#fffbeb;border-color:#fcd34d;color:#b45309}
+.marca-btn--on.marca-btn--sm{background:#e2e8f0;border-color:#94a3b8;color:#1e293b}
+.marca-txt{flex:1 1 100%;font-size:12.5px;color:#475569}

@@ -11,7 +11,7 @@ import { CatalogService } from '../../../../core/services/catalog.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AtencionClinicaService } from '../../../atencion-clinica/Services/atencion.service';
 import { AtencionMetrica, METRICAS_DEFAULT } from '../../../atencion-clinica/Models/atencion.model';
-import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, LoteResumen, PacienteEnCita, PacienteResumen, PorDevolver, TipoTerapia } from '../../Models/cita.model';
+import { Cita, CrearCitaConPacienteRequest, CrearCitaLocalRequest, LoteResumen, MarcaCita, nombreMarca, PacienteEnCita, PacienteResumen, PorDevolver, TipoTerapia } from '../../Models/cita.model';
 import { Terapeuta, terapeutaNombre } from '../../../terapeutas/Models/terapeuta.model';
 import { DisponibilidadDia } from '../../../terapeutas/Models/disponibilidad.model';
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
@@ -26,7 +26,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
-import { horaAmPm } from '../../../../core/utils/formato-hora';
+import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
 import { estaSaldada, tieneDeuda, colorEstadoPago, tieneDineroAplicado } from '../../../../core/utils/estado-pago';
 import { ocupaSuHora } from '../../../../core/utils/estado-cita';
 
@@ -576,6 +576,14 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           // Quien la creo casi nunca es quien hizo el ultimo cambio: la agenda recepcion
           // y la mueve o la cobra otra persona despues.
           'Última edición por': c.usuario_modificacion_nombre ?? '',
+          // La marca de asistencia va con las demas columnas de "quien hizo que". Es para
+          // esto que existe: el reporte donde se cuenta cuantas asistieron, cuantas no y
+          // cuantas se quedaron sin marcar. Vacio en vez de "—" para poder filtrar la columna.
+          'Marca': nombreMarca(c.marca),
+          'Marcado por': c.marca_por_nombre ?? '',
+          // Fecha y hora, no solo fecha: importa si se marco el mismo dia de la cita o un mes
+          // despues, y eso dentro del mismo dia solo lo responde la hora.
+          'Marcado el': fechaHoraAmPm(c.marca_en),
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
@@ -625,18 +633,72 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   get puedeRegistrarPago(): boolean { return this.authService.puedeCrear('PAGOS'); }
 
   /**
-   * Marcar QUE PASO con la cita —asistio, no asistio, nadie la marco— tiene permiso propio.
+   * Marcar QUE PASO con la cita —no vino, nadie la marco— no es editarla.
    *
-   * Es el mismo que exige el servidor en las tres (AtencionClinicaController: registrar,
-   * inasistencia y no-marco) y se da y se quita en Seguridad > Roles. Antes iba con el de CREAR
-   * citas, asi que quien podia agendar podia ademas decir que habia pasado, y eso es lo que mueve
-   * el dinero y las sesiones del paquete. Es el permiso que nacio para el visto bueno, con el
-   * nombre de lo que hace ahora.
+   * El servidor pide MODULO_CITAS_CREAR para las tres respuestas (AtencionClinicaController:
+   * registrar, inasistencia y no-marco), el mismo permiso con el que ya se registra la atencion.
+   * Esta pantalla pedia el de EDITAR, y eso dejaba mudo justo al rol que marca todos los dias:
+   * Encargado carga las citas y las resuelve, pero no las edita, asi que podia decir "si vino" y no
+   * podia decir "no vino" ni "nadie la marco" — aunque el servidor se las habria aceptado.
    *
    * Reprogramar (MODULO_CITAS_EDITAR) y Anular (MODULO_CITAS_ELIMINAR) si son otra cosa y se
-   * quedan con el suyo: mover o deshacer una cita no es anotar que paso con ella.
+   * quedan con su permiso: mover o deshacer una cita no es anotar que paso con ella.
    */
-  get puedeMarcarResultado(): boolean { return this.authService.puedeMarcarCita(); }
+  get puedeMarcarResultado(): boolean { return this.authService.puedeCrear('CITAS'); }
+
+  /**
+   * Marcar una cita: permiso propio, NO el de editar ni el de crear Citas.
+   *
+   * Es el sello de auditoria que antes era el visto bueno, con los tres valores que hacian
+   * falta. Se da y se quita en Seguridad > Roles, porque no todo el que agenda tiene por que
+   * dejar constancia de lo que paso.
+   */
+  get puedeMarcarCitas(): boolean { return this.authService.puedeMarcarCita(); }
+
+  /** Id de la cita cuya marca se esta guardando — para no dejar pulsar dos veces. */
+  marcandoCitaId: string | null = null;
+
+  /**
+   * Pone o quita la marca de asistencia de una cita.
+   *
+   * Solo guarda el dato. NO cambia el estado de la cita, no mueve dinero y no toca el paquete:
+   * atender, anotar la inasistencia y anular siguen siendo lo que eran y se hacen donde se
+   * hacian. Esto es lo que despues se cuenta en los reportes.
+   *
+   * Pulsar la que ya esta puesta la borra: es como se corrige un dedazo sin entrar a ningun
+   * sitio, y sin dejar una marca falsa en el reporte.
+   *
+   * El cambio se refleja en la fila sin recargar el listado: recargar cerraria la tarjeta
+   * flotante justo cuando acabas de pulsar, y con una agenda de semana completa es un parpadeo
+   * entero por cada marca.
+   */
+  marcar(c: Cita, valor: Exclude<MarcaCita, null>, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!this.puedeMarcarCitas || this.marcandoCitaId) return;
+    const quita = c.marca === valor;
+    this.marcandoCitaId = c.id;
+    this.citaService.marcar(c.id, quita ? null : valor).subscribe({
+      next: actualizada => {
+        c.marca = actualizada.marca;
+        c.marca_por_nombre = actualizada.marca_por_nombre;
+        c.marca_en = actualizada.marca_en;
+        if (this.citaEditando && this.citaEditando.id === c.id) {
+          this.citaEditando.marca = actualizada.marca;
+          this.citaEditando.marca_por_nombre = actualizada.marca_por_nombre;
+          this.citaEditando.marca_en = actualizada.marca_en;
+        }
+        this.marcandoCitaId = null;
+        this.toast.success(quita ? 'Marca quitada' : `Marcada como ${nombreMarca(valor)}`);
+      },
+      error: err => {
+        this.marcandoCitaId = null;
+        this.toast.error(err?.error?.error || 'No se pudo guardar la marca');
+      },
+    });
+  }
+
+  /** El nombre de la marca tal como se lee en pantalla y en el Excel. */
+  nombreMarca(m: MarcaCita): string { return nombreMarca(m); }
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -3670,147 +3732,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   get yaEstaSinMarca(): boolean {
     return !!this.citaEditando && this.puedeMarcarNoMarco(this.citaEditando)
         && !!this.citaEditando.fecha_registro;
-  }
-
-  // ── ¿Qué pasó con la cita? Las tres respuestas ──────────────────────────────
-  //
-  // Asistió, no asistió y "nadie la marcó" son las tres respuestas posibles de una cita, y estaban
-  // repartidas: "Registrar atención" en la tarjeta de la agenda, las otras dos en el pie del modal
-  // de edición. Ninguna de las dos pantallas tenía las tres, así que al repasar el día desde la
-  // agenda —que es como se repasa— lo único que se marcaba de un clic era el visto bueno, que era
-  // otra cosa: un sello de revisión sobre los datos de la cita. La clínica lo había pedido para
-  // confirmar si el paciente vino o no, y esto es lo que de verdad pidió: estas tres, que además
-  // cubren el caso que el sello no sabía decir — que nadie llegó a marcarla.
-  //
-  // Esto no cambia ninguna regla de negocio. Cada respuesta sigue yendo por donde iba —atención,
-  // inasistencia y no-marcó, cada una con su endpoint, su permiso y sus avisos—, con el mismo
-  // permiso de puedeMarcarResultado que el servidor exige para las tres. Lo que cambia es que se
-  // ven las tres, se alcanzan desde el mismo sitio y se sabe cuál está puesta.
-
-  /** El paciente vino: mientras la cita siga viva y no esté resuelta de otra forma. */
-  puedeMarcarAsistio(cita: Cita | null): boolean {
-    return !!cita && (cita.estado === 'PROGRAMADA' || cita.estado === 'CONFIRMADA'
-                   || cita.estado === 'EN_CURSO'   || cita.estado === 'ASISTIDA');
-  }
-
-  /** Esta cita admite alguna de las tres. Una anulada o reprogramada ya no: no se pregunta. */
-  admiteResultado(cita: Cita | null): boolean {
-    return this.puedeMarcarAsistio(cita) || this.puedeMarcarInasistencia(cita)
-        || this.puedeMarcarNoMarco(cita);
-  }
-
-  /**
-   * La constancia de "nadie la marcó" ya está puesta en ESTA cita.
-   *
-   * Lo mismo que yaEstaSinMarca, que solo sirve para la que se está editando: la tarjeta de la
-   * agenda necesita saberlo de cualquier cita, sin abrir nada.
-   */
-  estaRevisadaSinMarca(cita: Cita | null): boolean {
-    return this.puedeMarcarNoMarco(cita) && !!cita?.fecha_registro;
-  }
-
-  /** Cuál de las tres está puesta, si hay alguna. */
-  resultadoDe(cita: Cita | null): 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO' | null {
-    if (!cita) return null;
-    if (cita.estado === 'ASISTIDA')   return 'ASISTIO';
-    if (cita.estado === 'NO_ASISTIO') return 'NO_ASISTIO';
-    return this.estaRevisadaSinMarca(cita) ? 'NO_MARCO' : null;
-  }
-
-  /**
-   * Por qué no se puede dar esta respuesta a esta cita. Cadena vacía = se puede.
-   *
-   * Sirve para deshabilitar el botón Y como su título, que es el mismo criterio que ya seguía
-   * "Registrar atención": el motivo es justo lo que hay que resolver, y esconder la opción deja
-   * al que marca sin saber qué le falta. El servidor rechaza lo mismo por su cuenta; esto solo
-   * evita el viaje y lo dice antes.
-   */
-  porQueNoSePuede(cita: Cita | null, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO'): string {
-    if (!cita) return 'No hay cita.';
-    if (this.esCitaCancelada(cita))    return 'Esta cita está anulada.';
-    if (this.esCitaReprogramada(cita)) return 'Esta cita se reprogramó: la respuesta va en la cita nueva.';
-
-    if (res === 'ASISTIO') {
-      // Corregir una inasistencia ya anotada no se hace desde aquí: el estado se cambia en el
-      // modal, que es donde el servidor deshace lo que hizo la inasistencia.
-      if (cita.estado === 'NO_ASISTIO') {
-        return 'Está anotada como No asistió. Si sí vino, cámbiale el estado desde Editar.';
-      }
-      if (!this.puedeMarcarAsistio(cita)) return 'Esta cita ya está resuelta.';
-      // Atender exige la cita cobrada. Corregir una atención ya guardada no, o las sesiones
-      // atendidas antes de esa regla quedarían congeladas.
-      if (cita.estado !== 'ASISTIDA' && !this.estaSaldada(cita)) {
-        const falta = (cita.precio ?? 0) - (cita.monto_pagado ?? 0);
-        return falta > 0
-          ? `Primero cóbrala: faltan S/ ${falta.toFixed(2)}.`
-          : 'Primero cóbrala: esta cita figura sin pago.';
-      }
-      return '';
-    }
-
-    if (res === 'NO_ASISTIO') {
-      return this.puedeMarcarInasistencia(cita) ? ''
-        : 'Ya tiene la atención registrada. Deshazla antes de decir que no vino.';
-    }
-
-    // "No marcó" es para las que YA PASARON y siguen sin respuesta. Una atendida o una
-    // inasistencia ya son una respuesta: dejarlas sin marca borraría un dato bueno por uno peor.
-    if (cita.estado === 'ASISTIDA' || cita.estado === 'NO_ASISTIO') {
-      return 'Esta cita ya tiene respuesta: no es una cita sin marcar.';
-    }
-    return this.puedeMarcarNoMarco(cita) ? ''
-      : 'Todavía no ha pasado: no hay nada que marcar.';
-  }
-
-  /** El título del botón: el motivo si no se puede, y si se puede, qué va a hacer. */
-  tituloResultado(cita: Cita | null, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO'): string {
-    const no = this.porQueNoSePuede(cita, res);
-    if (no) return no;
-    const puesta = this.resultadoDe(cita) === res;
-    if (res === 'ASISTIO') {
-      return puesta ? 'Ya está atendida: abre la atención para corregirla'
-                    : 'El paciente vino: registra la atención';
-    }
-    if (res === 'NO_ASISTIO') {
-      return puesta ? 'Ya está anotada: abre la inasistencia para corregir el motivo'
-                    : 'El paciente no vino: pide el motivo y qué hacer con lo pagado';
-    }
-    return puesta ? 'Ya se revisó y sigue sin saberse: puedes dejar otra nota'
-                  : 'Nadie dijo si vino o no: deja la constancia de que ya se revisó';
-  }
-
-  /**
-   * Abre la respuesta elegida desde la tarjeta de la agenda.
-   *
-   * "Asistió" tiene su propio modal, el de la atención (notas y métricas de la sesión). Las otras
-   * dos piden algo escrito —el motivo de la inasistencia, la nota opcional del "no marcó"— y viven
-   * en paneles del modal de la cita: se abre ya desplegado el que toca, en vez de dejar al que
-   * marca entrando en Editar y buscándolo en el pie.
-   */
-  marcarResultado(cita: Cita, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO', ev: Event): void {
-    ev.stopPropagation();
-    const no = this.porQueNoSePuede(cita, res);
-    if (no) { this.toast.warning(no); return; }
-
-    if (res === 'ASISTIO') { this.abrirAtencion(cita, ev); return; }
-
-    this.abrirEditar(cita, ev);
-    if (res === 'NO_ASISTIO') this.abrirInasistencia(); else this.abrirNoMarco();
-  }
-
-  /**
-   * "Asistió" desde el pie del modal de la cita: se cierra este y se abre el de la atención.
-   *
-   * Uno encima del otro no. El de la atención tiene su propio formulario, y dejar el de la cita
-   * debajo hace que al cerrar el de arriba aparezca otro con los mismos datos a medio editar.
-   */
-  irARegistrarAtencion(ev: Event): void {
-    const cita = this.citaEditando;
-    if (!cita) return;
-    const no = this.porQueNoSePuede(cita, 'ASISTIO');
-    if (no) { this.toast.warning(no); return; }
-    this.cerrarModal();
-    this.abrirAtencion(cita, ev);
   }
 
   abrirNoMarco(): void {

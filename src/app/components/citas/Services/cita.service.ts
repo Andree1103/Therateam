@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map, catchError, of } from 'rxjs';
 import { PageResponse } from '../../../core/models/page.model';
-import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, LoteResumen, PacienteResumen, PorDevolver, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
+import { Cita, CitaApiDTO, CrearCitaConPacienteRequest, CrearCitaLocalRequest, CrearCitaRequest, LoteResumen, MarcaCita, PacienteResumen, PorDevolver, ReprogramarCitaRequest, TipoTerapia } from '../Models/cita.model';
 import { ApiService } from '../../../core/services/api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -144,6 +144,21 @@ export class CitaService {
     const body: Record<string, unknown> = { metodoPagoId };
     if (motivo?.trim()) body['motivo'] = motivo.trim();
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/metodo-pago`, body).pipe(map(d => this.mapDTO(d)));
+  }
+
+  /**
+   * Pone o quita la marca de asistencia de una cita.
+   *
+   * Solo guarda el dato —que se marco, quien y cuando— para los reportes. No cambia el estado de
+   * la cita ni mueve dinero: eso es registrar la atencion, anotar la inasistencia o anular, y
+   * cada una sigue por su camino. Permiso propio (PUEDE_MARCAR_CITA), que se da en Seguridad.
+   *
+   * `valor` null borra la marca, que es como se corrige haberla puesto mal.
+   */
+  marcar(id: string | number, valor: MarcaCita): Observable<Cita> {
+    const q = valor ? `?valor=${valor}` : '';
+    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/marca${q}`, {})
+      .pipe(map(d => this.mapDTO(d)));
   }
 
   getFiltroPaged(page: number, size: number, filtros: {
@@ -382,12 +397,9 @@ export class CitaService {
       metodo_pago_nombre:  dto.metodo_pago_nombre ?? null,
       lote_masivo_id:      dto.lote_masivo_id ?? null,
       usuario_creacion_nombre: dto.usuario_creacion_nombre ?? null,
-      // El visto bueno salio de las pantallas (lo reemplazan las tres respuestas: asistio, no
-      // asistio, no marco), pero el dato sigue viniendo del backend y los sellos ya dados siguen
-      // guardados. Se mapea para no perderlos de vista si hay que volver a enseñarlos.
-      validada:            dto.validada ?? false,
-      validada_por_nombre: dto.validada_por_nombre ?? null,
-      validada_en:         dto.validada_en ?? null,
+      marca:               dto.marca ?? null,
+      marca_por_nombre:    dto.marca_por_nombre ?? null,
+      marca_en:            dto.marca_en ?? null,
     };
   }
 
