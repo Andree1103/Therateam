@@ -1786,6 +1786,14 @@
           ¿Qué hacemos con el dinero ya pagado?
         </div>
 
+        <!-- Se dice antes de pulsar: el paquete deja de cobrar la sesión cuyo dinero sale. Si no
+             lo hiciera, la devolución se convertiría en deuda — lo que vale el paquete menos lo
+             cobrado es justo lo que se acaba de devolver. Ver CitaService. -->
+        <p class="anu-nota anu-nota--paq" *ngIf="anularTienePago && citaEditando?.tratamiento_nombre">
+          Es una sesión del paquete «{{ citaEditando?.tratamiento_nombre }}»: al sacar su dinero,
+          el paquete deja de cobrar esa sesión y queda con una menos. Nadie pasa a deber nada.
+        </p>
+
         <div class="hc-pago-actions" style="flex-wrap:wrap; gap:8px">
           <!-- El boton NO se deshabilita por el motivo vacio: si el aviso llega como un boton
                muerto, el usuario no sabe que le falta. Al pulsarlo sin motivo, confirmarAnular()
