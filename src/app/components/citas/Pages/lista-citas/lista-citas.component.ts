@@ -3722,6 +3722,146 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         && !!this.citaEditando.fecha_registro;
   }
 
+  // ── ¿Qué pasó con la cita? Las tres respuestas ──────────────────────────────
+  //
+  // Asistió, no asistió y "nadie la marcó" son las tres respuestas posibles, y hasta ahora
+  // estaban repartidas: "Registrar atención" en la tarjeta de la agenda, las otras dos en el pie
+  // del modal de edición. Ninguna de las dos pantallas tenía las tres, así que al repasar el día
+  // desde la agenda —que es como se repasa— lo único que se marcaba de un clic era el visto bueno,
+  // que no es una respuesta: es el segundo par de ojos sobre los datos de la cita. Y "nadie la
+  // marcó", que es justo la que hace falta cuando se olvidaron de marcar, casi no se encontraba.
+  //
+  // Esto no cambia ninguna regla. Cada respuesta sigue yendo por donde iba —atención, inasistencia
+  // y no-marcó, cada una con su endpoint, su permiso y sus avisos—, con el mismo permiso de
+  // puedeMarcarResultado que ya exige el servidor para las tres. Lo que cambia es que se ven las
+  // tres, se alcanzan desde el mismo sitio y se sabe cuál está puesta.
+
+  /** El paciente vino: mientras la cita siga viva y no esté resuelta de otra forma. */
+  puedeMarcarAsistio(cita: Cita | null): boolean {
+    return !!cita && (cita.estado === 'PROGRAMADA' || cita.estado === 'CONFIRMADA'
+                   || cita.estado === 'EN_CURSO'   || cita.estado === 'ASISTIDA');
+  }
+
+  /** Esta cita admite alguna de las tres. Una anulada o reprogramada ya no: no se pregunta. */
+  admiteResultado(cita: Cita | null): boolean {
+    return this.puedeMarcarAsistio(cita) || this.puedeMarcarInasistencia(cita)
+        || this.puedeMarcarNoMarco(cita);
+  }
+
+  /**
+   * La constancia de "nadie la marcó" ya está puesta en ESTA cita.
+   *
+   * Lo mismo que yaEstaSinMarca, que solo sirve para la que se está editando: la tarjeta de la
+   * agenda necesita saberlo de cualquier cita, sin abrir nada.
+   */
+  estaRevisadaSinMarca(cita: Cita | null): boolean {
+    return this.puedeMarcarNoMarco(cita) && !!cita?.fecha_registro;
+  }
+
+  /** Cuál de las tres está puesta, si hay alguna. */
+  resultadoDe(cita: Cita | null): 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO' | null {
+    if (!cita) return null;
+    if (cita.estado === 'ASISTIDA')   return 'ASISTIO';
+    if (cita.estado === 'NO_ASISTIO') return 'NO_ASISTIO';
+    return this.estaRevisadaSinMarca(cita) ? 'NO_MARCO' : null;
+  }
+
+  /**
+   * Por qué no se puede dar esta respuesta a esta cita. Cadena vacía = se puede.
+   *
+   * Sirve para deshabilitar el botón Y como su título, que es el mismo criterio que ya seguía
+   * "Registrar atención": el motivo es justo lo que hay que resolver, y esconder la opción deja
+   * al que marca sin saber qué le falta. El servidor rechaza lo mismo por su cuenta; esto solo
+   * evita el viaje y lo dice antes.
+   */
+  porQueNoSePuede(cita: Cita | null, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO'): string {
+    if (!cita) return 'No hay cita.';
+    if (this.esCitaCancelada(cita))    return 'Esta cita está anulada.';
+    if (this.esCitaReprogramada(cita)) return 'Esta cita se reprogramó: la respuesta va en la cita nueva.';
+
+    if (res === 'ASISTIO') {
+      // Corregir una inasistencia ya anotada no se hace desde aquí: el estado se cambia en el
+      // modal, que es donde el servidor deshace lo que hizo la inasistencia.
+      if (cita.estado === 'NO_ASISTIO') {
+        return 'Está anotada como No asistió. Si sí vino, cámbiale el estado desde Editar.';
+      }
+      if (!this.puedeMarcarAsistio(cita)) return 'Esta cita ya está resuelta.';
+      // Atender exige la cita cobrada. Corregir una atención ya guardada no, o las sesiones
+      // atendidas antes de esa regla quedarían congeladas.
+      if (cita.estado !== 'ASISTIDA' && !this.estaSaldada(cita)) {
+        const falta = (cita.precio ?? 0) - (cita.monto_pagado ?? 0);
+        return falta > 0
+          ? `Primero cóbrala: faltan S/ ${falta.toFixed(2)}.`
+          : 'Primero cóbrala: esta cita figura sin pago.';
+      }
+      return '';
+    }
+
+    if (res === 'NO_ASISTIO') {
+      return this.puedeMarcarInasistencia(cita) ? ''
+        : 'Ya tiene la atención registrada. Deshazla antes de decir que no vino.';
+    }
+
+    // "No marcó" es para las que YA PASARON y siguen sin respuesta. Una atendida o una
+    // inasistencia ya son una respuesta: dejarlas sin marca borraría un dato bueno por uno peor.
+    if (cita.estado === 'ASISTIDA' || cita.estado === 'NO_ASISTIO') {
+      return 'Esta cita ya tiene respuesta: no es una cita sin marcar.';
+    }
+    return this.puedeMarcarNoMarco(cita) ? ''
+      : 'Todavía no ha pasado: no hay nada que marcar.';
+  }
+
+  /** El título del botón: el motivo si no se puede, y si se puede, qué va a hacer. */
+  tituloResultado(cita: Cita | null, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO'): string {
+    const no = this.porQueNoSePuede(cita, res);
+    if (no) return no;
+    const puesta = this.resultadoDe(cita) === res;
+    if (res === 'ASISTIO') {
+      return puesta ? 'Ya está atendida: abre la atención para corregirla'
+                    : 'El paciente vino: registra la atención';
+    }
+    if (res === 'NO_ASISTIO') {
+      return puesta ? 'Ya está anotada: abre la inasistencia para corregir el motivo'
+                    : 'El paciente no vino: pide el motivo y qué hacer con lo pagado';
+    }
+    return puesta ? 'Ya se revisó y sigue sin saberse: puedes dejar otra nota'
+                  : 'Nadie dijo si vino o no: deja la constancia de que ya se revisó';
+  }
+
+  /**
+   * Abre la respuesta elegida desde la tarjeta de la agenda.
+   *
+   * "Asistió" tiene su propio modal, el de la atención (notas y métricas de la sesión). Las otras
+   * dos piden algo escrito —el motivo de la inasistencia, la nota opcional del "no marcó"— y viven
+   * en paneles del modal de la cita: se abre ya desplegado el que toca, en vez de dejar al que
+   * marca entrando en Editar y buscándolo en el pie.
+   */
+  marcarResultado(cita: Cita, res: 'ASISTIO' | 'NO_ASISTIO' | 'NO_MARCO', ev: Event): void {
+    ev.stopPropagation();
+    const no = this.porQueNoSePuede(cita, res);
+    if (no) { this.toast.warning(no); return; }
+
+    if (res === 'ASISTIO') { this.abrirAtencion(cita, ev); return; }
+
+    this.abrirEditar(cita, ev);
+    if (res === 'NO_ASISTIO') this.abrirInasistencia(); else this.abrirNoMarco();
+  }
+
+  /**
+   * "Asistió" desde el pie del modal de la cita: se cierra este y se abre el de la atención.
+   *
+   * Uno encima del otro no. El de la atención tiene su propio formulario, y dejar el de la cita
+   * debajo hace que al cerrar el de arriba aparezca otro con los mismos datos a medio editar.
+   */
+  irARegistrarAtencion(ev: Event): void {
+    const cita = this.citaEditando;
+    if (!cita) return;
+    const no = this.porQueNoSePuede(cita, 'ASISTIO');
+    if (no) { this.toast.warning(no); return; }
+    this.cerrarModal();
+    this.abrirAtencion(cita, ev);
+  }
+
   abrirNoMarco(): void {
     if (!this.puedeMarcarNoMarco(this.citaEditando)) return;
     this.motivoNoMarco = '';

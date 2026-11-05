@@ -412,6 +412,43 @@
                       </div>
                     </div>
 
+                    <!-- ¿Qué pasó con la cita? Las TRES respuestas juntas, y la que está puesta
+                         marcada. Aquí antes solo cabía una: "Registrar atención". Para decir "no
+                         vino" o "nadie la marcó" había que abrir Editar y buscarlas en el pie del
+                         modal, así que desde la agenda —que es donde se repasa el día, cita por
+                         cita— lo único que se marcaba de un clic era el visto bueno. Y el visto
+                         bueno es otra cosa: es el segundo par de ojos sobre los DATOS de la cita
+                         (quién, cuándo, de qué tipo, cuánto), no lo que pasó con el paciente. Por
+                         eso se queda donde está, en el pie, y no se mezcla con estas tres.
+                         Las tres se dejan visibles aunque no se puedan dar, deshabilitadas y con
+                         el motivo en el título: escondidas parecían no existir, y eso es lo que
+                         hacía creer que la cita solo se podía marcar de dos maneras. -->
+                    <div class="hc-res" *ngIf="puedeMarcarResultado && admiteResultado(c)">
+                      <span class="hc-res-lbl">¿Qué pasó?</span>
+                      <div class="hc-res-opts">
+                        <button class="hc-res-btn hc-res-btn--si"
+                                [class.hc-res-btn--on]="resultadoDe(c) === 'ASISTIO'"
+                                [disabled]="!!porQueNoSePuede(c, 'ASISTIO')"
+                                [title]="tituloResultado(c, 'ASISTIO')"
+                                (click)="marcarResultado(c, 'ASISTIO', $event)">Asistió</button>
+                        <button class="hc-res-btn hc-res-btn--no"
+                                [class.hc-res-btn--on]="resultadoDe(c) === 'NO_ASISTIO'"
+                                [disabled]="!!porQueNoSePuede(c, 'NO_ASISTIO')"
+                                [title]="tituloResultado(c, 'NO_ASISTIO')"
+                                (click)="marcarResultado(c, 'NO_ASISTIO', $event)">No asistió</button>
+                        <button class="hc-res-btn hc-res-btn--sm"
+                                [class.hc-res-btn--on]="resultadoDe(c) === 'NO_MARCO'"
+                                [disabled]="!!porQueNoSePuede(c, 'NO_MARCO')"
+                                [title]="tituloResultado(c, 'NO_MARCO')"
+                                (click)="marcarResultado(c, 'NO_MARCO', $event)">No marcó</button>
+                      </div>
+                      <!-- El estado de arriba dice "Programada", que para una cita que ya pasó no
+                           es la verdad. Esta línea es la que lo aclara. -->
+                      <p class="hc-res-nota" *ngIf="resultadoDe(c) === 'NO_MARCO'">
+                        Ya se revisó: nadie marcó si vino o no.
+                      </p>
+                    </div>
+
                     <div class="hc-footer">
                       <!-- Solo para quien tiene el permiso. El servidor ademas rechaza que la
                            valide quien la cargo, y ese aviso llega como toast. -->
@@ -429,16 +466,13 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                         Registrar pago
                       </button>
-                      <!-- Atender exige cita pagada. El boton se deja visible y deshabilitado,
-                           no oculto: escondido parece que la opcion no existe y se pierde el
-                           motivo, que es justo lo que hay que resolver (cobrarla). -->
-                      <button class="hc-btn-at"
-                              *ngIf="c.estado === 'PROGRAMADA' || c.estado === 'CONFIRMADA' || c.estado === 'EN_CURSO' || c.estado === 'ASISTIDA'"
-                              [disabled]="c.estado !== 'ASISTIDA' && !estaSaldada(c)"
-                              [title]="c.estado !== 'ASISTIDA' && !estaSaldada(c)
-                                       ? 'Hay que cobrar la cita antes de registrar la atención'
-                                       : ''"
-                              (click)="abrirAtencion(c, $event)">{{ c.estado === 'ASISTIDA' ? 'Editar atención' : 'Registrar atención' }}</button>
+                      <!-- La atención ya guardada se abre desde aquí para corregir sus notas y
+                           sus métricas: eso es el documento de la sesión, no la respuesta a "qué
+                           pasó" —esa está arriba, y ya está marcada. Registrarla por primera vez
+                           también está arriba, como "Asistió". -->
+                      <button class="hc-btn-at" *ngIf="c.estado === 'ASISTIDA'"
+                              title="Abrir la atención para corregir las notas o las métricas"
+                              (click)="abrirAtencion(c, $event)">Editar atención</button>
                       <button class="hc-btn-edit" title="Descargar nota de atención (PDF) para enviar por WhatsApp"
                               (click)="descargarNotaCita(c, $event)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1815,11 +1849,22 @@
              separadas de Cancelar/Actualizar: no son "guardar lo escrito", son decisiones sobre
              lo que paso con la cita. Cada una con el color de lo que significa. -->
         <div class="acciones-estado">
+          <!-- "Asistió" estaba solo en la tarjeta de la agenda y las otras dos solo aquí, así que
+               ninguna de las dos pantallas tenía las tres respuestas. Ahora las tres van juntas en
+               las dos, y en el mismo orden. -->
+          <button *ngIf="citaEditando && puedeMarcarResultado && puedeMarcarAsistio(citaEditando) && !mostrarInasistencia && !mostrarNoMarco && !mostrarReprogramar && !mostrarAnularOpciones"
+                  class="btn-accion btn-accion--asistio"
+                  [disabled]="!!porQueNoSePuede(citaEditando, 'ASISTIO')"
+                  [title]="tituloResultado(citaEditando, 'ASISTIO')"
+                  (click)="irARegistrarAtencion($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ citaEditando?.estado === 'ASISTIDA' ? 'Editar atención' : 'Asistió' }}
+          </button>
           <button *ngIf="citaEditando && puedeMarcarResultado && puedeMarcarInasistencia(citaEditando) && !mostrarInasistencia && !mostrarNoMarco && !mostrarReprogramar && !mostrarAnularOpciones"
                   class="btn-accion btn-accion--novino" (click)="abrirInasistencia()"
                   title="El paciente no vino: pide el motivo y que hacer con lo pagado">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            {{ citaEditando?.estado === 'NO_ASISTIO' ? 'Editar inasistencia' : 'No vino' }}
+            {{ citaEditando?.estado === 'NO_ASISTIO' ? 'Editar inasistencia' : 'No asistió' }}
           </button>
           <button *ngIf="citaEditando && puedeMarcarResultado && puedeMarcarNoMarco(citaEditando) && !mostrarNoMarco && !mostrarInasistencia && !mostrarReprogramar && !mostrarAnularOpciones"
                   class="btn-accion btn-accion--sinmarca" (click)="abrirNoMarco()"
