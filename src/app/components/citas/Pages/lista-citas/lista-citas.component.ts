@@ -2653,9 +2653,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.mostrarInasistencia = false;
     this.motivoInasistencia = '';
     this.marcandoInasistencia = false;
-    this.mostrarNoMarco = false;
-    this.motivoNoMarco = '';
-    this.marcandoNoMarco = false;
     this.motivoAnulacion = '';
     this.motivoReprogramacion = '';
     // La fecha y la hora las vuelve a poner abrirReprogramar() con las de la cita, pero se
@@ -3551,7 +3548,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     if (this.esCitaCancelada(this.citaEditando)) return;
     this.motivoAnulacion = '';
     this.mostrarReprogramar = false;
-    this.mostrarNoMarco = false;
     this.mostrarAnularOpciones = true;
   }
 
@@ -3627,7 +3623,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.motivoInasistencia = this.yaEsInasistencia ? (this.citaEditando?.motivo_estado ?? '') : '';
     this.mostrarAnularOpciones = false;
     this.mostrarReprogramar = false;
-    this.mostrarNoMarco = false;
     this.mostrarInasistencia = true;
   }
 
@@ -3692,87 +3687,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.toast.error(err?.error?.error || 'Error al registrar la inasistencia');
         this.marcandoInasistencia = false;
-      }
-    });
-  }
-
-  // ── No marcó ──────────────────────────────────────────────────
-  //
-  // El tercer resultado posible de una cita, al lado de "se atendio" y "no vino". Hasta ahora
-  // "no se marco" no era un resultado sino la AUSENCIA de uno, y una ausencia no se puede
-  // revisar: en la pantalla se veian igual la cita que nadie habia mirado nunca y la que ya se
-  // habia revisado sin poder reconstruir que paso, asi que cada repaso del mes volvia a empezar
-  // por las mismas filas.
-
-  mostrarNoMarco = false;
-  marcandoNoMarco = false;
-  motivoNoMarco = '';
-
-  /**
-   * Solo tiene sentido en una cita que YA PASO y que sigue sin respuesta.
-   *
-   * Una cita futura no esta sin marcar: esta por ocurrir. Y una atendida, con inasistencia,
-   * anulada o reprogramada ya tiene su respuesta — dejarla sin marca cambiaria un dato bueno por
-   * uno peor. El backend rechaza los cuatro casos; aqui se esconde el boton para no ofrecer algo
-   * que de todas formas va a fallar.
-   */
-  puedeMarcarNoMarco(cita: Cita | null): boolean {
-    return !!cita && cita.estado !== 'ASISTIDA' && cita.estado !== 'NO_ASISTIO'
-        && !this.esCitaCancelada(cita) && !this.esCitaReprogramada(cita)
-        && new Date(cita.fecha_inicio).getTime() <= Date.now();
-  }
-
-  /**
-   * La constancia ya esta puesta: alguien reviso esta cita antes.
-   *
-   * Se sabe por fecha_registro, que es cuando se anoto el resultado: una cita sin marcar que
-   * ademas tiene fecha de registro solo puede tener una fila "no se marco". Es la diferencia que
-   * importa al repasar — no es lo mismo una cita que nadie toco que una que ya se miro.
-   */
-  get yaEstaSinMarca(): boolean {
-    return !!this.citaEditando && this.puedeMarcarNoMarco(this.citaEditando)
-        && !!this.citaEditando.fecha_registro;
-  }
-
-  abrirNoMarco(): void {
-    if (!this.puedeMarcarNoMarco(this.citaEditando)) return;
-    this.motivoNoMarco = '';
-    this.mostrarAnularOpciones = false;
-    this.mostrarReprogramar = false;
-    this.mostrarInasistencia = false;
-    this.mostrarNoMarco = true;
-  }
-
-  cancelarNoMarco(): void { this.mostrarNoMarco = false; this.motivoNoMarco = ''; }
-
-  /**
-   * Deja la constancia de que nadie marco esta cita.
-   *
-   * No afirma nada sobre el paciente: no mueve dinero, no cuenta como sesion dada y la cita se
-   * queda en el estado que tenia. Lo que paso sigue sin saberse; lo que se guarda es que ya se
-   * noto que no se sabe, con quien y cuando. La cita sigue saliendo en el filtro de sin marca
-   * hasta que alguien la resuelva de verdad.
-   */
-  confirmarNoMarco(): void {
-    const cita = this.citaEditando;
-    if (!cita) return;
-    this.marcandoNoMarco = true;
-    // Sin pasar por motivoEscrito(): ese helper esta para EXIGIR un motivo, y aqui es opcional.
-    // Pedirlo condenaba la funcion a no usarse: quien repasa el mes no sabe por que alguien
-    // olvido una cita en setiembre, y lo que hace falta es poder dejarla senalada igual.
-    const motivo = this.motivoNoMarco.trim() || undefined;
-    this.atencionService.registrarNoMarco(Number(cita.id), motivo).subscribe({
-      next: () => {
-        this.toast.success('Anotado: nadie marcó esta cita');
-        this.marcandoNoMarco = false;
-        this.mostrarNoMarco = false;
-        this.motivoNoMarco = '';
-        this.cerrarModal();
-        this.recargarSilencioso();
-      },
-      error: (err) => {
-        this.toast.error(err?.error?.error || 'No se pudo anotar');
-        this.marcandoNoMarco = false;
       }
     });
   }
@@ -3845,7 +3759,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.repDuracion = cita.duracion_minutos || 45;
     this.motivoReprogramacion = '';
     this.mostrarAnularOpciones = false;
-    this.mostrarNoMarco = false;
     this.mostrarReprogramar = true;
     this.alinearFechasReprogramar(this.repFecha);
     this.cargarSlotsReprogramar();
