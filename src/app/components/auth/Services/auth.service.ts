@@ -208,11 +208,6 @@ export class AuthService {
     return this.currentUserValue?.puedeEditarHoraCorte ?? false;
   }
 
-  /** Dar el visto bueno a una cita (doble validacion). Permiso propio, no el de editar Citas. */
-  puedeValidarCita(): boolean {
-    return this.currentUserValue?.puedeValidarCita ?? false;
-  }
-
   puedeCorregirAtencion(): boolean {
     return this.currentUserValue?.puedeCorregirAtencion ?? false;
   }

@@ -85,6 +85,10 @@ export class ListaSeguridadComponent implements OnInit {
   formRolPuedeCorregirAtencion = false;
   formRolPuedeVerSaldoInicial = false;
   formRolPuedeEditarHoraCorte = false;
+  // Ya no se enseña: el visto bueno salió de la pantalla de Citas (las tres respuestas
+  // —asistió, no asistió, no marcó— lo reemplazan). El campo sigue aquí para cargarlo del rol
+  // y devolverlo igual al guardar: si el PUT lo omitiera, el backend lo tomaría como nulo y le
+  // apagaría el permiso a los roles que lo tienen, sin que nadie lo haya pedido.
   formRolPuedeValidarCita = false;
   /** Módulos a los que el rol tiene acceso (ver/navegar) — presencia en el set = acceso. */
   formRolAccesoIds: Set<number> = new Set();

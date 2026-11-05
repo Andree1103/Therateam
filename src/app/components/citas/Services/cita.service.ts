@@ -146,18 +146,6 @@ export class CitaService {
     return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/metodo-pago`, body).pipe(map(d => this.mapDTO(d)));
   }
 
-  /**
-   * Dar o retirar el visto bueno a una cita (doble validacion).
-   *
-   * Permiso propio (PUEDE_VALIDAR_CITA), no el de editar Citas: si validar viniera con editar,
-   * quien carga la cita podria aprobarse a si mismo. El servidor ademas rechaza que la valide
-   * quien la creo, asi que el boton puede estar y la regla seguir valiendo.
-   */
-  cambiarValidacion(id: string | number, validada: boolean): Observable<Cita> {
-    return this.api.put<CitaApiDTO>(`${this.PATH}/${id}/validacion?validada=${validada}`, {})
-      .pipe(map(d => this.mapDTO(d)));
-  }
-
   getFiltroPaged(page: number, size: number, filtros: {
     fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string;
     areaId?: number | null; metodoPagoId?: number | null; sinMarca?: boolean;
@@ -394,6 +382,9 @@ export class CitaService {
       metodo_pago_nombre:  dto.metodo_pago_nombre ?? null,
       lote_masivo_id:      dto.lote_masivo_id ?? null,
       usuario_creacion_nombre: dto.usuario_creacion_nombre ?? null,
+      // El visto bueno salio de las pantallas (lo reemplazan las tres respuestas: asistio, no
+      // asistio, no marco), pero el dato sigue viniendo del backend y los sellos ya dados siguen
+      // guardados. Se mapea para no perderlos de vista si hay que volver a enseñarlos.
       validada:            dto.validada ?? false,
       validada_por_nombre: dto.validada_por_nombre ?? null,
       validada_en:         dto.validada_en ?? null,

@@ -26,7 +26,7 @@ import { PacienteService } from '../../../pacientes/Services/paciente.service';
 import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
-import { horaAmPm, fechaHoraAmPm } from '../../../../core/utils/formato-hora';
+import { horaAmPm } from '../../../../core/utils/formato-hora';
 import { estaSaldada, tieneDeuda, colorEstadoPago, tieneDineroAplicado } from '../../../../core/utils/estado-pago';
 import { ocupaSuHora } from '../../../../core/utils/estado-cita';
 
@@ -576,14 +576,6 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           // Quien la creo casi nunca es quien hizo el ultimo cambio: la agenda recepcion
           // y la mueve o la cobra otra persona despues.
           'Última edición por': c.usuario_modificacion_nombre ?? '',
-          // El visto bueno va con las demas columnas de "quien hizo que": es lo que permite
-          // responder fuera del sistema quien aprobo una cita, que es justo para lo que se
-          // pide el Excel. Vacio en vez de "—" para que Excel pueda filtrar por la columna.
-          'Visto bueno': c.validada ? 'Sí' : 'No',
-          'Visto bueno por': c.validada_por_nombre ?? '',
-          // Fecha y hora, no solo fecha: con el visto bueno importa si llego antes o despues
-          // de que la cita pasara, y eso en el mismo dia solo lo responde la hora.
-          'Visto bueno el': fechaHoraAmPm(c.validada_en),
       }));
     if (filas.length === 0) {
       this.toast.warning('No hay citas para exportar en esta semana con los filtros actuales');
@@ -638,55 +630,13 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * El servidor pide MODULO_CITAS_CREAR para las tres respuestas (AtencionClinicaController:
    * registrar, inasistencia y no-marco), el mismo permiso con el que ya se registra la atencion.
    * Esta pantalla pedia el de EDITAR, y eso dejaba mudo justo al rol que marca todos los dias:
-   * Encargado crea citas y da el visto bueno, pero no edita, asi que podia decir "si vino" y no
+   * Encargado carga las citas y las marca, pero no las edita, asi que podia decir "si vino" y no
    * podia decir "no vino" ni "nadie la marco" — aunque el servidor se las habria aceptado.
    *
    * Reprogramar (MODULO_CITAS_EDITAR) y Anular (MODULO_CITAS_ELIMINAR) si son otra cosa y se
    * quedan con su permiso: mover o deshacer una cita no es anotar que paso con ella.
    */
   get puedeMarcarResultado(): boolean { return this.authService.puedeCrear('CITAS'); }
-
-  /**
-   * Dar el visto bueno a una cita: permiso propio, NO el de editar Citas.
-   *
-   * Si fuera el de editar, quien carga la cita podria aprobarse a si mismo y la doble validacion
-   * no seria doble. Se activa en Seguridad > Roles, y el servidor ademas rechaza que la valide
-   * quien la creo.
-   */
-  get puedeValidarCitas(): boolean { return this.authService.puedeValidarCita(); }
-
-  /** Id de la cita cuyo visto bueno se esta guardando — para no dejar pulsar dos veces. */
-  validandoCitaId: string | null = null;
-
-  /**
-   * Pone o quita el visto bueno de una cita.
-   *
-   * El cambio se refleja en la fila sin recargar el listado: recargar cerraria la tarjeta
-   * flotante justo cuando acabas de pulsar, y con una agenda de semana completa es un parpadeo
-   * entero por cada visto bueno.
-   */
-  alternarValidacion(c: Cita, ev?: Event): void {
-    ev?.stopPropagation();
-    if (!this.puedeValidarCitas || this.validandoCitaId) return;
-    const quiere = !c.validada;
-    this.validandoCitaId = c.id;
-    this.citaService.cambiarValidacion(c.id, quiere).subscribe({
-      next: actualizada => {
-        c.validada = actualizada.validada;
-        c.validada_por_nombre = actualizada.validada_por_nombre;
-        if (this.citaEditando && this.citaEditando.id === c.id) {
-          this.citaEditando.validada = actualizada.validada;
-          this.citaEditando.validada_por_nombre = actualizada.validada_por_nombre;
-        }
-        this.validandoCitaId = null;
-        this.toast.success(quiere ? 'Visto bueno registrado' : 'Visto bueno retirado');
-      },
-      error: err => {
-        this.validandoCitaId = null;
-        this.toast.error(err?.error?.error || 'No se pudo cambiar la validación');
-      },
-    });
-  }
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -3724,17 +3674,18 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
 
   // ── ¿Qué pasó con la cita? Las tres respuestas ──────────────────────────────
   //
-  // Asistió, no asistió y "nadie la marcó" son las tres respuestas posibles, y hasta ahora
-  // estaban repartidas: "Registrar atención" en la tarjeta de la agenda, las otras dos en el pie
-  // del modal de edición. Ninguna de las dos pantallas tenía las tres, así que al repasar el día
-  // desde la agenda —que es como se repasa— lo único que se marcaba de un clic era el visto bueno,
-  // que no es una respuesta: es el segundo par de ojos sobre los datos de la cita. Y "nadie la
-  // marcó", que es justo la que hace falta cuando se olvidaron de marcar, casi no se encontraba.
+  // Asistió, no asistió y "nadie la marcó" son las tres respuestas posibles de una cita, y estaban
+  // repartidas: "Registrar atención" en la tarjeta de la agenda, las otras dos en el pie del modal
+  // de edición. Ninguna de las dos pantallas tenía las tres, así que al repasar el día desde la
+  // agenda —que es como se repasa— lo único que se marcaba de un clic era el visto bueno, que era
+  // otra cosa: un sello de revisión sobre los datos de la cita. La clínica lo había pedido para
+  // confirmar si el paciente vino o no, y esto es lo que de verdad pidió: estas tres, que además
+  // cubren el caso que el sello no sabía decir — que nadie llegó a marcarla.
   //
-  // Esto no cambia ninguna regla. Cada respuesta sigue yendo por donde iba —atención, inasistencia
-  // y no-marcó, cada una con su endpoint, su permiso y sus avisos—, con el mismo permiso de
-  // puedeMarcarResultado que ya exige el servidor para las tres. Lo que cambia es que se ven las
-  // tres, se alcanzan desde el mismo sitio y se sabe cuál está puesta.
+  // Esto no cambia ninguna regla de negocio. Cada respuesta sigue yendo por donde iba —atención,
+  // inasistencia y no-marcó, cada una con su endpoint, su permiso y sus avisos—, con el mismo
+  // permiso de puedeMarcarResultado que el servidor exige para las tres. Lo que cambia es que se
+  // ven las tres, se alcanzan desde el mismo sitio y se sabe cuál está puesta.
 
   /** El paciente vino: mientras la cita siga viva y no esté resuelta de otra forma. */
   puedeMarcarAsistio(cita: Cita | null): boolean {

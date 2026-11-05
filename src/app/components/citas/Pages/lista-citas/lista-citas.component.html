@@ -279,14 +279,6 @@
                     <div class="hc-hdr">
                       <span class="hc-estado-dot" [style.background]="getEstadoColor(c.estado)"></span>
                       <span class="hc-estado">{{ c.estado }}</span>
-                      <!-- Doble validacion. Se muestra siempre, validada o no: un sello que solo
-                           aparece cuando esta puesto no deja ver lo que falta por revisar. -->
-                      <span class="hc-valid" [class.hc-valid--si]="c.validada"
-                            [title]="c.validada
-                                     ? ('Visto bueno de ' + (c.validada_por_nombre || 'otra persona'))
-                                     : 'Nadie ha dado el visto bueno a esta cita'">
-                        {{ c.validada ? '✓ Validada' : 'Sin validar' }}
-                      </span>
                       <span class="hc-pago-badge"
                             *ngIf="c.estado_pago_key"
                             [style.background]="getPagoColor(c.estado_pago_key) + '22'"
@@ -416,10 +408,10 @@
                          marcada. Aquí antes solo cabía una: "Registrar atención". Para decir "no
                          vino" o "nadie la marcó" había que abrir Editar y buscarlas en el pie del
                          modal, así que desde la agenda —que es donde se repasa el día, cita por
-                         cita— lo único que se marcaba de un clic era el visto bueno. Y el visto
-                         bueno es otra cosa: es el segundo par de ojos sobre los DATOS de la cita
-                         (quién, cuándo, de qué tipo, cuánto), no lo que pasó con el paciente. Por
-                         eso se queda donde está, en el pie, y no se mezcla con estas tres.
+                         cita— lo único que se marcaba de un clic era el visto bueno, que era otra
+                         cosa: un sello sobre los datos de la cita, no sobre lo que pasó con el
+                         paciente. Ese sello se pidió para confirmar si el paciente vino, y estas
+                         tres lo hacen mejor, así que el sello se retiró de las pantallas.
                          Las tres se dejan visibles aunque no se puedan dar, deshabilitadas y con
                          el motivo en el título: escondidas parecían no existir, y eso es lo que
                          hacía creer que la cita solo se podía marcar de dos maneras. -->
@@ -450,15 +442,6 @@
                     </div>
 
                     <div class="hc-footer">
-                      <!-- Solo para quien tiene el permiso. El servidor ademas rechaza que la
-                           valide quien la cargo, y ese aviso llega como toast. -->
-                      <button class="hc-btn-valid" *ngIf="puedeValidarCitas"
-                              [class.hc-btn-valid--si]="c.validada"
-                              [disabled]="validandoCitaId === c.id"
-                              [title]="c.validada ? 'Retirar el visto bueno' : 'Dar el visto bueno a esta cita'"
-                              (click)="alternarValidacion(c, $event)">
-                        {{ validandoCitaId === c.id ? '...' : (c.validada ? 'Quitar visto bueno' : 'Dar visto bueno') }}
-                      </button>
                       <button class="hc-btn-edit" (click)="abrirEditar(c, $event)">Editar</button>
                       <button class="hc-btn-pagar"
                               *ngIf="!estaSaldada(c) && citaPagandoId !== c.id && puedeRegistrarPago"
@@ -1049,38 +1032,6 @@
               {{ m.nombre }}
             </label>
           </div>
-        </div>
-
-        <!-- ── DOBLE VALIDACIÓN ────────────────────────────────────────
-             Aquí estaba "Tipo de cita" (fijo / eventual / solo por hoy). La clínica no lo usa
-             —casi todas las citas quedaban en el valor por defecto— y este es el espacio que
-             pidieron para el visto bueno. El campo tipo_recurrencia NO se reutiliza para esto:
-             sigue existiendo con su significado y su valor por defecto; lo que se quitó es el
-             formulario, no el dato. -->
-        <div class="frow" *ngIf="citaEditando">
-          <label>Validación</label>
-          <div class="valid-caja" [class.valid-caja--si]="citaEditando.validada">
-            <div class="valid-txt">
-              <strong>{{ citaEditando.validada ? 'Validada' : 'Sin validar' }}</strong>
-              <span *ngIf="citaEditando.validada && citaEditando.validada_por_nombre">
-                · visto bueno de {{ citaEditando.validada_por_nombre }}
-              </span>
-            </div>
-            <button type="button" class="valid-btn" *ngIf="puedeValidarCitas"
-                    [disabled]="validandoCitaId === citaEditando.id"
-                    (click)="alternarValidacion(citaEditando)">
-              {{ validandoCitaId === citaEditando.id
-                   ? 'Guardando...'
-                   : (citaEditando.validada ? 'Quitar visto bueno' : 'Dar visto bueno') }}
-            </button>
-          </div>
-          <p class="pago-hint">
-            Si cambias el terapeuta, la fecha, el tipo, el precio o el estado, el visto bueno se
-            retira y hay que volver a darlo.
-          </p>
-          <p class="pago-hint" *ngIf="!puedeValidarCitas">
-            Tu rol no puede validar citas. Se activa en Seguridad &gt; Roles.
-          </p>
         </div>
 
         <!-- ── FECHA Y HORA (time picker libre) ─────────────────────── -->

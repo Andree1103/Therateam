@@ -469,9 +469,6 @@ export class PerfilPacienteComponent implements OnInit {
       'Se movió a la cita #': c.reprogramada_en ?? '',
       // Misma columna que en el export de Citas: si una hoja contesta "¿quién le dio el visto
       // bueno?" y la otra no, la pregunta acaba volviendo igual.
-      'Visto bueno': c.validada ? 'Sí' : 'No',
-      'Visto bueno por': c.validada_por_nombre ?? '',
-      'Visto bueno el': f(c.validada_en),
     }));
 
     const atenciones = this.atenciones.map(a => {
