@@ -111,6 +111,16 @@
         <span class="nav-txt">Adelantos</span>
       </a>
 
+      <!-- Pegado a Adelantos a proposito: son las dos caras de lo mismo —quien pago de mas y
+           quien debe— y se consultan en la misma conversacion de fin de mes. -->
+      <a class="nav-item" *ngIf="tieneModulo('PAGOS')" routerLink="/creditos" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/>
+          <path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>
+        </svg>
+        <span class="nav-txt">Créditos</span>
+      </a>
+
       <a class="nav-item" *ngIf="tieneModulo('PAGOS')" routerLink="/productos" routerLinkActive="nav-item--active" (click)="cerrarMovil()">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>

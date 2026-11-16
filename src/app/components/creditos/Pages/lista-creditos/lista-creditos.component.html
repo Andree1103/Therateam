@@ -1,0 +1,405 @@
+<div class="page">
+
+  <div class="page-header">
+    <div class="header-left">
+      <h1>Créditos</h1>
+      <p>Atenciones que ya se dieron y paga alguien a fin de mes</p>
+    </div>
+    <div class="header-acciones">
+      <button *ngIf="puedeFiar" type="button" class="btn-primary" (click)="abrirNueva()">+ Abrir cuenta</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <div class="filters-bar">
+      <select class="sel-inp" [(ngModel)]="filtroTipo" (change)="cargar()">
+        <option value="">Todas las cuentas</option>
+        <option value="TRABAJADOR">Trabajadores</option>
+        <option value="PACIENTE">Pacientes</option>
+        <option value="CONVENIO">Convenios</option>
+      </select>
+      <label class="chk-inline">
+        <input type="checkbox" [(ngModel)]="soloConDeuda" (change)="cargar()">
+        Solo las que deben
+      </label>
+    </div>
+
+    <div class="cards-row" *ngIf="!loading && cuentas.length > 0">
+      <div class="stat-card stat-card--total">
+        <span class="stat-lbl">Por cobrar</span>
+        <span class="stat-val">S/ {{ deudaTotal | number:'1.2-2' }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-lbl">Cuentas con deuda</span>
+        <span class="stat-val">{{ cuentasConDeuda }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-lbl">Lo más antiguo sin cobrar</span>
+        <span class="stat-val stat-val--sm">{{ masAntigua ? (masAntigua | date:'d MMM y') : '—' }}</span>
+      </div>
+    </div>
+
+    <div class="state-box" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Cargando cuentas...</p>
+    </div>
+
+    <!-- Sin cuentas no hay que explicar un listado vacío, hay que explicar para qué sirve esto:
+         es una pantalla nueva y nadie ha visto nunca una cuenta de crédito aquí. -->
+    <div class="state-box small" *ngIf="!loading && cuentas.length === 0">
+      <p *ngIf="soloConDeuda || filtroTipo">Ninguna cuenta cumple ese filtro.</p>
+      <ng-container *ngIf="!soloConDeuda && !filtroTipo">
+        <p><strong>Todavía no hay ninguna cuenta de crédito.</strong></p>
+        <p class="state-hint">
+          Una cuenta sirve para atender hoy y cobrar después, con alguien que responde por la deuda
+          — el caso típico es el terapeuta que trae a su madre y paga a fin de mes. Se abre a nombre
+          de ese alguien, se le amarran los pacientes que cubre, y al agendar aparece la opción
+          «a crédito».
+        </p>
+      </ng-container>
+    </div>
+
+    <div class="card" *ngIf="!loading && cuentas.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Responde</th>
+            <th>Tipo</th>
+            <th class="ta-c">Pacientes</th>
+            <th class="ta-c">Citas</th>
+            <th class="ta-c">Paquetes</th>
+            <th>Desde</th>
+            <th class="ta-r">Debe</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of cuentas" class="fila-click" (click)="abrir(c)"
+              [class.fila-inactiva]="c.activo === false">
+            <td>
+              {{ c.titularNombre }}
+              <small class="txt-muted" *ngIf="c.titularRol"><br>{{ c.titularRol }}</small>
+            </td>
+            <td>
+              {{ nombreTipo(c.tipo) }}
+              <span class="chip chip-off" *ngIf="c.activo === false" title="No se le puede fiar más; lo que debe sí se le cobra">Desactivada</span>
+            </td>
+            <td class="ta-c">{{ c.pacientes }}</td>
+            <td class="ta-c">{{ c.citas }}</td>
+            <td class="ta-c">{{ c.paquetes }}</td>
+            <td class="nowrap">{{ c.desde ? (c.desde | date:'d MMM y') : '—' }}</td>
+            <td class="ta-r monto" [class.txt-danger]="(c.deuda || 0) > 0">
+              S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+              <br *ngIf="c.sePasaDelLimite">
+              <small class="txt-warn" *ngIf="c.sePasaDelLimite"
+                     [title]="'Tope puesto en S/ ' + (c.limite | number:'1.2-2')">pasó su tope</small>
+            </td>
+            <td class="acciones nowrap">
+              <button class="btn-link" (click)="$event.stopPropagation(); abrir(c)">Ver</button>
+              <button class="btn-link" *ngIf="puedeFiar"
+                      (click)="$event.stopPropagation(); abrirEdicion(c)">Editar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── PANEL DE LA CUENTA ────────────────────────────────────────────────────
+     Lo que se atendió sin cobrar, cita por cita, en el orden en que se cobra: de
+     lo más viejo a lo más nuevo. Es la pantalla con la que se tiene la
+     conversación de fin de mes. -->
+<div class="ec-overlay" *ngIf="abierta" (click)="cerrarPanel()">
+  <div class="ec-panel" (click)="$event.stopPropagation()">
+    <div class="ec-hdr">
+      <div>
+        <h2>{{ abierta.titularNombre }}</h2>
+        <span class="ec-sub">
+          {{ nombreTipo(abierta.tipo) }}
+          <ng-container *ngIf="abierta.titularEmail"> · {{ abierta.titularEmail }}</ng-container>
+        </span>
+      </div>
+      <button class="ec-close" (click)="cerrarPanel()">&#10005;</button>
+    </div>
+
+    <div class="ec-resumen">
+      <div>
+        <span class="ec-lbl">Debe</span>
+        <strong [class.txt-danger]="(abierta.deuda || 0) > 0">S/ {{ (abierta.deuda || 0) | number:'1.2-2' }}</strong>
+      </div>
+      <div><span class="ec-lbl">En citas</span><strong>S/ {{ (abierta.deudaEnCitas || 0) | number:'1.2-2' }}</strong></div>
+      <div><span class="ec-lbl">En paquetes</span><strong>S/ {{ (abierta.deudaEnPaquetes || 0) | number:'1.2-2' }}</strong></div>
+    </div>
+
+    <p class="ec-aviso" *ngIf="abierta.sePasaDelLimite">
+      Se pasó del tope de S/ {{ abierta.limite | number:'1.2-2' }}. Es un aviso, no un bloqueo:
+      se le puede seguir atendiendo.
+    </p>
+    <p class="ec-aviso ec-aviso--off" *ngIf="abierta.activo === false">
+      Esta cuenta está desactivada: no se le puede cargar nada nuevo. Lo que ya debe sí se le cobra
+      aquí — justo a quien se le dejó de fiar es a quien hay que cobrarle.
+    </p>
+    <p class="ec-notas" *ngIf="abierta.notas">{{ abierta.notas }}</p>
+
+    <!-- ── Pacientes cubiertos ─────────────────────────────────────────────── -->
+    <div class="ec-bloque">
+      <div class="ec-bloque-hdr">
+        <h3>Pacientes que cubre</h3>
+        <span class="txt-muted" *ngIf="amarresActivos.length === 0">ninguno todavía</span>
+      </div>
+      <div class="pac-chips">
+        <span class="pac-chip" *ngFor="let a of amarresActivos">
+          {{ a.pacienteNombre }}
+          <small *ngIf="a.pacienteDni">{{ a.pacienteDni }}</small>
+          <button *ngIf="puedeFiar" class="pac-x" title="Dejar de cargarle sus atenciones a esta cuenta"
+                  (click)="desamarrar(a)">&#10005;</button>
+        </span>
+      </div>
+      <p class="ec-hint" *ngIf="amarresViejos.length > 0">
+        Antes también:
+        <span *ngFor="let a of amarresViejos; let i = index">{{ i > 0 ? ', ' : '' }}{{ a.pacienteNombre }}</span>.
+        Se conservan porque explican las deudas que ya se le cargaron.
+      </p>
+
+      <div class="pac-buscar" *ngIf="puedeFiar">
+        <input type="text" class="sel-inp" [(ngModel)]="buscaPaciente" (keyup.enter)="buscarPaciente()"
+               placeholder="Añadir paciente por nombre...">
+        <button type="button" class="btn-secondary" (click)="buscarPaciente()"
+                [disabled]="buscandoPaciente">Buscar</button>
+      </div>
+      <div class="pac-resultados" *ngIf="resultadosPaciente.length > 0">
+        <button type="button" class="pac-res" *ngFor="let p of resultadosPaciente" (click)="amarrar(p)">
+          {{ p.nombre }} {{ p.apellido }}<small *ngIf="p.dni"> · {{ p.dni }}</small>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Atenciones ─────────────────────────────────────────────────────── -->
+    <div class="ec-bloque">
+      <div class="ec-bloque-hdr">
+        <h3>{{ verTodasLasLineas ? 'Todas las atenciones' : 'Sin cobrar' }}</h3>
+        <button class="btn-link" (click)="alternarTodasLasLineas()">
+          {{ verTodasLasLineas ? 'Ver solo lo pendiente' : 'Ver también lo ya cobrado' }}
+        </button>
+      </div>
+
+      <div class="ec-cargando" *ngIf="cargandoPanel">Cargando atenciones...</div>
+
+      <div class="ec-vacio" *ngIf="!cargandoPanel && lineas.length === 0">
+        {{ verTodasLasLineas
+            ? 'A esta cuenta no se le ha cargado nunca ninguna atención.'
+            : 'No le debe nada. Al agendar una cita de sus pacientes aparecerá la opción «a crédito».' }}
+      </div>
+
+      <div class="tabla-wrap" *ngIf="!cargandoPanel && lineas.length > 0">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="ta-c" *ngIf="puedeCobrar">
+                <input type="checkbox" (change)="marcarTodas($any($event.target).checked)"
+                       title="Marcar o desmarcar todo lo pendiente">
+              </th>
+              <th>Fecha</th>
+              <th>Paciente</th>
+              <th>Qué fue</th>
+              <th class="ta-r">Importe</th>
+              <th class="ta-r">Debe</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let l of lineas" [class.fila-saldada]="(l.deuda || 0) <= 0">
+              <td class="ta-c" *ngIf="puedeCobrar">
+                <input type="checkbox" [(ngModel)]="l.marcada" [disabled]="(l.deuda || 0) <= 0">
+              </td>
+              <td class="nowrap">{{ l.fecha ? (l.fecha | date:'d MMM y') : '—' }}</td>
+              <td>{{ l.pacienteNombre || '—' }}</td>
+              <td>
+                <span class="chip" [class.chip-paq]="l.tipo === 'PAQUETE'">{{ l.tipo === 'PAQUETE' ? 'Paquete' : 'Cita' }}</span>
+                {{ l.descripcion || '' }}
+                <small class="txt-muted" *ngIf="l.terapeutaNombre"><br>{{ l.terapeutaNombre }}</small>
+              </td>
+              <td class="ta-r">S/ {{ (l.monto || 0) | number:'1.2-2' }}</td>
+              <td class="ta-r monto" [class.txt-danger]="(l.deuda || 0) > 0" [class.txt-success]="(l.deuda || 0) <= 0">
+                {{ (l.deuda || 0) > 0 ? ('S/ ' + ((l.deuda || 0) | number:'1.2-2')) : 'cobrado' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ec-cobrar" *ngIf="puedeCobrar && lineasMarcadas.length > 0">
+        <div>
+          <span class="ec-lbl">Marcado para cobrar</span>
+          <strong>S/ {{ totalMarcado | number:'1.2-2' }}</strong>
+          <small class="txt-muted">{{ lineasMarcadas.length }} atencion{{ lineasMarcadas.length === 1 ? '' : 'es' }}</small>
+        </div>
+        <button type="button" class="btn-primary" (click)="abrirCobro()">Cobrar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── ABRIR / EDITAR CUENTA ─────────────────────────────────────────────── -->
+<div class="modal-overlay" *ngIf="modalCuenta" (click)="cerrarModalCuenta()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ editando ? 'Editar cuenta de crédito' : 'Abrir cuenta de crédito' }}</h2>
+      <button class="modal-close" (click)="cerrarModalCuenta()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- El titular no se puede cambiar al editar: una cuenta es de quien responde por ella, y
+           moverla a otra persona le pasaría encima deudas que no contrajo. -->
+      <ng-container *ngIf="!editando">
+        <label class="aj-lbl" for="ccTitular">¿Quién responde por la deuda?</label>
+        <select id="ccTitular" class="aj-input" [(ngModel)]="formTitularId" name="ccTitular">
+          <option [ngValue]="null">— Elegir persona —</option>
+          <option *ngFor="let u of titularesDisponibles" [ngValue]="u.id">
+            {{ u.nombre }} {{ u.apellido }}{{ u.rol?.nombre ? ' — ' + u.rol?.nombre : '' }}
+          </option>
+        </select>
+        <p class="aj-hint">
+          Tiene que ser un usuario del sistema, porque es a quien se le descuenta o a quien se le
+          cobra. Cada persona tiene una sola cuenta: si ya tiene, no aparece en la lista.
+        </p>
+      </ng-container>
+      <p class="aj-quien" *ngIf="editando">
+        Cuenta de <strong>{{ editando.titularNombre }}</strong>. El titular no se cambia.
+      </p>
+
+      <label class="aj-lbl" for="ccTipo">Tipo</label>
+      <select id="ccTipo" class="aj-input" [(ngModel)]="formTipo" name="ccTipo">
+        <option value="TRABAJADOR">Trabajador — se le puede descontar del sueldo</option>
+        <option value="PACIENTE">Paciente — paga él mismo después</option>
+        <option value="CONVENIO">Convenio — empresa o institución</option>
+      </select>
+
+      <label class="aj-lbl" for="ccLimite">Tope de deuda (S/)</label>
+      <input id="ccLimite" type="number" class="aj-input" min="0" step="0.01"
+             [(ngModel)]="formLimite" name="ccLimite" placeholder="sin tope">
+      <p class="aj-hint">
+        Si se pasa, la pantalla avisa. Nunca bloquea una atención: dejar a alguien sin atender por
+        un número no es una decisión que deba tomar el sistema.
+      </p>
+
+      <ng-container *ngIf="editando">
+        <label class="aj-lbl" for="ccActivo">Estado</label>
+        <select id="ccActivo" class="aj-input" [(ngModel)]="formActivo" name="ccActivo">
+          <option [ngValue]="true">Activa — se le puede fiar</option>
+          <option [ngValue]="false">Desactivada — no se le fía más</option>
+        </select>
+        <p class="aj-hint">Desactivarla no borra lo que debe, y se le sigue pudiendo cobrar.</p>
+      </ng-container>
+
+      <label class="aj-lbl" for="ccNotas">Notas</label>
+      <input id="ccNotas" type="text" class="aj-input" [(ngModel)]="formNotas" name="ccNotas"
+             placeholder="Ej. paga el último día hábil del mes" maxlength="300">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cerrarModalCuenta()">Cancelar</button>
+      <button class="btn-primary" (click)="guardarCuenta()" [disabled]="guardandoCuenta">
+        {{ guardandoCuenta ? 'Guardando...' : (editando ? 'Guardar' : 'Abrir cuenta') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── COBRO ────────────────────────────────────────────────────────────────
+     Un solo cobro para todo lo del mes. Por dentro son pagos normales, uno por
+     atención, y comparten una referencia para poder verse juntos en Pagos. -->
+<div class="modal-overlay" *ngIf="modalCobro" (click)="cerrarCobro()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <h2>{{ resultadoCobro ? 'Cobro registrado' : 'Cobrar el crédito' }}</h2>
+      <button class="modal-close" (click)="cerrarCobro()">&#10005;</button>
+    </div>
+
+    <!-- ── Antes de cobrar ── -->
+    <div class="modal-body" *ngIf="!resultadoCobro">
+      <p class="aj-quien">
+        <strong>{{ abierta?.titularNombre }}</strong> paga
+        <strong>S/ {{ totalMarcado | number:'1.2-2' }}</strong>
+        por {{ lineasMarcadas.length }} atencion{{ lineasMarcadas.length === 1 ? '' : 'es' }}.
+      </p>
+
+      <label class="aj-lbl" for="cbMetodo">¿Cómo paga?</label>
+      <select id="cbMetodo" class="aj-input" [(ngModel)]="cobroMetodoId" name="cbMetodo">
+        <option [ngValue]="null">— Elegir —</option>
+        <option *ngFor="let m of metodosPago" [ngValue]="m.id">{{ m.nombre }}</option>
+      </select>
+      <!-- El descuento de planilla es un método como cualquier otro, y lo único que lo distingue
+           es esto: no entra plata al cajón, así que el arqueo del día no lo suma. Decirlo acá
+           evita que el cierre de caja no cuadre y nadie sepa por qué. -->
+      <p class="aj-hint" *ngIf="cobroMetodoId && !cobroEntraACaja">
+        <strong>{{ metodoElegido?.nombre }}</strong> no mueve la caja: el cobro queda registrado y la
+        deuda se salda, pero el arqueo de hoy no lo suma, porque no entró dinero al cajón.
+      </p>
+      <p class="aj-hint" *ngIf="cobroMetodoId && cobroEntraACaja">
+        Entra a la caja de hoy y suma al arqueo del turno.
+      </p>
+
+      <label class="aj-lbl" for="cbMonto">Cuánto paga (S/)</label>
+      <input id="cbMonto" type="number" class="aj-input" min="0.01" [max]="totalMarcado" step="0.01"
+             [(ngModel)]="cobroMonto" name="cbMonto"
+             [placeholder]="'todo: ' + (totalMarcado | number:'1.2-2')">
+      <p class="aj-hint">
+        Déjalo vacío para cobrar todo lo marcado. Si paga menos, se salda de lo más viejo a lo más
+        nuevo — si no, una atención de hace tres meses se queda al final de la cola para siempre.
+      </p>
+
+      <label class="aj-lbl" for="cbRef">N° de operación</label>
+      <input id="cbRef" type="text" class="aj-input" [(ngModel)]="cobroReferencia" name="cbRef"
+             placeholder="opcional">
+
+      <label class="aj-lbl" for="cbNotas">Notas</label>
+      <input id="cbNotas" type="text" class="aj-input" [(ngModel)]="cobroNotas" name="cbNotas"
+             placeholder="opcional" maxlength="300">
+
+      <p class="aj-hint aj-hint--ojo">
+        El saldo a favor de los pacientes no se toca: acá paga el titular. Usar el saldo de la madre
+        para saldar la deuda de la hija sería cobrarle dos veces a la familia.
+      </p>
+    </div>
+
+    <!-- ── Después de cobrar ── -->
+    <div class="modal-body" *ngIf="resultadoCobro">
+      <p class="cb-ok">
+        Se cobraron <strong>S/ {{ resultadoCobro.cobrado | number:'1.2-2' }}</strong>
+        en {{ resultadoCobro.metodoNombre }}.
+      </p>
+      <div class="ec-resumen">
+        <div><span class="ec-lbl">Saldadas</span><strong>{{ resultadoCobro.lineasSaldadas }}</strong></div>
+        <div><span class="ec-lbl">Tocadas</span><strong>{{ resultadoCobro.lineasTocadas }}</strong></div>
+        <div>
+          <span class="ec-lbl">Sigue debiendo</span>
+          <strong [class.txt-success]="resultadoCobro.deudaRestante <= 0"
+                  [class.txt-danger]="resultadoCobro.deudaRestante > 0">
+            S/ {{ resultadoCobro.deudaRestante | number:'1.2-2' }}
+          </strong>
+        </div>
+      </div>
+      <p class="aj-hint" *ngIf="!resultadoCobro.entroACaja">
+        No entró dinero al cajón, así que el arqueo de hoy no lo suma.
+      </p>
+      <p class="aj-hint">
+        En Pagos quedan {{ resultadoCobro.pagoIds.length }}
+        pago{{ resultadoCobro.pagoIds.length === 1 ? '' : 's' }} con la referencia
+        <strong>{{ resultadoCobro.referencia }}</strong> — así se ven juntos como el cobro que fueron.
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <ng-container *ngIf="!resultadoCobro">
+        <button class="btn-secondary" (click)="cerrarCobro()">Cancelar</button>
+        <button class="btn-primary" (click)="cobrar()" [disabled]="!cobroPuedeGuardar">
+          {{ cobrando ? 'Cobrando...' : 'Registrar cobro' }}
+        </button>
+      </ng-container>
+      <button *ngIf="resultadoCobro" class="btn-primary" (click)="cerrarCobro()">Listo</button>
+    </div>
+  </div>
+</div>

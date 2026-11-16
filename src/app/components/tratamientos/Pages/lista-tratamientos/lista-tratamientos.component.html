@@ -553,11 +553,45 @@
                 <input type="radio" [(ngModel)]="pagoModo" name="pagoModo" value="parcial" style="display:none">
                 Adelanto
               </label>
+              <!-- El cuarto camino: el paquete se da entero y lo paga otra persona a fin de mes.
+                   Esta junto a los otros tres porque es eso, otra forma de resolver el dinero. -->
+              <label class="modalidad-radio modalidad-radio--credito" *ngIf="ofrecerCredito"
+                     [class.selected]="pagoModo === 'credito'">
+                <input type="radio" [(ngModel)]="pagoModo" name="pagoModo" value="credito"
+                       style="display:none" (change)="alPasarACredito()">
+                A crédito
+              </label>
+            </div>
+
+            <!-- ── A crédito ──────────────────────────────────────────────── -->
+            <div class="credito-paq" *ngIf="pagoModo === 'credito'">
+              <label>¿Quién paga este paquete?</label>
+              <select [(ngModel)]="formCuentaCreditoId" name="cuentaCreditoPaquete">
+                <option [ngValue]="null">— Elegir cuenta —</option>
+                <option *ngFor="let c of cuentasCredito" [ngValue]="c.id">
+                  {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                </option>
+              </select>
+              <p class="credito-paq-txt" *ngIf="creditoSugerido && creditoSugerido.id !== formCuentaCreditoId">
+                Este paciente ya lo cubría <strong>{{ creditoSugerido.titularNombre }}</strong>.
+              </p>
+              <p class="credito-paq-txt" *ngIf="formCuentaCreditoId">
+                No se cobra nada ahora. Se le cargan
+                <strong>S/ {{ montoTotalPaquete | number:'1.2-2' }}</strong> a su cuenta y se cobran
+                desde <strong>Créditos</strong>, con el resto del mes. El saldo a favor del paciente
+                no se toca: aquí paga el titular.
+                <ng-container *ngIf="cuentaCreditoElegida?.sePasaDelLimite">
+                  <br><strong>Ya pasó su tope de deuda</strong> — es un aviso, no un impedimento.
+                </ng-container>
+              </p>
+              <p class="credito-paq-txt" *ngIf="!formCuentaCreditoId">
+                Elige a quién se le carga, o el paquete se creará sin crédito y quedará pendiente de cobro.
+              </p>
             </div>
 
             <!-- Saldo a favor: antes ni se miraba aqui, y al crear un paquete se le cobraba
                  todo de nuevo a un paciente que ya tenia dinero adelantado. -->
-            <div class="saldo-paq" *ngIf="pagoModo !== 'pendiente' && pacienteSaldoAFavor > 0">
+            <div class="saldo-paq" *ngIf="pagoModo !== 'pendiente' && pagoModo !== 'credito' && pacienteSaldoAFavor > 0">
               <label (click)="usarSaldoEnPagoInicial = !usarSaldoEnPagoInicial" style="cursor:pointer">
                 <input type="checkbox" [checked]="usarSaldoEnPagoInicial" style="pointer-events:none">
                 Usar su saldo a favor (S/ {{ pacienteSaldoAFavor.toFixed(2) }} disponible)
@@ -573,7 +607,7 @@
               </p>
             </div>
 
-            <ng-container *ngIf="pagoModo !== 'pendiente'">
+            <ng-container *ngIf="pagoModo !== 'pendiente' && pagoModo !== 'credito'">
               <div class="frow-2" style="margin-top:8px">
                 <div class="frow" *ngIf="pagoModo === 'parcial'">
                   <label>Monto recibido (S/) *</label>

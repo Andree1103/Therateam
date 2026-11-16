@@ -40,6 +40,13 @@ export interface User {
    * existiera, o de un backend todavia sin desplegar. Ver puedeMarcarCita().
    */
   puedeMarcarCita?: boolean;
+  /**
+   * Del ROL: puede fiar — atender hoy y cobrar despues, cargandolo a una cuenta de credito.
+   *
+   * Opcional por lo mismo que el anterior: una sesion abierta antes de que el campo existiera
+   * no lo trae. Ver puedeDarCredito().
+   */
+  puedeDarCredito?: boolean;
 }
 
 interface LoginResponse {
@@ -63,6 +70,8 @@ interface LoginResponse {
   puedeEditarHoraCorte: boolean;
   /** Del ROL: puede marcar que paso con una cita (asistio, no asistio, no marco). */
   puedeMarcarCita: boolean;
+  /** Del ROL: puede fiar — cargar una atencion a una cuenta de credito. */
+  puedeDarCredito: boolean;
 }
 
 @Injectable({
@@ -119,6 +128,7 @@ export class AuthService {
           puedeVerSaldoInicial: res.puedeVerSaldoInicial,
           puedeEditarHoraCorte: res.puedeEditarHoraCorte,
           puedeMarcarCita: res.puedeMarcarCita,
+          puedeDarCredito: res.puedeDarCredito,
         };
         if (this.isBrowser) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
@@ -231,6 +241,23 @@ export class AuthService {
    */
   puedeMarcarCita(): boolean {
     return this.currentUserValue?.puedeMarcarCita ?? false;
+  }
+
+  /**
+   * Fiar: atender hoy y cobrar a fin de mes, cargandolo a la cuenta de alguien que responde.
+   *
+   * Permiso propio del rol (Seguridad > Roles), separado de crear citas a proposito: agendar es
+   * agendar, y decidir que la clinica se queda esperando el dinero es otra cosa. Con esto apagado
+   * la opcion "a credito" no se ofrece en ningun formulario.
+   *
+   * COBRAR el credito no pasa por aca. Eso va con los permisos del modulo Pagos, como cualquier
+   * otro cobro: el cajero cobra, pero no tiene por que poder fiar.
+   *
+   * Si el campo no esta —sesion vieja o backend sin desplegar— la respuesta es no. Fiar no
+   * existia, asi que esconder la opcion no le quita a nadie nada que ya pudiera hacer.
+   */
+  puedeDarCredito(): boolean {
+    return this.currentUserValue?.puedeDarCredito ?? false;
   }
 
   puedeCorregirAtencion(): boolean {

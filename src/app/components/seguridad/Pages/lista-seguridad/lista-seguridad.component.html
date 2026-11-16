@@ -70,6 +70,7 @@
                   <span class="modulo-chip" *ngIf="r.puedeCorregirAtencion" title="Puede corregir terapeuta, tipo, precio o medio de pago de una cita ya atendida">Corrige atenciones</span>
                   <span class="modulo-chip" *ngIf="r.puedeVerSaldoInicial" title="Ve el saldo inicial en Caja, que arrastra lo acumulado de dias anteriores">Ve saldo inicial</span>
                   <span class="modulo-chip" *ngIf="r.puedeEditarHoraCorte" title="Puede mover la hora que separa el turno 1 del turno 2">Cambia hora de corte</span>
+                  <span class="modulo-chip" *ngIf="r.puedeDarCredito" title="Puede fiar: atender hoy y cargarlo a la cuenta de quien paga a fin de mes">Puede fiar</span>
                 </div>
               </td>
               <td>
@@ -259,6 +260,14 @@
           <label class="modulo-check">
             <input type="checkbox" [(ngModel)]="formRolPuedeEditarHoraCorte" name="puedeEditarHoraCorte">
             Este rol puede cambiar la hora de corte entre turnos
+          </label>
+          <label class="modulo-check">
+            <input type="checkbox" [(ngModel)]="formRolPuedeDarCredito" name="puedeDarCredito">
+            Este rol puede fiar (atender hoy y cobrar después)
+            <span class="check-nota">Carga la atención a la cuenta de quien responde por ella. Va aparte
+              de crear citas: agendar es agendar, y dejar a la clínica esperando el dinero es otra cosa.
+              Nadie puede fiarse a sí mismo, ni con esto puesto. Cobrar el crédito no necesita este
+              permiso: eso va con los de Pagos.</span>
           </label>
         </div>
         <div class="modal-footer">

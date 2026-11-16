@@ -25,6 +25,7 @@ interface RolItem {
   puedeVerSaldoInicial?: boolean;
   puedeEditarHoraCorte?: boolean;
   puedeMarcarCita?: boolean;
+  puedeDarCredito?: boolean;
 }
 
 interface AccionesModulo { crear: boolean; editar: boolean; eliminar: boolean; }
@@ -86,6 +87,7 @@ export class ListaSeguridadComponent implements OnInit {
   formRolPuedeVerSaldoInicial = false;
   formRolPuedeEditarHoraCorte = false;
   formRolPuedeMarcarCita = false;
+  formRolPuedeDarCredito = false;
   /** Módulos a los que el rol tiene acceso (ver/navegar) — presencia en el set = acceso. */
   formRolAccesoIds: Set<number> = new Set();
   /** Acciones de escritura por módulo, solo tienen efecto si el módulo está en formRolAccesoIds. */
@@ -207,6 +209,7 @@ export class ListaSeguridadComponent implements OnInit {
     this.formRolPuedeVerSaldoInicial = false;
     this.formRolPuedeEditarHoraCorte = false;
     this.formRolPuedeMarcarCita = false;
+    this.formRolPuedeDarCredito = false;
     this.formRolAccesoIds = new Set();
     this.formRolPermisos = {};
     this.modalRolAbierto = true;
@@ -223,6 +226,7 @@ export class ListaSeguridadComponent implements OnInit {
     this.formRolPuedeVerSaldoInicial = r.puedeVerSaldoInicial ?? false;
     this.formRolPuedeEditarHoraCorte = r.puedeEditarHoraCorte ?? false;
     this.formRolPuedeMarcarCita = r.puedeMarcarCita ?? false;
+    this.formRolPuedeDarCredito = r.puedeDarCredito ?? false;
     this.formRolAccesoIds = new Set((r.permisos || []).map(p => p.modulo.id));
     this.formRolPermisos = {};
     for (const p of r.permisos || []) {
@@ -274,6 +278,7 @@ export class ListaSeguridadComponent implements OnInit {
       puedeVerSaldoInicial: this.formRolPuedeVerSaldoInicial,
       puedeEditarHoraCorte: this.formRolPuedeEditarHoraCorte,
       puedeMarcarCita: this.formRolPuedeMarcarCita,
+      puedeDarCredito: this.formRolPuedeDarCredito,
       permisos,
     };
     const esEdicion = !!this.editandoRol;

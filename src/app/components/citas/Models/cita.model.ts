@@ -187,6 +187,14 @@ export interface CrearCitaConPacienteRequest {
   tipoRecurrencia?: 'FIJO' | 'EVENTUAL' | 'SOLO_HOY';
   /** Agrupador liviano de "citas masivas" — mismo valor en todas las citas del mismo lote, no crea ningún paquete. */
   loteMasivoId?: string;
+  /**
+   * A crédito: la cuenta de quien responde por esta atención y la paga después.
+   *
+   * En un lote va la misma en todas las peticiones, así que se fía el bloque entero y no una
+   * cita sola. No se puede usar junto con `tratamientoId`: el crédito de un paquete vive en el
+   * paquete, que es donde está su dinero, y el backend rechaza ponerlo en una de sus sesiones.
+   */
+  cuentaCreditoId?: number | null;
 }
 
 /**

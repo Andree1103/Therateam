@@ -1319,10 +1319,53 @@
             <label>N° de operación</label>
             <input type="text" [(ngModel)]="fReferencia" placeholder="Ej: 123456789">
           </div>
+          <!-- ── A CRÉDITO ──────────────────────────────────────────────────
+               Atender hoy y cobrar a fin de mes, con alguien que responde por la deuda. Va aquí,
+               en el mismo sitio donde se decide el cobro, porque es una de las formas de resolver
+               el pago de esta cita — no un trámite aparte. Pide el permiso de fiar; sin él esta
+               caja no existe. -->
+          <div class="credito-box" *ngIf="ofrecerCredito && fPrecio && fPrecio > 0"
+               [class.credito-box--on]="fiando">
+            <label class="toggle-label" (click)="alternarCredito()">
+              <div class="toggle-box" [class.on]="fiando"><div class="toggle-knob"></div></div>
+              <span *ngIf="!fiando">A crédito (lo paga otra persona después)</span>
+              <span *ngIf="fiando">A crédito de {{ cuentaCreditoElegida?.titularNombre || '—' }}</span>
+            </label>
+
+            <p class="pago-hint" *ngIf="!fiando && creditoSugerido">
+              <strong>{{ creditoSugerido.titularNombre }}</strong> responde por este paciente.
+              Actívalo y la atención se le carga a su cuenta en vez de cobrarse hoy.
+            </p>
+            <p class="pago-hint" *ngIf="!fiando && !creditoSugerido">
+              Este paciente no tiene a nadie que responda por él. Si lo activas, podrás elegir a quién.
+            </p>
+
+            <ng-container *ngIf="fiando">
+              <select class="credito-sel" [(ngModel)]="fCuentaCreditoId" name="cuentaCredito">
+                <option *ngFor="let c of cuentasCredito" [ngValue]="c.id">
+                  {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                </option>
+              </select>
+              <p class="pago-hint credito-hint">
+                No se cobra nada ahora. Se le cargan
+                <strong>S/ {{ totalACredito | number:'1.2-2' }}</strong> a su cuenta y se cobran
+                desde <strong>Créditos</strong>, de una vez con el resto del mes.
+                <ng-container *ngIf="creditoSugerido && creditoSugerido.id !== fCuentaCreditoId">
+                  <br>Ojo: este paciente ya lo cubría {{ creditoSugerido.titularNombre }}.
+                </ng-container>
+                <ng-container *ngIf="cuentaCreditoElegida?.sePasaDelLimite">
+                  <br><strong>Ya pasó su tope de deuda.</strong> Es un aviso, no un impedimento.
+                </ng-container>
+              </p>
+            </ng-container>
+          </div>
+
           <!-- Saldo a favor del paciente. Tambien en programacion multiple: el lote permite
                cobrar unas cuantas sesiones por adelantado, y el saldo tiene que poder cubrirlas
-               — antes se escondia aqui y habia que volver a cobrarle en efectivo. -->
-          <div class="saldo-favor-box" *ngIf="pacienteSaldoAFavor > 0 && fPrecio && fPrecio > 0">
+               — antes se escondia aqui y habia que volver a cobrarle en efectivo.
+               Con la cita a credito desaparece: aqui no entra dinero hoy, ni del cajon ni del
+               saldo del paciente — y ademas el que paga es el titular, no el paciente. -->
+          <div class="saldo-favor-box" *ngIf="pacienteSaldoAFavor > 0 && fPrecio && fPrecio > 0 && !fiando">
             <label class="toggle-label" (click)="usarSaldoAFavor = !usarSaldoAFavor">
               <div class="toggle-box" [class.on]="usarSaldoAFavor">
                 <div class="toggle-knob"></div>
@@ -1355,8 +1398,10 @@
               </ng-container>
             </p>
           </div>
-          <!-- Toggle solo para sesión única -->
-          <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'single'">
+          <!-- Toggle solo para sesión única. No sale si la cita se fía: fiar es justamente no
+               cobrar hoy, y dejar las dos cosas a la vez registraría un pago y una deuda por la
+               misma atención. -->
+          <div class="pago-toggle" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'single' && !fiando">
             <!-- "Marcar como PAGADO" no decia que crea un pago de verdad y mete el dinero en la
                  caja del dia. Ahora lo dice, con el importe y el metodo delante. -->
             <label class="toggle-label" (click)="fPagado = !fPagado">
@@ -1378,8 +1423,9 @@
               No se cobra nada ahora. La cita queda sin pago y se cobra después con "Registrar pago".
             </p>
           </div>
-          <!-- Control de pago parcial para programación múltiple -->
-          <div class="bulk-pago-ctrl" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'multiple'">
+          <!-- Control de pago parcial para programación múltiple. Tampoco sale a crédito: el
+               lote entero queda a cargo de la cuenta. -->
+          <div class="bulk-pago-ctrl" *ngIf="fPrecio && fPrecio > 0 && modoProgramacion === 'multiple' && !fiando">
             <div class="frow-2">
               <div class="frow" style="margin-bottom:0">
                 <label>Sesiones a pagar ahora</label>

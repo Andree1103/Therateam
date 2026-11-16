@@ -13,7 +13,7 @@
  * comparando con PAGADA a mano, a proposito.
  */
 export type EstadoPagoKey =
-  'SIN_PAGO' | 'PARCIAL' | 'PAGADA' | 'DESCONTADA' | 'DEVUELTO' | 'A_FAVOR';
+  'SIN_PAGO' | 'PARCIAL' | 'PAGADA' | 'DESCONTADA' | 'DEVUELTO' | 'A_FAVOR' | 'A_CREDITO';
 
 /**
  * La cita se anuló y su dinero ya tiene destino: se devolvió, o quedó a favor del paciente.
@@ -31,6 +31,19 @@ export function estaSaldada(key?: string | null): boolean {
   return key === 'PAGADA' || key === 'DESCONTADA' || yaSeResolvio(key);
 }
 
+/**
+ * La atención se fió: se dio hoy y la paga después el titular de una cuenta de crédito.
+ *
+ * Es deuda, no una forma de "ya está resuelto", así que `estaSaldada` dice no y la cita sigue
+ * saliendo en Pagos como pendiente — es justamente lo que antes no se podía representar y
+ * obligaba a registrar un efectivo que nadie entregó. Lo único distinto es QUIÉN la paga: no
+ * el paciente, sino el titular, y por eso el cobro se hace desde Créditos y no desde el
+ * buscador de Pagos, que busca por paciente.
+ */
+export function esACredito(key?: string | null): boolean {
+  return key === 'A_CREDITO';
+}
+
 /** Queda plata por cobrar en esta cita. */
 export function tieneDeuda(key?: string | null): boolean {
   return !estaSaldada(key);
@@ -46,6 +59,11 @@ export function tieneDeuda(key?: string | null): boolean {
 export function tieneDineroAplicado(key?: string | null): boolean {
   return key === 'PAGADA' || key === 'PARCIAL' || key === 'DESCONTADA';
 }
+// A_CREDITO queda fuera a propósito: fiar no es haber recibido plata. Anular una cita fiada no
+// obliga a decidir qué hacer con ningún dinero, porque no entró ninguno — solo desaparece la
+// deuda de la cuenta. Ojo, el backend tiene una función con este mismo nombre que SÍ incluye
+// A_CREDITO: allá la pregunta es otra ("¿hay con qué justificar que se atendió?"), y fiar
+// justifica.
 
 /** Color del chip cuando no viene del catálogo del backend. */
 export function colorEstadoPago(key?: string | null): string {
@@ -54,5 +72,6 @@ export function colorEstadoPago(key?: string | null): string {
   if (key === 'PARCIAL')    return '#f59e0b';
   if (key === 'DEVUELTO')   return '#0ea5e9';
   if (key === 'A_FAVOR')    return '#8b5cf6';
+  if (key === 'A_CREDITO')  return '#be123c';
   return '#94a3b8'; // SIN_PAGO
 }

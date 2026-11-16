@@ -32,6 +32,9 @@ export const routes: Routes = [
       { path: 'pagos',           data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/pagos/pagos.module').then(m => m.PagosModule) },
       { path: 'caja',            data: { modulo: 'CAJA' },            canActivate: [moduloGuard], loadChildren: () => import('./components/caja/caja.module').then(m => m.CajaModule) },
       { path: 'adelantos',       data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/adelantos/adelantos.module').then(m => m.AdelantosModule) },
+      // Creditos entra por el modulo PAGOS, no por un permiso propio: quien cobra tiene que
+      // poder ver a quien hay que cobrarle. Dentro de la pantalla, fiar si pide su permiso.
+      { path: 'creditos',        data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/creditos/creditos.module').then(m => m.CreditosModule) },
       { path: 'productos',       data: { modulo: 'PAGOS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/productos/productos.module').then(m => m.ProductosModule) },
       { path: 'atenciones',      data: { modulo: 'CITAS' },           canActivate: [moduloGuard], loadChildren: () => import('./components/atenciones/atenciones.module').then(m => m.AtencionesModule) },
       { path: 'tratamientos',    data: { modulo: 'PAQUETES' },        canActivate: [moduloGuard], loadChildren: () => import('./components/tratamientos/tratamientos.module').then(m => m.TratamientosModule) },

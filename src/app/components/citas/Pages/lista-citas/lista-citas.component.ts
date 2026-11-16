@@ -23,6 +23,8 @@ import { ConfiguracionService } from '../../../../core/services/configuracion.se
 import { NotaAtencionPdfService } from '../../../../core/services/nota-atencion-pdf.service';
 import { ExcelExportService } from '../../../../core/services/excel-export.service';
 import { PacienteService } from '../../../pacientes/Services/paciente.service';
+import { CreditoService } from '../../../../core/services/credito.service';
+import { CuentaCredito } from '../../../../core/models/credito.model';
 import { HorarioFijo, DIAS_SEMANA, soloHoraYMinuto, nombreTerapeutaDeHorario } from '../../../pacientes/Models/horario-fijo.model';
 import { ProductoService } from '../../../productos/Services/producto.service';
 import { Producto } from '../../../productos/Models/producto.model';
@@ -348,6 +350,82 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   pacienteSaldoAFavor = 0;
   usarSaldoAFavor = false;
 
+  // ── A crédito: la atención se da hoy y la paga otra persona a fin de mes ──
+  // Se ofrece ACÁ, al agendar, y no en una pantalla aparte: mandar a recepción a otro sitio con
+  // el paciente delante es la fricción que hacía que se registrara un efectivo que nadie
+  // entregó, o que la cita se quedara en Programada para siempre.
+  /** Cuentas activas, para poder elegir a quién se le carga. Solo se piden si se puede fiar. */
+  cuentasCredito: CuentaCredito[] = [];
+  /** La cuenta que ya cubre al paciente 1, si tiene alguna. Se sugiere; no se aplica sola. */
+  creditoSugerido: CuentaCredito | null = null;
+  fCuentaCreditoId: number | null = null;
+
+  /** Permiso propio del rol (Seguridad > Roles). Sin él la opción no existe en el formulario. */
+  get puedeFiar(): boolean { return this.authService.puedeDarCredito(); }
+
+  /** Solo tiene sentido ofrecerlo si hay a quién cargárselo. */
+  get ofrecerCredito(): boolean { return this.puedeFiar && this.cuentasCredito.length > 0; }
+
+  get fiando(): boolean { return this.fCuentaCreditoId != null; }
+
+  get cuentaCreditoElegida(): CuentaCredito | null {
+    return this.cuentasCredito.find(c => c.id === this.fCuentaCreditoId) ?? null;
+  }
+
+  /**
+   * Fiar y cobrar ahora son excluyentes: si se fía, no entra dinero hoy.
+   *
+   * Por eso al activarlo se apagan el cobro y el uso del saldo a favor, y en un lote las
+   * sesiones a pagar bajan a cero. Dejarlos puestos crearía un pago y una deuda por la misma
+   * atención.
+   */
+  alternarCredito(): void {
+    if (this.fiando) { this.fCuentaCreditoId = null; return; }
+    this.fCuentaCreditoId = this.creditoSugerido?.id ?? this.cuentasCredito[0]?.id ?? null;
+    if (this.fiando) {
+      this.fPagado = false;
+      this.usarSaldoAFavor = false;
+      this.bulkSesionesAPagar = 0;
+    }
+  }
+
+  /** Lo que se le va a cargar a la cuenta con lo que hay puesto en el formulario. */
+  get totalACredito(): number {
+    const precio = this.fPrecio ?? 0;
+    return this.modoProgramacion === 'multiple'
+      ? precio * this.bulkPreview.length
+      : precio;
+  }
+
+  private cargarCuentasCredito(): void {
+    if (!this.puedeFiar) return;
+    this.creditoService.listar(null, false).subscribe({
+      next: c => this.cuentasCredito = c.filter(x => x.activo !== false),
+      error: () => { this.cuentasCredito = []; }
+    });
+  }
+
+  /**
+   * ¿Este paciente tiene a alguien que responda por él?
+   *
+   * Se consulta al elegirlo y se guarda como sugerencia, no como decisión: que su madre tenga
+   * cuenta no significa que esta cita se fíe — hoy puede venir a pagar. Que quede siempre a la
+   * vista y siempre a un clic es lo que hace falta.
+   */
+  private cargarCreditoDelPaciente(pacienteId: number): void {
+    this.creditoSugerido = null;
+    this.fCuentaCreditoId = null;
+    if (!this.puedeFiar) return;
+    this.creditoService.cuentaDePaciente(pacienteId).subscribe(c => {
+      this.creditoSugerido = c && c.activo !== false ? c : null;
+    });
+  }
+
+  private limpiarCredito(): void {
+    this.creditoSugerido = null;
+    this.fCuentaCreditoId = null;
+  }
+
   // ── Selector de fecha/hora tipo "slots" (sesión única) — fechas en pastillas +
   //    horas reales disponibles del terapeuta, en vez de inputs libres. ──────
   fFechasVisibles: { iso: string; dow: string; dia: number; mes: string }[] = [];
@@ -478,6 +556,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private notaAtencionPdfService: NotaAtencionPdfService,
     private excelExportService: ExcelExportService,
     private pacienteService: PacienteService,
+    private creditoService: CreditoService,
     private productoService: ProductoService,
     private host: ElementRef<HTMLElement>
   ) {}
@@ -608,6 +687,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.onMqCambio(this.mqMovil);
     this.mqMovil.addEventListener('change', this.onMqCambio);
     this.cargarProductos();
+    this.cargarCuentasCredito();
   }
 
   ngOnDestroy(): void {
@@ -2373,6 +2453,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         next: p => this.pacienteSaldoAFavor = p.saldoAFavor ?? 0,
         error: () => {}
       });
+      this.cargarCreditoDelPaciente(pac.id!);
       this.cargarHorariosFijos(pac.id!);
     }
   }
@@ -2390,6 +2471,9 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.limpiarTratamientoExistente();
       this.pacienteSaldoAFavor = 0;
       this.usarSaldoAFavor = false;
+      // Un paciente que todavia no existe no puede tener cuenta, pero si se le puede fiar: al
+      // guardar se crea el paciente y se le amarra a la cuenta elegida en la misma operacion.
+      this.limpiarCredito();
       this.horariosFijosPaciente = [];
     }
   }
@@ -2404,6 +2488,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
       this.limpiarTratamientoExistente();
       this.pacienteSaldoAFavor = 0;
       this.usarSaldoAFavor = false;
+      this.limpiarCredito();
       this.horariosFijosPaciente = [];
     }
   }
@@ -2696,6 +2781,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     this.fReferencia = '';
     this.pacienteSaldoAFavor = 0;
     this.usarSaldoAFavor = false;
+    this.limpiarCredito();
     this.modoProgramacion = 'single';
     this.fFechasOffset = 0;
     this.generarFechasVisiblesSingle();
@@ -3275,6 +3361,7 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         precioPorSesion:   this.fPrecio ?? 0,
         tratamientoId:     this.fTratamientoExistenteId,
         tipoRecurrencia:   this.fTipoRecurrencia,
+        cuentaCreditoId:   this.fCuentaCreditoId ?? undefined,
       };
 
       this.citaService.crearConPaciente(req).subscribe({
@@ -3376,6 +3463,8 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
         precioPorSesion:   this.fPrecio ?? 0,
         tratamientoId:     this.fTratamientoExistenteId,
         loteMasivoId,
+        // La misma cuenta en las N peticiones: se fia el bloque entero, que es como se pidio.
+        cuentaCreditoId:   this.fCuentaCreditoId ?? undefined,
       };
       this.citaService.crearConPaciente(req).subscribe({
         next: (citas) => {

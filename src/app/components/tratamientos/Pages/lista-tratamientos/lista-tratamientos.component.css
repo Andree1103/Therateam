@@ -187,6 +187,16 @@
 .saldo-paq label{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#14532d}
 .saldo-paq-txt{margin:5px 0 0;font-size:11.5px;line-height:1.45;color:#2f6b47}
 
+/* A credito, dentro del mismo bloque. En rojo y no en verde como el saldo: el verde dice "ya
+   hay dinero puesto" y esto dice justo lo contrario — hoy no entra nada y queda una deuda. */
+.modalidad-radio--credito.selected{border-color:#be123c;background:#ffe4e6;color:#9f1239}
+.modalidad-radio--credito:hover{border-color:#be123c;color:#9f1239;background:#fff1f2}
+.credito-paq{margin-top:8px;padding:9px 11px;background:#fff1f2;border:1px solid #fecdd3;border-radius:7px}
+.credito-paq label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#9f1239;margin-bottom:5px}
+.credito-paq select{width:100%;padding:7px 10px;border:1px solid #fecdd3;border-radius:7px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff;box-sizing:border-box}
+.credito-paq select:focus{outline:none;border-color:#be123c}
+.credito-paq-txt{margin:6px 0 0;font-size:11.5px;line-height:1.5;color:#9f1239}
+
 /* Las citas que ya existian y pueden entrar al paquete. En verde como el saldo a favor: las
    dos son "esto ya estaba ahi, aprovechalo" y conviene que se lean igual. */
 .absorber{margin:0 0 10px;padding:11px 13px;border-radius:9px;background:#ecfdf5;border:1px solid #a7f3d0}

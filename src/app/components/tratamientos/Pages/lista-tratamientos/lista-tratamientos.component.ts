@@ -17,6 +17,8 @@ import { CrearCitaConPacienteRequest, CrearCitaLocalRequest, PacienteEnCita } fr
 import { DisponibilidadService } from '../../../terapeutas/Services/disponibilidad.service';
 import { TerapeutaHorarioService } from '../../../terapeutas/Services/terapeuta-horario.service';
 import { TerapeutaHorario } from '../../../terapeutas/Models/terapeuta-horario.model';
+import { CreditoService } from '../../../../core/services/credito.service';
+import { CuentaCredito } from '../../../../core/models/credito.model';
 export interface PacienteState {
   colapsado: boolean;
   modo: 'buscar' | 'encontrado' | 'nuevo';
@@ -134,7 +136,17 @@ export class ListaTratamientosComponent implements OnInit {
   nombreDeTerapeuta = nombreDeTerapeuta;
 
   // ── Pago inicial (solo al crear): pendiente / pagado completo / adelanto ──
-  pagoModo: 'pendiente' | 'completo' | 'parcial' = 'pendiente';
+  /**
+   * Cómo se resuelve el dinero del paquete al crearlo.
+   *
+   * 'credito' es el cuarto camino y va aquí, junto a los otros tres, porque es eso: una forma de
+   * resolver el pago. El paquete se da entero y lo paga el titular de una cuenta a fin de mes.
+   *
+   * Ojo con dónde vive el crédito de un paquete: en el paquete, no en sus citas. Ahí está su
+   * dinero (montoTotal contra totalCobrado), y ponerlo en los dos extremos contaría la deuda dos
+   * veces — la base de datos lo prohíbe de hecho.
+   */
+  pagoModo: 'pendiente' | 'completo' | 'parcial' | 'credito' = 'pendiente';
   pagoMonto: number | null = null;
   pagoMetodoId: number | null = null;
   /** N° de operación del pago inicial — el comprobante de Yape/Plin/transferencia. */
@@ -177,6 +189,7 @@ export class ListaTratamientosComponent implements OnInit {
     private toast: ToastService,
     private authService: AuthService,
     private citaService: CitaService,
+    private creditoService: CreditoService,
     private disponibilidadService: DisponibilidadService,
     private terapeutaHorarioService: TerapeutaHorarioService,
     private route: ActivatedRoute,
@@ -252,6 +265,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.catalogService.getPlantillasPaquete().subscribe(d => this.plantillas = d.filter(p => p.activo !== false));
     this.catalogService.getEstadosCita().subscribe(d => this.estadosCita = d);
     this.catalogService.getModalidades().subscribe(d => this.modalidadesCita = d);
+    this.cargarCuentasCredito();
 
     // abrirEditar() necesita terapeutas/tipos/estados ya cargados para resolver correctamente
     // el paquete — se esperan los tres antes de abrir el modal (tanto para el query param
@@ -377,6 +391,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.pac.busquedaNombre = `${encontrado.nombre} ${encontrado.apellido}`;
     this.formData.pacienteId = this.pac.id;
     this.cargarSaldoDelPaciente();
+    this.cargarCreditoDelPaciente();
     this.buscarAbsorbibles();
   }
 
@@ -764,6 +779,8 @@ export class ListaTratamientosComponent implements OnInit {
     this.pagoMonto = null;
     this.pagoMetodoId = null;
     this.pagoReferencia = '';
+    this.creditoSugerido = null;
+    this.formCuentaCreditoId = null;
     this.duracionSesionMin = null;
     this.bulkDias = [true, false, true, false, true, false, false];
     this.bulkHoras = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:00'];
@@ -1067,7 +1084,9 @@ export class ListaTratamientosComponent implements OnInit {
   /** Último paso común tras crear/actualizar el paquete (y, si correspondía, sus citas): registra
    *  el pago inicial si se eligió uno, y cierra el modal mostrando el resumen final. */
   private continuarDespuesDeGuardar(paquete: Tratamiento, esEdicion: boolean, citasCreadas: number): void {
-    if (!esEdicion && this.pagoModo !== 'pendiente') {
+    // 'credito' no registra ningun pago: fiar es justamente que hoy no entra dinero. La deuda
+    // queda en el paquete y se cobra desde Creditos, con el resto del mes.
+    if (!esEdicion && this.pagoModo !== 'pendiente' && this.pagoModo !== 'credito') {
       this.registrarPagoInicial(paquete, citasCreadas);
       return;
     }
@@ -1087,6 +1106,47 @@ export class ListaTratamientosComponent implements OnInit {
   pacienteSaldoAFavor = 0;
   usarSaldoEnPagoInicial = true;
 
+  // ── A crédito ─────────────────────────────────────────────────────────────
+  cuentasCredito: CuentaCredito[] = [];
+  /** La cuenta que ya cubre a este paciente, si tiene. Se sugiere; elegir sigue siendo un acto. */
+  creditoSugerido: CuentaCredito | null = null;
+  formCuentaCreditoId: number | null = null;
+
+  get puedeFiar(): boolean { return this.authService.puedeDarCredito(); }
+  get ofrecerCredito(): boolean { return this.puedeFiar && this.cuentasCredito.length > 0; }
+
+  get cuentaCreditoElegida(): CuentaCredito | null {
+    return this.cuentasCredito.find(c => c.id === this.formCuentaCreditoId) ?? null;
+  }
+
+  private cargarCuentasCredito(): void {
+    if (!this.puedeFiar) return;
+    this.creditoService.listar(null, false).subscribe({
+      next: c => this.cuentasCredito = c.filter(x => x.activo !== false),
+      error: () => { this.cuentasCredito = []; }
+    });
+  }
+
+  private cargarCreditoDelPaciente(): void {
+    this.creditoSugerido = null;
+    const id = this.formData.pacienteId;
+    if (!id || !this.puedeFiar) return;
+    this.creditoService.cuentaDePaciente(id).subscribe(c => {
+      this.creditoSugerido = c && c.activo !== false ? c : null;
+      // Si ya se eligió "a crédito" sin saber de quién, se rellena con el que corresponde.
+      if (this.pagoModo === 'credito' && this.formCuentaCreditoId == null) {
+        this.formCuentaCreditoId = this.creditoSugerido?.id ?? null;
+      }
+    });
+  }
+
+  /** Al elegir "a crédito" se preselecciona a quien ya cubre al paciente, si hay alguien. */
+  alPasarACredito(): void {
+    if (this.formCuentaCreditoId == null) {
+      this.formCuentaCreditoId = this.creditoSugerido?.id ?? this.cuentasCredito[0]?.id ?? null;
+    }
+  }
+
   private cargarSaldoDelPaciente(): void {
     this.pacienteSaldoAFavor = 0;
     const id = this.formData.pacienteId;
@@ -1099,7 +1159,7 @@ export class ListaTratamientosComponent implements OnInit {
 
   /** Lo que se pretende cobrar ahora, antes de tocar el saldo. */
   get montoDelPagoInicial(): number {
-    if (this.pagoModo === 'pendiente') return 0;
+    if (this.pagoModo === 'pendiente' || this.pagoModo === 'credito') return 0;
     return this.pagoModo === 'completo' ? this.montoTotalPaquete : (this.pagoMonto ?? 0);
   }
 
@@ -1213,6 +1273,12 @@ export class ListaTratamientosComponent implements OnInit {
       precioPorSesion:    f.precioPorSesion ?? undefined,
       notas:              f.notas || undefined,
       activo:             f.activo,
+      // El credito del paquete, como @ManyToOne: { id } para que Hibernate resuelva la FK. Solo
+      // al crear y solo si se eligio fiar — mandarlo en una edicion cambiaria a quien se le
+      // cobra un paquete ya en marcha.
+      cuentaCredito: (!this.editando && this.pagoModo === 'credito' && this.formCuentaCreditoId)
+        ? { id: this.formCuentaCreditoId } as any
+        : undefined,
     };
   }
 }
