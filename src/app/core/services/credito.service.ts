@@ -52,6 +52,18 @@ export class CreditoService {
    * que el tipo admita null sin que sea un error. El catchError cubre lo otro: un 403 del cajero
    * que no puede fiar no tiene que romper el formulario de citas, solo no ofrecer la opción.
    */
+  /**
+   * Todas las cuentas que pueden pagar por este paciente, la sugerida primero.
+   *
+   * Un paciente puede estar en varias: a la misma madre la paga su hija una semana y su hijo la
+   * siguiente. El formulario las pone arriba del desplegable, antes del resto de cuentas.
+   */
+  cuentasDePaciente(pacienteId: number): Observable<CuentaCredito[]> {
+    return this.api.get<CuentaCredito[]>(`${this.PATH}/paciente/${pacienteId}/cuentas`).pipe(
+      catchError(() => of([] as CuentaCredito[]))
+    );
+  }
+
   cuentaDePaciente(pacienteId: number): Observable<CuentaCredito | null> {
     return this.api.get<CuentaCredito | null>(`${this.PATH}/paciente/${pacienteId}`).pipe(
       catchError(() => of(null))

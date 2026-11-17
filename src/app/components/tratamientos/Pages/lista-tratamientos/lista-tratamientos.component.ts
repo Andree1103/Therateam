@@ -780,6 +780,7 @@ export class ListaTratamientosComponent implements OnInit {
     this.pagoMetodoId = null;
     this.pagoReferencia = '';
     this.creditoSugerido = null;
+    this.cuentasDelPaciente = [];
     this.formCuentaCreditoId = null;
     this.duracionSesionMin = null;
     this.bulkDias = [true, false, true, false, true, false, false];
@@ -1110,6 +1111,8 @@ export class ListaTratamientosComponent implements OnInit {
   cuentasCredito: CuentaCredito[] = [];
   /** La cuenta que ya cubre a este paciente, si tiene. Se sugiere; elegir sigue siendo un acto. */
   creditoSugerido: CuentaCredito | null = null;
+  /** Las cuentas que ya pagan por este paciente, la última primero. Pueden ser varias. */
+  cuentasDelPaciente: CuentaCredito[] = [];
   formCuentaCreditoId: number | null = null;
 
   get puedeFiar(): boolean { return this.authService.puedeDarCredito(); }
@@ -1117,6 +1120,12 @@ export class ListaTratamientosComponent implements OnInit {
 
   get cuentaCreditoElegida(): CuentaCredito | null {
     return this.cuentasCredito.find(c => c.id === this.formCuentaCreditoId) ?? null;
+  }
+
+  /** El resto: las cuentas que todavía no le han pagado nada a este paciente. */
+  get otrasCuentasCredito(): CuentaCredito[] {
+    const suyas = new Set(this.cuentasDelPaciente.map(c => c.id));
+    return this.cuentasCredito.filter(c => !suyas.has(c.id));
   }
 
   private cargarCuentasCredito(): void {
@@ -1129,10 +1138,12 @@ export class ListaTratamientosComponent implements OnInit {
 
   private cargarCreditoDelPaciente(): void {
     this.creditoSugerido = null;
+    this.cuentasDelPaciente = [];
     const id = this.formData.pacienteId;
     if (!id || !this.puedeFiar) return;
-    this.creditoService.cuentaDePaciente(id).subscribe(c => {
-      this.creditoSugerido = c && c.activo !== false ? c : null;
+    this.creditoService.cuentasDePaciente(id).subscribe(cs => {
+      this.cuentasDelPaciente = cs.filter(c => c.activo !== false);
+      this.creditoSugerido = this.cuentasDelPaciente[0] ?? null;
       // Si ya se eligió "a crédito" sin saber de quién, se rellena con el que corresponde.
       if (this.pagoModo === 'credito' && this.formCuentaCreditoId == null) {
         this.formCuentaCreditoId = this.creditoSugerido?.id ?? null;

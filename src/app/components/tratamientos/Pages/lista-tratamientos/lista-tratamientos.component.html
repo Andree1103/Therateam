@@ -568,12 +568,20 @@
               <label>¿Quién paga este paquete?</label>
               <select [(ngModel)]="formCuentaCreditoId" name="cuentaCreditoPaquete">
                 <option [ngValue]="null">— Elegir cuenta —</option>
-                <option *ngFor="let c of cuentasCredito" [ngValue]="c.id">
-                  {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
-                </option>
+                <optgroup label="Ya pagan por este paciente" *ngIf="cuentasDelPaciente.length > 0">
+                  <option *ngFor="let c of cuentasDelPaciente" [ngValue]="c.id">
+                    {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                  </option>
+                </optgroup>
+                <optgroup label="Otras cuentas" *ngIf="otrasCuentasCredito.length > 0">
+                  <option *ngFor="let c of otrasCuentasCredito" [ngValue]="c.id">
+                    {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                  </option>
+                </optgroup>
               </select>
               <p class="credito-paq-txt" *ngIf="creditoSugerido && creditoSugerido.id !== formCuentaCreditoId">
-                Este paciente ya lo cubría <strong>{{ creditoSugerido.titularNombre }}</strong>.
+                La última atención de este paciente la pagó
+                <strong>{{ creditoSugerido.titularNombre }}</strong>.
               </p>
               <p class="credito-paq-txt" *ngIf="formCuentaCreditoId">
                 No se cobra nada ahora. Se le cargan

@@ -1332,26 +1332,43 @@
               <span *ngIf="fiando">A crédito de {{ cuentaCreditoElegida?.titularNombre || '—' }}</span>
             </label>
 
-            <p class="pago-hint" *ngIf="!fiando && creditoSugerido">
+            <p class="pago-hint" *ngIf="!fiando && creditoSugerido && !varianteDeCuenta">
               <strong>{{ creditoSugerido.titularNombre }}</strong> responde por este paciente.
               Actívalo y la atención se le carga a su cuenta en vez de cobrarse hoy.
+            </p>
+            <!-- Varias cuentas pagan por este paciente: se dice cuál fue la última y que se
+                 puede cambiar. Quien atiende y quien paga no son la misma persona. -->
+            <p class="pago-hint" *ngIf="!fiando && creditoSugerido && varianteDeCuenta">
+              A este paciente lo pagan <strong>{{ cuentasDelPaciente.length }}</strong> cuentas.
+              La última fue <strong>{{ creditoSugerido.titularNombre }}</strong>; al activarlo
+              puedes cargarle esta atención a otra.
             </p>
             <p class="pago-hint" *ngIf="!fiando && !creditoSugerido">
               Este paciente no tiene a nadie que responda por él. Si lo activas, podrás elegir a quién.
             </p>
 
             <ng-container *ngIf="fiando">
+              <!-- Dos grupos a proposito: arriba quienes ya le pagaron algo a este paciente
+                   (lo normal es que se repita), abajo el resto. Un mismo paciente puede tener
+                   varias cuentas, y cual paga ESTA atencion se decide aqui. -->
               <select class="credito-sel" [(ngModel)]="fCuentaCreditoId" name="cuentaCredito">
-                <option *ngFor="let c of cuentasCredito" [ngValue]="c.id">
-                  {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
-                </option>
+                <optgroup label="Ya pagan por este paciente" *ngIf="cuentasDelPaciente.length > 0">
+                  <option *ngFor="let c of cuentasDelPaciente" [ngValue]="c.id">
+                    {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                  </option>
+                </optgroup>
+                <optgroup label="Otras cuentas" *ngIf="otrasCuentasCredito.length > 0">
+                  <option *ngFor="let c of otrasCuentasCredito" [ngValue]="c.id">
+                    {{ c.titularNombre }} — debe S/ {{ (c.deuda || 0) | number:'1.2-2' }}
+                  </option>
+                </optgroup>
               </select>
               <p class="pago-hint credito-hint">
                 No se cobra nada ahora. Se le cargan
                 <strong>S/ {{ totalACredito | number:'1.2-2' }}</strong> a su cuenta y se cobran
                 desde <strong>Créditos</strong>, de una vez con el resto del mes.
                 <ng-container *ngIf="creditoSugerido && creditoSugerido.id !== fCuentaCreditoId">
-                  <br>Ojo: este paciente ya lo cubría {{ creditoSugerido.titularNombre }}.
+                  <br>La última atención de este paciente la pagó {{ creditoSugerido.titularNombre }}.
                 </ng-container>
                 <ng-container *ngIf="cuentaCreditoElegida?.sePasaDelLimite">
                   <br><strong>Ya pasó su tope de deuda.</strong> Es un aviso, no un impedimento.

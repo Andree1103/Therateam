@@ -358,6 +358,15 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   cuentasCredito: CuentaCredito[] = [];
   /** La cuenta que ya cubre al paciente 1, si tiene alguna. Se sugiere; no se aplica sola. */
   creditoSugerido: CuentaCredito | null = null;
+
+  /**
+   * Las cuentas que ya pagan por este paciente, la sugerida primero.
+   *
+   * Son varias a propósito: quien atiende y quien paga no tienen por qué ser la misma persona ni
+   * la misma siempre. Van arriba del desplegable, separadas del resto, porque entre "ya le han
+   * pagado antes" y "cualquier otra cuenta" hay una diferencia que conviene ver sin leer.
+   */
+  cuentasDelPaciente: CuentaCredito[] = [];
   fCuentaCreditoId: number | null = null;
 
   /** Permiso propio del rol (Seguridad > Roles). Sin él la opción no existe en el formulario. */
@@ -371,6 +380,15 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
   get cuentaCreditoElegida(): CuentaCredito | null {
     return this.cuentasCredito.find(c => c.id === this.fCuentaCreditoId) ?? null;
   }
+
+  /** El resto de cuentas: las que todavía no le han pagado nada a este paciente. */
+  get otrasCuentasCredito(): CuentaCredito[] {
+    const suyas = new Set(this.cuentasDelPaciente.map(c => c.id));
+    return this.cuentasCredito.filter(c => !suyas.has(c.id));
+  }
+
+  /** Se elige a quién se le carga, no se hereda de quien atiende. */
+  get varianteDeCuenta(): boolean { return this.cuentasDelPaciente.length > 1; }
 
   /**
    * Fiar y cobrar ahora son excluyentes: si se fía, no entra dinero hoy.
@@ -414,15 +432,20 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    */
   private cargarCreditoDelPaciente(pacienteId: number): void {
     this.creditoSugerido = null;
+    this.cuentasDelPaciente = [];
     this.fCuentaCreditoId = null;
     if (!this.puedeFiar) return;
-    this.creditoService.cuentaDePaciente(pacienteId).subscribe(c => {
-      this.creditoSugerido = c && c.activo !== false ? c : null;
+    this.creditoService.cuentasDePaciente(pacienteId).subscribe(cs => {
+      this.cuentasDelPaciente = cs.filter(c => c.activo !== false);
+      // La primera es la sugerida: la última que le pagó algo. Lo normal es que se repita, pero
+      // es una apuesta — el desplegable las lista todas y quien crea la cita decide.
+      this.creditoSugerido = this.cuentasDelPaciente[0] ?? null;
     });
   }
 
   private limpiarCredito(): void {
     this.creditoSugerido = null;
+    this.cuentasDelPaciente = [];
     this.fCuentaCreditoId = null;
   }
 
