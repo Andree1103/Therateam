@@ -105,6 +105,27 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
     return this.citasPendientes.find(c => String(c.id) === String(this.formData.citaId)) ?? null;
   }
 
+  /**
+   * El terapeuta al que corresponde este cobro.
+   *
+   * Sale del paquete o de la cita que se esté cobrando — un pago no elige terapeuta por su
+   * cuenta, lo hereda de lo que cubre. Se enseña como un dato propio del formulario y no solo
+   * dentro del texto del desplegable: al registrar el pago hay que poder ver de quién es la
+   * plata sin volver a abrir la lista.
+   */
+  get terapeutaDelCobro(): string | null {
+    if (this.conceptoPago === 'paquete') return this.tratamientoSeleccionado?.terapeutaNombre || null;
+    if (this.conceptoPago === 'cita')    return this.citaSeleccionada?.terapeuta_nombre || null;
+    return null;
+  }
+
+  /** Y qué terapia es, que es lo que distingue dos citas del mismo terapeuta el mismo día. */
+  get terapiaDelCobro(): string | null {
+    if (this.conceptoPago === 'paquete') return this.tratamientoSeleccionado?.tipoTerapiaNombre || null;
+    if (this.conceptoPago === 'cita')    return this.citaSeleccionada?.tipo_terapia_nombre || null;
+    return null;
+  }
+
   /** Lo que le falta por cobrar a un paquete. Sin esto no se podia filtrar la lista. */
   deudaPaquete(t: { montoTotal?: number; totalCobrado?: number }): number {
     return Math.max(0, (t.montoTotal ?? 0) - (t.totalCobrado ?? 0));

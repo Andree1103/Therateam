@@ -212,6 +212,24 @@
           </select>
         </div>
 
+        <!-- De quien es la plata. El terapeuta salia solo dentro del texto del desplegable, que
+             se cierra en cuanto eliges: al momento de confirmar el cobro ya no se veia. -->
+        <div class="frow frow-terapeuta" *ngIf="terapeutaDelCobro">
+          <label>Terapeuta</label>
+          <div class="dato-fijo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <strong>{{ terapeutaDelCobro }}</strong>
+            <span *ngIf="terapiaDelCobro">&middot; {{ terapiaDelCobro }}</span>
+          </div>
+        </div>
+        <div class="frow frow-terapeuta" *ngIf="conceptoPago === 'adelanto'">
+          <label>Terapeuta</label>
+          <div class="dato-fijo dato-fijo--vacio">
+            Un adelanto a cuenta no es de ningún terapeuta todavía — lo será cuando se use para
+            cobrar una cita o un paquete.
+          </div>
+        </div>
+
         <div class="paquete-resumen" *ngIf="tratamientoSeleccionado as t">
           <div class="paquete-row">
             <span>Paquete: S/ {{ (t.montoTotal ?? 0) | number:'1.2-2' }}</span>
