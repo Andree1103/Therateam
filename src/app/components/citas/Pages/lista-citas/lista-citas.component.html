@@ -313,6 +313,13 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                       {{ c.tipo_terapia_nombre }} · {{ c.modalidad }}
                     </div>
+                    <!-- El comentario que se escribio al crear la cita. Hasta ahora solo salia
+                         como linea dentro del bloque, y solo si el bloque era alto: en una cita
+                         de 30 minutos no cabia y habia que abrirla para leerlo. -->
+                    <div class="hc-row hc-obs" *ngIf="c.observacion || c.notas_previas">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <span class="hc-obs-txt">{{ c.observacion || c.notas_previas }}</span>
+                    </div>
                     <!-- Mini-formulario de pago inline -->
                     <div class="hc-pago-form" *ngIf="citaPagandoId === c.id" (click)="$event.stopPropagation()">
                       <div class="hc-pago-sinprecio" *ngIf="!pagoEsPaquete && !pagoPrecioCita">

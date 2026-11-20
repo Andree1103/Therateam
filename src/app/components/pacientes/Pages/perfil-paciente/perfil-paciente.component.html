@@ -305,6 +305,9 @@
             </th>
             <th>Pago</th>
             <th>Duración</th>
+            <!-- El comentario con que se creo la cita. Se escribia al agendarla y no se veia en
+                 ningun sitio de la ficha del paciente, que es justo donde se la revisa. -->
+            <th>Comentario</th>
           </tr>
         </thead>
         <tbody>
@@ -331,6 +334,9 @@
                     [title]="detallePago(c)">{{ c.estado_pago_nombre || '—' }}</span>
             </td>
             <td>{{ c.duracion_minutos }} min</td>
+            <td class="cita-obs" [title]="c.observacion || c.notas_previas || ''">
+              {{ c.observacion || c.notas_previas || '—' }}
+            </td>
           </tr>
         </tbody>
       </table>

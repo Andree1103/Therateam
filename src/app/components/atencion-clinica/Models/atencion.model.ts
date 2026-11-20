@@ -26,6 +26,9 @@ export interface AtencionClinica {
   metricas?: AtencionMetrica[];
   createdAt?: string;
   updatedAt?: string;
+  /** Quién la registró y quién la tocó por última vez — van en el Excel del historial. */
+  usuarioCreacionNombre?: string | null;
+  usuarioModificacionNombre?: string | null;
 }
 
 export const METRICAS_DEFAULT: Omit<AtencionMetrica, 'id'>[] = [

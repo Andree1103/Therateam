@@ -55,4 +55,6 @@ export interface SaldoMovimiento {
   citaId?: number | null;
   pagoId?: number | null;
   fecha: string;
+  /** Quién registró el movimiento — va en el Excel del historial. */
+  usuarioCreacionNombre?: string | null;
 }

@@ -472,6 +472,11 @@ export class PerfilPacienteComponent implements OnInit {
       'Marca': nombreMarca(c.marca),
       'Marcado por': c.marca_por_nombre ?? '',
       'Marcado el': f(c.marca_en),
+      // Las dos ultimas columnas de cada hoja son siempre las mismas: quien lo creo y quien
+      // lo toco por ultima vez. Antes solo las tenia el Excel de Citas, y al revisar un caso
+      // en la ficha del paciente la pregunta "¿y quien movio esto?" se quedaba sin respuesta.
+      'Usuario creación': c.usuario_creacion_nombre ?? '',
+      'Última edición por': c.usuario_modificacion_nombre ?? '',
     }));
 
     const atenciones = this.atenciones.map(a => {
@@ -487,6 +492,8 @@ export class PerfilPacienteComponent implements OnInit {
           .filter(m => m.valor != null)
           .map(m => `${m.metrica}: ${m.valor}${m.unidad ?? ''}`).join(' · '),
         'Notas': a.notasPost ?? '',
+        'Usuario creación': a.usuarioCreacionNombre ?? c?.usuario_atencion_nombre ?? '',
+        'Última edición por': a.usuarioModificacionNombre ?? '',
       };
     });
 
@@ -501,7 +508,11 @@ export class PerfilPacienteComponent implements OnInit {
       'Aplicado (S/)': p.montoAplicado ?? 0,
       'Saldo generado (S/)': p.saldoGenerado ?? 0,
       'Tipo': p.esDevolucion ? 'Devolución' : (p.esAdicional ? 'Cobro adicional' : 'Pago'),
-      'Registró': p.usuarioCreacionNombre ?? '',
+      'Usuario creación': p.usuarioCreacionNombre ?? '',
+      // Un pago no se edita: se corrige con otro movimiento (devolucion o cobro adicional), asi
+      // que no hay "ultima edicion" que poner. La columna va igual para que las cinco hojas
+      // tengan las mismas dos al final y se puedan leer en paralelo.
+      'Última edición por': '',
     }));
 
     const saldo = this.movimientosSaldo.map(m => ({
@@ -510,6 +521,8 @@ export class PerfilPacienteComponent implements OnInit {
       'Terapeuta': m.terapeutaNombre ?? '',
       'Movimiento (S/)': m.monto,
       'Saldo resultante (S/)': m.saldoResultante,
+      'Usuario creación': m.usuarioCreacionNombre ?? '',
+      'Última edición por': '',
     }));
 
     const nombreArchivo = `paciente_${(this.paciente.dni || this.paciente.apellido || 'historial')}`

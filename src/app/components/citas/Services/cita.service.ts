@@ -397,6 +397,11 @@ export class CitaService {
       metodo_pago_nombre:  dto.metodo_pago_nombre ?? null,
       lote_masivo_id:      dto.lote_masivo_id ?? null,
       usuario_creacion_nombre: dto.usuario_creacion_nombre ?? null,
+      // Estas dos las manda el backend desde hace tiempo y se quedaban aqui: el Excel de Citas
+      // tenia la columna "Ultima edicion por" y salia vacia en todas las filas, porque el mapeo
+      // nunca las copiaba al modelo.
+      usuario_modificacion_nombre: dto.usuario_modificacion_nombre ?? null,
+      usuario_atencion_nombre:     dto.usuario_atencion_nombre ?? null,
       marca:               dto.marca ?? null,
       marca_por_nombre:    dto.marca_por_nombre ?? null,
       marca_en:            dto.marca_en ?? null,
