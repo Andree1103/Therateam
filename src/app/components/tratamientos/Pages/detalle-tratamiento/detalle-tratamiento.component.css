@@ -202,3 +202,18 @@
 
 /* Aclaracion bajo un campo que, en este caso, no hay que rellenar. */
 .campo-nota{font-size:11.5px;color:#047857;margin-top:3px}
+
+/* Aviso de sesiones del paquete que se quedaron sin cita. No es un error del momento sino un
+   estado del paquete, asi que vive en la pantalla y no en un toast: ambar, no rojo — la plata
+   esta cobrada y el paquete es valido, lo unico que falta es poner las citas en el calendario. */
+.aviso-faltantes{display:flex;align-items:center;gap:12px;background:#fffbeb;
+  border:1px solid #fde68a;border-radius:10px;padding:13px 16px;color:#92400e}
+.aviso-faltantes > svg{flex-shrink:0;color:#d97706}
+.af-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.af-txt strong{font-size:13.5px;color:#78350f}
+.af-txt span{font-size:12.5px;color:#a16207;line-height:1.45}
+.aviso-faltantes .btn-secondary{flex-shrink:0;border-color:#fcd34d;background:#fff;color:#92400e}
+@media (max-width:640px){
+  .aviso-faltantes{flex-wrap:wrap}
+  .aviso-faltantes .btn-secondary{width:100%;justify-content:center}
+}

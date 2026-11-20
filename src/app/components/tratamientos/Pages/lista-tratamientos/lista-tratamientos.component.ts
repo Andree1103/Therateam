@@ -240,6 +240,13 @@ export class ListaTratamientosComponent implements OnInit {
           'Citas agendadas': t.citasTotal ?? 0,
           'Citas atendidas': t.citasAtendidas ?? 0,
           'Citas no asistidas': t.citasNoAsistidas ?? 0,
+          // Lo que el paciente ya pago y todavia no recibio. Es la columna por la que se
+          // preguntaba al cerrar el mes: un paquete puede estar cobrado entero y tener la mitad
+          // de sus sesiones por dar, y eso es plata de la clinica que todavia debe un servicio.
+          'Citas pagadas sin usar': t.citasPagadasSinUsar ?? 0,
+          // Un paquete puede estar cobrado por N sesiones y tener menos citas en el
+          // calendario: las fechas que chocaron al crearlo nunca se agendaron.
+          'Sesiones sin agendar': t.sesionesSinAgendar ?? 0,
           'Precio por sesión (S/)': t.precioPorSesion ?? '',
           'Monto total (S/)': t.montoTotal ?? '',
           'Total cobrado (S/)': t.totalCobrado ?? '',
@@ -479,6 +486,9 @@ export class ListaTratamientosComponent implements OnInit {
   private ajustarSesionesPorAbsorbidas(): void {
     const n = this.citasAAbsorber.size;
     if (n > 0 && (this.formData.sesionesTotal ?? 0) < n) this.formData.sesionesTotal = n;
+    // Marcar o desmarcar una candidata cambia cuántas fechas hay que proponer y cuáles quedan
+    // ocupadas, así que el horario de abajo se vuelve a calcular con cada cambio.
+    this.calcularBulkDates();
   }
 
   /** Lo que se le va a cobrar a cada una de las citas absorbidas. */
@@ -662,11 +672,16 @@ export class ListaTratamientosComponent implements OnInit {
     const fechaBase = this.editando ? this.bulkFechaDesdeEdicion : this.formData.fechaInicio;
     if (!fechaBase) return;
     const diasActivos = this.bulkDias.map((v, i) => v ? i : -1).filter(i => i >= 0);
+    // Al crear, las citas que se van a absorber YA son sesiones del paquete: el horario solo
+    // tiene que rellenar las que faltan. Antes se pedían las N del total igual, así que las
+    // fechas de las absorbidas se volvían a proponer y el backend las rechazaba una por una
+    // por chocar consigo mismas — el paquete nacía con menos citas de las que decía tener.
     const totalSesiones = this.editando
       ? (this.bulkAccionEdicion === 'reprogramar' ? this.citasFuturasReprogramables.length : this.sesionesFaltantes)
-      : (this.formData.sesionesTotal ?? 0);
+      : Math.max(0, (this.formData.sesionesTotal ?? 0) - this.nAbsorber);
     if (diasActivos.length === 0 || totalSesiones < 1) return;
 
+    const yaOcupados = this.horariosDeLasAbsorbidas();
     const [y, mo, d] = fechaBase.split('-').map(Number);
     let cursor = new Date(y, mo - 1, d);
     let count = 0, tries = 0;
@@ -677,13 +692,33 @@ export class ListaTratamientosComponent implements OnInit {
         const [fH, fM] = (this.bulkHoras[dow] || '08:00').split(':').map(Number);
         const date = new Date(cursor);
         date.setHours(fH, fM, 0, 0);
-        this.bulkPreview.push(date);
-        count++;
+        // Y además se saltan sus horarios: restar la cantidad no basta si la serie arranca
+        // antes de la última absorbida — las primeras fechas caerían justo encima de ellas.
+        if (!yaOcupados.has(this.claveDeHorario(date))) {
+          this.bulkPreview.push(date);
+          count++;
+        }
       }
       cursor = new Date(cursor);
       cursor.setDate(cursor.getDate() + 1);
     }
     this.cargarConflictosBulk();
+  }
+
+  /** Día y hora exactos de cada cita marcada para absorber, para no volver a proponerlos. */
+  private horariosDeLasAbsorbidas(): Set<string> {
+    const claves = new Set<string>();
+    if (this.editando) return claves;
+    for (const c of this.citasAbsorbibles) {
+      if (!this.citasAAbsorber.has(c.id) || !c.fecha_inicio) continue;
+      claves.add(this.claveDeHorario(new Date(c.fecha_inicio)));
+    }
+    return claves;
+  }
+
+  private claveDeHorario(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
   /** Trae la disponibilidad real (fresca, sin caché) del terapeuta para todo el rango de fechas
@@ -863,7 +898,11 @@ export class ListaTratamientosComponent implements OnInit {
 
   guardar(form: NgForm): void {
     if (form.invalid) { form.control.markAllAsTouched(); return; }
-    if (!this.editando && this.bulkPreview.length === 0) {
+    // Un paquete nace con sus citas. La excepción es que ya estén todas: si las citas marcadas
+    // para absorber cubren el total de sesiones, no hay nada que programar y exigir un horario
+    // sería pedir fechas que no se van a usar.
+    const todasAbsorbidas = this.nAbsorber >= (this.formData.sesionesTotal ?? 0) && this.nAbsorber > 0;
+    if (!this.editando && this.bulkPreview.length === 0 && !todasAbsorbidas) {
       this.toast.warning('Programa el horario del paquete (elige terapeuta, fecha de inicio y al menos un día) — las citas se crean junto con el paquete.');
       return;
     }
@@ -960,18 +999,41 @@ export class ListaTratamientosComponent implements OnInit {
         tipoRecurrencia: 'FIJO',
       }).pipe(
         // Si una fecha puntual falla (ej. conflicto real de horario), no se aborta el resto —
-        // se sigue con las demás y se cuenta cuántas sí se lograron crear.
+        // se sigue con las demás y se guarda QUÉ dijo el backend de esa fecha. Antes se tragaba
+        // el motivo y el aviso final decía "conflicto de horario" para todo: con un paquete que
+        // perdió una sesión porque el paciente ya tenía otra cita de otra terapia a esa hora,
+        // nadie podía saber cuál era ni resolverlo sin ir a buscarla a mano.
         map(r => ({ ok: true as const, r })),
-        catchError(() => of({ ok: false as const }))
+        catchError(err => of({
+          ok: false as const,
+          fecha,
+          motivo: (err?.error?.error || err?.error?.message || '').toString().trim(),
+        }))
       )),
       toArray()
     ).subscribe(resultados => {
-      const exitosas = resultados.filter(r => r.ok).length;
-      if (exitosas < resultados.length) {
-        this.toast.warning(`Se crearon ${exitosas} de ${resultados.length} citas — las demás tenían conflicto de horario, créalas desde Citas.`);
-      }
+      const fallidas = resultados.filter(r => !r.ok) as { ok: false; fecha: Date; motivo: string }[];
+      const exitosas = resultados.length - fallidas.length;
+      if (fallidas.length > 0) this.avisarCitasQueNoEntraron(fallidas, resultados.length);
       this.continuarDespuesDeGuardar(paquete, false, exitosas);
     });
+  }
+
+  /**
+   * Dice exactamente qué fechas no se pudieron agendar y por qué.
+   *
+   * El aviso vive poco en pantalla, así que nombra las fechas y el motivo del backend tal cual
+   * (que ya identifica la cita que estorba). Lo que queda después es la propia pantalla del
+   * paquete, que desde ahora enseña de forma permanente cuántas sesiones le faltan por agendar.
+   */
+  private avisarCitasQueNoEntraron(fallidas: { fecha: Date; motivo: string }[], intentadas: number): void {
+    const detalle = fallidas
+      .map(f => `${fechaHoraCortaConDia(f.fecha)}${f.motivo ? ` — ${f.motivo}` : ''}`)
+      .join(' | ');
+    this.toast.warning(
+      `Se crearon ${intentadas - fallidas.length} de ${intentadas} citas. ` +
+      `No entraron: ${detalle}. El paquete queda con sesiones sin agendar — créalas desde el paquete cuando liberes el horario.`
+    );
   }
 
   private toLocalDT(d: Date): string {

@@ -41,6 +41,21 @@ export interface Tratamiento {
   citasTotal?: number;
   citasAtendidas?: number;
   citasNoAsistidas?: number;
+  /**
+   * Citas del paquete ya pagadas que el paciente todavía no ha recibido.
+   *
+   * Un paquete se cobra por adelantado, así que sus citas nacen pagadas y se van gastando. Esto
+   * es lo que le queda a favor dentro del paquete: ni atendidas, ni anuladas, ni inasistencias,
+   * ni reprogramadas.
+   */
+  citasPagadasSinUsar?: number;
+  /**
+   * Sesiones del paquete que todavía no tienen cita en el calendario.
+   *
+   * Un paquete puede nacer corto sin que nadie se entere: al crearlo, cada fecha que choca
+   * con otra cita del paciente se pierde con un aviso que dura segundos.
+   */
+  sesionesSinAgendar?: number;
 
   usuarioCreacionNombre?: string;
 }

@@ -180,6 +180,22 @@ export class DetalleTratamientoComponent implements OnInit {
     return Math.max(0, (this.tratamiento?.totalSesiones ?? 0) - this.sesiones.length);
   }
 
+  /** Sesiones del paquete que ya tienen su cita en el calendario. */
+  get sesionesAgendadas(): number {
+    return this.sesiones.filter(s => !!s.citaActiva).length;
+  }
+
+  /**
+   * Sesiones cobradas que todavía no están en el calendario.
+   *
+   * No es lo mismo que sesionesFaltantes: esa cuenta las filas de sesión que faltan por crear,
+   * y una fila puede existir sin cita (se liberó al anular). Lo que hay que avisar es lo que el
+   * paciente tiene pagado y no tiene día: por eso se cuenta contra las que sí tienen cita.
+   */
+  get sesionesSinAgendar(): number {
+    return Math.max(0, (this.tratamiento?.totalSesiones ?? 0) - this.sesionesAgendadas);
+  }
+
   /** Lo que falta por pagar de una sesión puntual — el precio completo si no tiene nada pagado
    *  todavía, o solo el resto si ya quedó PARCIAL de un pago anterior (ej. el adelanto inicial). */
   saldoPendienteSesion(s: Sesion): number {

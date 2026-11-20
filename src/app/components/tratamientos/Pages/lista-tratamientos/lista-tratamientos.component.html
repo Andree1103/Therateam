@@ -112,6 +112,12 @@
                 <div class="progress-bar-mini" *ngIf="t.totalSesiones && t.totalSesiones > 0">
                   <div class="progress-fill-mini" [style.width.%]="getProgreso(t)"></div>
                 </div>
+                <!-- Sesiones cobradas que nunca llegaron al calendario. Va aqui, al lado del
+                     contador, porque es la unica señal de que el paquete esta incompleto. -->
+                <span class="ses-sin-agendar" *ngIf="(t.sesionesSinAgendar ?? 0) > 0"
+                      [title]="'Es un paquete de ' + t.totalSesiones + ' sesiones y ' + t.sesionesSinAgendar + ' siguen sin cita en el calendario'">
+                  {{ t.sesionesSinAgendar }} sin agendar
+                </span>
               </td>
               <td>{{ t.precioPorSesion ? ('S/ ' + t.precioPorSesion) : '—' }}</td>
               <td>
