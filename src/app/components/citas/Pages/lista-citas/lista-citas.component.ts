@@ -885,6 +885,16 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
    * la suposición inicial, sin poder elegirlo nunca para corregirla.
    */
   get terapeutasDisponiblesModal(): Terapeuta[] {
+    // Los dados de baja no se ofrecen para agendar. Se deja pasar al que ya tiene la cita que
+    // se esta editando: si no, al abrir una cita de alguien que acaba de salir de la clinica el
+    // campo saldria vacio y no se podria ni cambiarle la hora. El backend repite la regla.
+    return this.terapeutasElegiblesSegunHorario.filter(
+      t => t.activo !== false || terapeutaNombre(t) === this.fTer
+    );
+  }
+
+  /** La lista de siempre —area, jornada, cupo—, sin mirar todavia si estan de alta. */
+  private get terapeutasElegiblesSegunHorario(): Terapeuta[] {
     // Con un paquete seleccionado, el terapeuta ya viene fijado por el paquete (campo bloqueado
     // más abajo) — no tiene sentido filtrarlo por disponibilidad de horario: siempre debe aparecer
     // esa única opción para que el <select disabled> pueda mostrar su valor en vez de quedar vacío.

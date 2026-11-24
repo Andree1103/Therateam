@@ -38,8 +38,20 @@ export class TerapeutaService {
     return this.api.get<Terapeuta>(`${this.PATH}/${id}`);
   }
 
-  delete(id: number): Observable<void> {
+  /**
+   * Dar de baja a un terapeuta. No borra nada.
+   *
+   * El verbo sigue siendo DELETE porque es el mismo endpoint de siempre, pero lo que hace el
+   * backend es apagar la bandera activo del terapeuta y la de su usuario. Se llama darDeBaja y
+   * no delete justamente para que desde aqui no parezca un borrado.
+   */
+  darDeBaja(id: number): Observable<void> {
     return this.api.delete<void>(`${this.PATH}/${id}`);
+  }
+
+  /** Los que hoy se pueden elegir para agendar. Los de baja no entran. */
+  getActivos(): Observable<Terapeuta[]> {
+    return this.getAll().pipe(map(list => list.filter(t => t.activo !== false)));
   }
 
   createCompleto(body: TerapeutaCompletoRequest): Observable<Terapeuta> {
@@ -51,7 +63,7 @@ export class TerapeutaService {
   }
 
   getParaDropdown(): Observable<{ id: number; nombre: string }[]> {
-    return this.getAll().pipe(
+    return this.getActivos().pipe(
       map(list => list.map(t => ({ id: t.id!, nombre: terapeutaNombre(t) })))
     );
   }

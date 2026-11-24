@@ -247,22 +247,38 @@ export class ListaTerapeutasComponent implements OnInit {
   }
   cerrarEliminar(): void { this.modalEliminar = false; this.terapeutaAEliminar = null; }
 
+  /**
+   * Dar de baja. La fila NO se saca de la lista: se queda con su badge en Inactivo.
+   *
+   * Antes esto borraba de verdad y por eso fallaba — siete tablas apuntan a terapeutas y
+   * cuatro de ellas lo bloquean, asi que cualquiera que hubiera atendido una sola vez
+   * reventaba contra la llave foranea y en pantalla solo se leia "Error al eliminar". Ahora el
+   * backend apaga la bandera y devuelve el mismo 204, asi que la fila sigue existiendo.
+   *
+   * Quitarla de la tabla seria mentir: si el filtro esta en "Todos" o en "Inactivos", ahi
+   * tiene que seguir. Se recarga la pagina para que el filtro vigente decida si se ve o no.
+   */
   eliminar(): void {
     if (!this.terapeutaAEliminar?.id) return;
     this.eliminando = true;
-    const id = this.terapeutaAEliminar.id;
-    this.terapeutaService.delete(id).subscribe({
+    const nombre = this.nombreCompleto(this.terapeutaAEliminar);
+    this.terapeutaService.darDeBaja(this.terapeutaAEliminar.id).subscribe({
       next: () => {
-        this.toast.success('Terapeuta eliminado');
+        this.toast.success(`${nombre} quedo de baja`);
         this.cerrarEliminar(); this.eliminando = false;
-        this.terapeutas = this.terapeutas.filter(t => t.id !== id);
-        this.totalElementos = Math.max(0, this.totalElementos - 1);
-        if (this.terapeutas.length === 0 && this.paginaActual > 0) {
-          this.paginaActual--; this.cargar();
-        }
+        this.cargar();
       },
-      error: () => { this.toast.error('Error al eliminar'); this.eliminando = false; }
+      error: (e) => {
+        this.toast.error(this.mensajeDeError(e, 'No se pudo dar de baja al terapeuta'));
+        this.eliminando = false;
+      }
     });
+  }
+
+  /** Lo que diga el backend, si dice algo; si no, el texto de respaldo. */
+  private mensajeDeError(e: any, porDefecto: string): string {
+    const m = e?.error?.message ?? e?.error?.error ?? (typeof e?.error === 'string' ? e.error : null);
+    return typeof m === 'string' && m.trim() ? m : porDefecto;
   }
 
   // ── Modal horario (principal) ─────────────────────────────────────────────

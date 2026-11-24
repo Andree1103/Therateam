@@ -501,8 +501,19 @@ export class ListaTratamientosComponent implements OnInit {
   }
 
   /** Solo terapeutas del área elegida — si aún no hay área, se ven todos. */
+  /**
+   * Los que se pueden elegir para el paquete: los del area, y de alta.
+   *
+   * Al que ya esta puesto en el paquete que se edita se le deja pasar aunque este de baja — si
+   * no, abrir un paquete de alguien que acaba de salir de la clinica dejaria el campo en blanco
+   * y cualquier guardado se lo borraria sin que nadie lo pidiera. El backend repite la regla al
+   * crear paquetes nuevos.
+   */
   get terapeutasFiltrados(): Terapeuta[] {
-    return this.fAreaId == null ? this.terapeutasTodos : this.terapeutasTodos.filter(t => t.area?.id === this.fAreaId);
+    const delArea = this.fAreaId == null
+      ? this.terapeutasTodos
+      : this.terapeutasTodos.filter(t => t.area?.id === this.fAreaId);
+    return delArea.filter(t => t.activo !== false || t.id === this.formData.terapeutaId);
   }
 
   onAreaChange(): void {

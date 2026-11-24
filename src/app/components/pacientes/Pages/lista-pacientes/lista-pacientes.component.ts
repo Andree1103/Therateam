@@ -479,8 +479,14 @@ export class ListaPacientesComponent implements OnInit {
     return texto.toLowerCase().includes(filtro.trim().toLowerCase());
   }
 
+  /**
+   * Un horario fijo es agenda a futuro, asi que los dados de baja no se ofrecen. El que ya
+   * estuviera elegido se mantiene, para no vaciar el campo a mitad de la edicion.
+   */
   terapeutasFiltradosHF(): Terapeuta[] {
-    return this.terapeutas.filter(t => this.coincide(this.nombreTerapeuta(t.id), this.hfTerapeutaTexto));
+    return this.terapeutas.filter(t =>
+      (t.activo !== false || t.id === this.hfTerapeutaId)
+      && this.coincide(this.nombreTerapeuta(t.id), this.hfTerapeutaTexto));
   }
 
   terapiasFiltradasHF(): CatalogItem[] {

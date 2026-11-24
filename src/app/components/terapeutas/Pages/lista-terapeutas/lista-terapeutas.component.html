@@ -90,8 +90,11 @@
                 <button class="btn-icon" *ngIf="puedeEditar" (click)="abrirEditar(t)" title="Editar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon btn-icon-danger" *ngIf="puedeEliminar" (click)="abrirEliminar(t)" title="Eliminar">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                <!-- Dar de baja, no eliminar: la ficha se queda para que el historial de citas,
+                     paquetes y cobros siga diciendo quien atendio. Al que ya esta de baja no se
+                     le ofrece: se reactiva desde Editar. -->
+                <button class="btn-icon btn-icon-danger" *ngIf="puedeEliminar && t.activo !== false" (click)="abrirEliminar(t)" title="Dar de baja">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
                 </button>
               </div>
             </td>
@@ -462,18 +465,23 @@
 <div class="modal-overlay" *ngIf="modalEliminar">
   <div class="modal modal-sm" (click)="$event.stopPropagation()">
     <div class="modal-hdr">
-      <h2>Eliminar terapeuta</h2>
+      <h2>Dar de baja al terapeuta</h2>
       <button class="modal-close" (click)="cerrarEliminar()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="modal-body">
-      <p class="confirm-msg">¿Eliminar a <strong>{{ nombreCompleto(terapeutaAEliminar!) }}</strong>? Esta acción no se puede deshacer.</p>
+      <p class="confirm-msg">¿Dar de baja a <strong>{{ nombreCompleto(terapeutaAEliminar!) }}</strong>?</p>
+      <p class="confirm-sub">
+        Deja de aparecer para agendar citas y paquetes nuevos, y pierde el acceso al sistema.
+        Su historial de citas, paquetes y cobros se queda intacto, y sus citas ya programadas
+        siguen en la agenda. Se puede revertir reactivándolo desde Editar.
+      </p>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" (click)="cerrarEliminar()">Cancelar</button>
       <button class="btn-danger" (click)="eliminar()" [disabled]="eliminando">
-        {{ eliminando ? 'Eliminando...' : 'Eliminar' }}
+        {{ eliminando ? 'Dando de baja...' : 'Dar de baja' }}
       </button>
     </div>
   </div>

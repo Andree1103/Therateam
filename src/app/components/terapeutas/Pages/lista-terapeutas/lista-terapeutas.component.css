@@ -58,6 +58,8 @@
 .err-input{border-color:#ef4444!important}
 .err-msg{font-size:11px;color:#ef4444}
 .confirm-msg{font-size:14px;color:#334155;margin:0;line-height:1.6}
+/* El detalle de que implica la baja: se lee despues de la pregunta, no compite con ella. */
+.confirm-sub{font-size:13px;color:#64748b;margin:10px 0 0;line-height:1.6}
 .esp-checks{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
 .esp-check{display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;cursor:pointer}
 .esp-check input{cursor:pointer;accent-color:#185FA5}
