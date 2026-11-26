@@ -1974,7 +1974,10 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
           });
         }
       },
-      error: () => { this.toast.error('Error al registrar el pago'); this.guardandoPago = false; }
+      // Lo que diga el backend, si dice algo. El texto generico se tragaba el motivo:
+      // cuando una sesion ya estaba cubierta por su paquete, el mostrador leia "Error al
+      // registrar el pago", no entendia nada y volvia a intentarlo.
+      error: (err) => { this.toast.error(err?.error?.error || 'Error al registrar el pago'); this.guardandoPago = false; }
     });
   }
 

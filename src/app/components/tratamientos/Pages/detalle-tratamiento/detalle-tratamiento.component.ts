@@ -523,8 +523,10 @@ export class DetalleTratamientoComponent implements OnInit {
         this.cargar();
         this.guardandoPago = false;
       },
-      error: () => {
-        this.toast.error('Error al registrar el pago');
+      // Lo que diga el backend, si dice algo: con el texto generico no se podia saber que
+      // una sesion ya estaba cubierta por su paquete.
+      error: (err) => {
+        this.toast.error(err?.error?.error || 'Error al registrar el pago');
         this.guardandoPago = false;
       }
     });
