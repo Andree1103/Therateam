@@ -191,11 +191,11 @@ export class ListaAdelantosComponent implements OnInit {
   /** Exporta TODOS los pacientes con saldo a favor que cumplen el filtro actual (no solo la página visible). */
   exportarExcel(): void {
     this.exportando = true;
-    this.pacienteService.getAdelantos(0, 10000, this.filtroPaciente).subscribe({
-      next: res => {
+    this.pacienteService.getTodosLosAdelantos(this.filtroPaciente).subscribe({
+      next: conSaldo => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay adelantos para exportar con el filtro actual'); return; }
-        const filas = res.content.map(p => ({
+        if (conSaldo.length === 0) { this.toast.warning('No hay adelantos para exportar con el filtro actual'); return; }
+        const filas = conSaldo.map(p => ({
           'Paciente': `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
           'DNI': p.dni ?? '',
           'Teléfono': p.telefono ?? '',

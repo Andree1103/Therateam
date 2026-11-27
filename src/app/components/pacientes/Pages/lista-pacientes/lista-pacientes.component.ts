@@ -141,15 +141,14 @@ export class ListaPacientesComponent implements OnInit {
                       creadoDesde: this.exportDesde || this.filtroCreadoDesde || null,
                       creadoHasta: this.exportHasta || this.filtroCreadoHasta || null };
     forkJoin({
-      pagina:   this.pacienteService.getAllPaged(0, 10000, filtros),
+      pacientes: this.pacienteService.getTodoFiltrado(filtros),
       // El null distingue "falló la consulta" de "nadie tiene horario": tragarse el error y
       // devolver [] hacía decir "ningún paciente tiene horario fijo" cuando en realidad el
       // servidor no había respondido — un mensaje que manda a revisar los datos, que estan bien.
       horarios: this.pacienteService.getHorariosFijosDeTodos(filtros).pipe(catchError(() => of(null))),
     }).subscribe({
-      next: ({ pagina, horarios }) => {
+      next: ({ pacientes, horarios }) => {
         this.exportando = false;
-        const pacientes = pagina.content;
         if (pacientes.length === 0) { this.toast.warning('No hay pacientes para exportar con los filtros actuales'); return; }
 
         if (horarios === null) {

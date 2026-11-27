@@ -26,9 +26,7 @@ export class PagoService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Pago[]> {
-    return this.api.get<PageResponse<Pago> | Pago[]>(this.PATH, { size: '1000' }).pipe(
-      map(r => Array.isArray(r) ? r : r.content)
-    );
+    return this.api.getTodo<Pago>(this.PATH);
   }
 
   /**
@@ -49,7 +47,13 @@ export class PagoService {
   /** Para el listado paginado (server-side): page 0-based, tamaño, búsqueda y filtros por back. */
   getAllPaged(page: number, size: number, filtros: PagoFiltros = {}): Observable<PageResponse<Pago>> {
     return this.api.get<PageResponse<Pago>>(this.PATH, {
-      page: String(page), size: String(size),
+      page: String(page), size: String(size), ...this.paramsDe(filtros),
+    });
+  }
+
+  /** Los filtros tal como viajan en la consulta, para la pagina y para el Excel. */
+  private paramsDe(filtros: PagoFiltros): Record<string, string | undefined> {
+    return {
       paciente: filtros.paciente?.trim() || undefined,
       referencia: filtros.referencia?.trim() || undefined,
       metodoId: filtros.metodoId != null ? String(filtros.metodoId) : undefined,
@@ -58,7 +62,18 @@ export class PagoService {
       montoMax: filtros.montoMax != null ? String(filtros.montoMax) : undefined,
       fechaInicio: filtros.fechaInicio || undefined,
       fechaFin: filtros.fechaFin || undefined,
-    });
+    };
+  }
+
+  /**
+   * Trae TODO lo que cumpla los filtros, sin tope: pide las paginas que haga falta.
+   *
+   * Lo usa el Excel. Antes pedia una sola pagina de 10.000 filas, que es un numero que hoy
+   * alcanza y manana no --y cuando no alcance, el archivo saldra corto sin decir nada, que es
+   * justo lo que paso con el de citas--. Ver ApiService.getTodo.
+   */
+  getTodoFiltrado(filtros: PagoFiltros = {}): Observable<Pago[]> {
+    return this.api.getTodo<Pago>(this.PATH, this.paramsDe(filtros));
   }
 
   getByPaciente(pacienteId: number): Observable<Pago[]> {

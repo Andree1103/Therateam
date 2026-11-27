@@ -219,11 +219,11 @@ export class ListaTratamientosComponent implements OnInit {
       desde: this.exportDesde || null,
       hasta: this.exportHasta || null,
     };
-    this.tratamientoService.getAllPaged(0, 10000, filtros).subscribe({
-      next: res => {
+    this.tratamientoService.getTodoFiltrado(filtros).subscribe({
+      next: paquetes => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay paquetes para exportar en ese rango'); return; }
-        const filas = res.content.map(t => ({
+        if (paquetes.length === 0) { this.toast.warning('No hay paquetes para exportar en ese rango'); return; }
+        const filas = paquetes.map(t => ({
           'Paquete': t.nombre ?? '',
           'Paciente': tratamientoPaciente(t),
           'DNI': t.pacienteDni ?? '',

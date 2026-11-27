@@ -60,16 +60,13 @@ export class CitaService {
   getCitas(filtros?: { fechaInicio?: Date; fechaFin?: Date; terapeuta?: string }): Observable<Cita[]> {
     const hasFiltros = filtros && (filtros.fechaInicio || filtros.fechaFin || filtros.terapeuta);
     if (!hasFiltros) {
-      return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(this.PATH, { size: '1000' }).pipe(
-        map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d)))
-      );
+      return this.api.getTodo<CitaApiDTO>(this.PATH).pipe(map(l => l.map(d => this.mapDTO(d))));
     }
-    return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(`${this.PATH}/filtro`, {
+    return this.api.getTodo<CitaApiDTO>(`${this.PATH}/filtro`, {
       fechaInicio: filtros!.fechaInicio ? this.toISOLocal(filtros!.fechaInicio) : undefined,
       fechaFin:    filtros!.fechaFin    ? this.toISOLocal(filtros!.fechaFin)    : undefined,
       terapeuta:   filtros!.terapeuta,
-      size: '1000',
-    }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
+    }).pipe(map(l => l.map(d => this.mapDTO(d))));
   }
 
   /**
@@ -100,7 +97,13 @@ export class CitaService {
     paciente?: string;
     terapeutaIds?: number[];
   }): Observable<Cita[]> {
-    return this.api.get<PageResponse<CitaApiDTO> | CitaApiDTO[]>(`${this.PATH}/filtro`, {
+    // Sin tope: se piden todas las páginas que haga falta (ver ApiService.getTodo).
+    //
+    // Antes iba con `size: '2000'` y el comentario decía que una semana de la clínica «no llega
+    // a estas cifras ni de lejos». Para la semana era cierto; lo que no se vio es que esta
+    // misma función la usa el Excel por rango de fechas, y un trimestre son 3.278 citas. Las
+    // 1.278 de la segunda página no salían en el archivo y nadie avisaba.
+    return this.api.getTodo<CitaApiDTO>(`${this.PATH}/filtro`, {
       fechaInicio:    this.toLocalDateTime(f.desde),
       fechaFin:       this.toLocalDateTime(f.hasta),
       estadoKey:      f.estadoKey      || undefined,
@@ -109,10 +112,7 @@ export class CitaService {
       paciente:       f.paciente       || undefined,
       // Repetido como `terapeutaIds=1&terapeutaIds=2`, que es como Spring arma un List<Long>.
       terapeutaIds:   f.terapeutaIds && f.terapeutaIds.length ? f.terapeutaIds.join(',') : undefined,
-      // Una semana de toda la clínica no llega a estas cifras ni de lejos (en producción son ~40);
-      // el tope está solo para que una semana atípica no se corte en la página por defecto de 50.
-      size: '2000',
-    }).pipe(map(r => (Array.isArray(r) ? r : r.content).map(d => this.mapDTO(d))));
+    }).pipe(map(l => l.map(d => this.mapDTO(d))));
   }
 
   /** Listado paginado por filtros (usado por el módulo Atenciones: estadoKey='ASISTIDA' + terapeuta/paciente/área/fecha).
@@ -179,6 +179,29 @@ export class CitaService {
       sinMarca:    filtros.sinMarca ? 'true' : undefined,
       sort:        sort || undefined,
     }).pipe(map(r => ({ ...r, content: r.content.map(d => this.mapDTO(d)) })));
+  }
+
+  /**
+   * Lo mismo que getFiltroPaged pero TODO, sin tope: pide las paginas que haga falta.
+   *
+   * Lo usa el Excel de Atenciones, que pedia una sola pagina de 10.000 filas. Ver
+   * ApiService.getTodo: el orden lo fija esa funcion, asi que aqui no se pasa `sort` --quien
+   * arma las filas del Excel las ordena como las quiera ver.
+   */
+  getTodoFiltrado(filtros: {
+    fechaInicio?: Date; fechaFin?: Date; terapeuta?: string; estadoKey?: string; paciente?: string;
+    areaId?: number | null; metodoPagoId?: number | null; sinMarca?: boolean;
+  }): Observable<Cita[]> {
+    return this.api.getTodo<CitaApiDTO>(`${this.PATH}/filtro`, {
+      fechaInicio: filtros.fechaInicio ? this.toISOLocal(filtros.fechaInicio) : undefined,
+      fechaFin:    filtros.fechaFin    ? this.toISOLocal(filtros.fechaFin)    : undefined,
+      terapeuta:   filtros.terapeuta || undefined,
+      estadoKey:   filtros.estadoKey || undefined,
+      paciente:    filtros.paciente || undefined,
+      areaId:      filtros.areaId != null ? String(filtros.areaId) : undefined,
+      metodoPagoId: filtros.metodoPagoId != null ? String(filtros.metodoPagoId) : undefined,
+      sinMarca:    filtros.sinMarca ? 'true' : undefined,
+    }).pipe(map(l => l.map(d => this.mapDTO(d))));
   }
 
   getCitaById(id: string): Observable<Cita> {

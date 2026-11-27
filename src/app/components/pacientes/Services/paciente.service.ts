@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { Paciente, SaldoMovimiento } from '../Models/paciente.model';
 import { PageResponse } from '../../../core/models/page.model';
@@ -24,15 +24,14 @@ export class PacienteService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Paciente[]> {
-    return this.api.get<PageResponse<Paciente> | Paciente[]>(this.PATH, { size: '1000' }).pipe(
-      map(r => Array.isArray(r) ? r : r.content)
-    );
+    return this.api.getTodo<Paciente>(this.PATH);
   }
 
-  /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
-  getAllPaged(page: number, size: number, filtros: PacienteFiltros = {}): Observable<PageResponse<Paciente>> {
-    return this.api.get<PageResponse<Paciente>>(this.PATH, {
-      page: String(page), size: String(size),
+  /** Los filtros tal como viajan en la consulta. Uno solo para la pagina y para el Excel: si
+   *  cada uno los armara por su cuenta, el archivo acabaria respondiendo a otros filtros que
+   *  los de la pantalla. */
+  private paramsDe(filtros: PacienteFiltros): Record<string, string | undefined> {
+    return {
       nombre: filtros.nombre?.trim() || undefined,
       dni: filtros.dni?.trim() || undefined,
       correo: filtros.correo?.trim() || undefined,
@@ -40,7 +39,25 @@ export class PacienteService {
       activo: filtros.activo == null ? undefined : String(filtros.activo),
       creadoDesde: filtros.creadoDesde || undefined,
       creadoHasta: filtros.creadoHasta || undefined,
+    };
+  }
+
+  /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
+  getAllPaged(page: number, size: number, filtros: PacienteFiltros = {}): Observable<PageResponse<Paciente>> {
+    return this.api.get<PageResponse<Paciente>>(this.PATH, {
+      page: String(page), size: String(size), ...this.paramsDe(filtros),
     });
+  }
+
+  /**
+   * Trae TODO lo que cumpla los filtros, sin tope: pide las paginas que haga falta.
+   *
+   * Lo usa el Excel. Antes pedia una sola pagina de 10.000 filas, que es un numero que hoy
+   * alcanza y manana no --y cuando no alcance, el archivo saldra corto sin decir nada, que es
+   * justo lo que paso con el de citas--. Ver ApiService.getTodo.
+   */
+  getTodoFiltrado(filtros: PacienteFiltros = {}): Observable<Paciente[]> {
+    return this.api.getTodo<Paciente>(this.PATH, this.paramsDe(filtros));
   }
 
   /** Reporte de adelantos: pacientes con saldo a favor disponible. */
@@ -84,6 +101,12 @@ export class PacienteService {
       page: String(page), size: String(size),
       nombre: nombre?.trim() || undefined,
     });
+  }
+
+  /** Todos los pacientes con saldo a favor que cumplan el filtro, para el Excel. */
+  getTodosLosAdelantos(nombre?: string): Observable<Paciente[]> {
+    return this.api.getTodo<Paciente>(`${this.PATH}/adelantos`,
+      { nombre: nombre?.trim() || undefined });
   }
 
   getById(id: number): Observable<Paciente> {

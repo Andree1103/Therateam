@@ -584,20 +584,15 @@ export class ListaCitasComponent implements OnInit, OnDestroy {
     private host: ElementRef<HTMLElement>
   ) {}
 
-  // ── Exportar a Excel ─────────────────────────────────────────────────────
-  // Exporta las citas que cumplen los filtros activos (terapeuta/área + estado/pago/tipo/paciente),
-  // sin importar la semana que se esté viendo — igual set de datos que ya trajo el backend.
-  /**
-   * Exporta lo que se está viendo: la semana visible con los filtros puestos.
-   *
-   * Sale directo de `this.citas`, sin pedir nada extra, porque esa lista ya ES exactamente eso —
-   * el servidor la devuelve acotada a la semana y filtrada. Antes no coincidía: la lista traía
-   * las 1000 primeras citas de siempre, así que al pararse en octubre el excel salía incompleto
-   * sin avisar de nada.
-   */
-  // ── Exportar un rango de fechas ──────────────────────────────────────────
-  // Antes salia solo la semana que estabas viendo. Para sacar un mes habia que pasar semana a
-  // semana exportando cuatro veces y pegar las hojas.
+  // ────────────────────────────── Exportar a Excel, por rango de fechas ──────────────────────────────
+  //
+  // Antes salia solo la semana que estabas viendo. Para sacar un mes habia que pasar semana
+  // a semana exportando cuatro veces y pegar las hojas.
+  //
+  // Las citas se piden al servidor por el rango elegido, no se sacan de `this.citas`: ahi
+  // solo esta la semana cargada. Y se piden TODAS, no una pagina (ver ApiService.getTodo):
+  // un trimestre son 3.278 citas y el Excel se quedaba con las 2.000 de la primera pagina,
+  // repartidas por todo el rango, asi que el archivo parecia completo.
 
   mostrarRangoExport = false;
   exportDesde = '';

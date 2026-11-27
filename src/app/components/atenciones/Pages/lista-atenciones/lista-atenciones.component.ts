@@ -346,11 +346,11 @@ export class ListaAtencionesComponent implements OnInit {
       fechaInicio: this.exportDesde ? new Date(`${this.exportDesde}T00:00:00`) : undefined,
       fechaFin:    this.exportHasta ? new Date(`${this.exportHasta}T23:59:59`) : undefined,
     };
-    this.citaService.getFiltroPaged(0, 10000, filtros).subscribe({
-      next: res => {
+    this.citaService.getTodoFiltrado(filtros).subscribe({
+      next: atenciones => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay atenciones para exportar en ese rango'); return; }
-        const filas = res.content.map(c => ({
+        if (atenciones.length === 0) { this.toast.warning('No hay atenciones para exportar en ese rango'); return; }
+        const filas = atenciones.map(c => ({
           // El Excel sigue el mismo orden y las mismas columnas que la pantalla.
           'Registrada': fechaHoraAmPm(c.fecha_registro),
           'Fecha de la cita': new Date(c.fecha_inicio).toLocaleDateString('es-PE'),

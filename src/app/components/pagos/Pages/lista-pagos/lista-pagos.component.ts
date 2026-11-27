@@ -263,11 +263,11 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
    */
   exportarPacientesConSaldo(): void {
     this.exportandoSaldos = true;
-    this.pacienteService.getAdelantos(0, 10000).subscribe({
-      next: res => {
+    this.pacienteService.getTodosLosAdelantos().subscribe({
+      next: conSaldo => {
         this.exportandoSaldos = false;
-        if (res.content.length === 0) { this.toast.warning('Ningún paciente tiene saldo a favor'); return; }
-        const filas = res.content
+        if (conSaldo.length === 0) { this.toast.warning('Ningún paciente tiene saldo a favor'); return; }
+        const filas = conSaldo
           .slice()
           .sort((a, b) => (b.saldoAFavor ?? 0) - (a.saldoAFavor ?? 0))
           .map(p => ({
@@ -300,11 +300,11 @@ export class ListaPagosComponent implements OnInit, OnDestroy {
       fechaInicio: this.filtroFechaDesde ? `${this.filtroFechaDesde}T00:00:00` : undefined,
       fechaFin: this.filtroFechaHasta ? `${this.filtroFechaHasta}T23:59:59` : undefined,
     };
-    this.pagoService.getAllPaged(0, 10000, filtros).subscribe({
-      next: res => {
+    this.pagoService.getTodoFiltrado(filtros).subscribe({
+      next: pagos => {
         this.exportando = false;
-        if (res.content.length === 0) { this.toast.warning('No hay pagos para exportar con los filtros actuales'); return; }
-        const filas = res.content.map(p => ({
+        if (pagos.length === 0) { this.toast.warning('No hay pagos para exportar con los filtros actuales'); return; }
+        const filas = pagos.map(p => ({
           'Fecha': fechaHoraAmPm(p.fechaPago),
           // El turno, con la MISMA regla que usa Caja. Sin esta columna el Excel traia la hora
           // y cada quien clasificaba a ojo: un pago de las 13:03 parece de la mañana, el corte

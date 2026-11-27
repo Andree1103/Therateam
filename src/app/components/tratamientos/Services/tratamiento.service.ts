@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { Tratamiento, TratamientoDetalle, Sesion, TratamientoCobertura } from '../Models/tratamiento.model';
 import { PageResponse } from '../../../core/models/page.model';
@@ -22,22 +21,37 @@ export class TratamientoService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Tratamiento[]> {
-    return this.api.get<PageResponse<Tratamiento> | Tratamiento[]>(this.PATH, { size: '1000' }).pipe(
-      map(r => Array.isArray(r) ? r : r.content)
-    );
+    return this.api.getTodo<Tratamiento>(this.PATH);
   }
 
   /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
   getAllPaged(page: number, size: number, filtros: TratamientoFiltros = {}): Observable<PageResponse<Tratamiento>> {
     return this.api.get<PageResponse<Tratamiento>>(this.PATH, {
-      page: String(page), size: String(size),
+      page: String(page), size: String(size), ...this.paramsDe(filtros),
+    });
+  }
+
+  /** Los filtros tal como viajan en la consulta, para la pagina y para el Excel. */
+  private paramsDe(filtros: TratamientoFiltros): Record<string, string | undefined> {
+    return {
       paciente: filtros.paciente?.trim() || undefined,
       terapeuta: filtros.terapeuta?.trim() || undefined,
       tipoTerapiaId: filtros.tipoTerapiaId != null ? String(filtros.tipoTerapiaId) : undefined,
       estado: filtros.estado || undefined,
       desde: filtros.desde || undefined,
       hasta: filtros.hasta || undefined,
-    });
+    };
+  }
+
+  /**
+   * Trae TODO lo que cumpla los filtros, sin tope: pide las paginas que haga falta.
+   *
+   * Lo usa el Excel. Antes pedia una sola pagina de 10.000 filas, que es un numero que hoy
+   * alcanza y manana no --y cuando no alcance, el archivo saldra corto sin decir nada, que es
+   * justo lo que paso con el de citas--. Ver ApiService.getTodo.
+   */
+  getTodoFiltrado(filtros: TratamientoFiltros = {}): Observable<Tratamiento[]> {
+    return this.api.getTodo<Tratamiento>(this.PATH, this.paramsDe(filtros));
   }
 
   getById(id: number): Observable<Tratamiento> {
@@ -57,9 +71,7 @@ export class TratamientoService {
   }
 
   getByPaciente(pacienteId: number): Observable<Tratamiento[]> {
-    return this.api.get<PageResponse<Tratamiento> | Tratamiento[]>(`${this.PATH}/paciente/${pacienteId}`, { size: '1000' }).pipe(
-      map(r => Array.isArray(r) ? r : r.content)
-    );
+    return this.api.getTodo<Tratamiento>(`${this.PATH}/paciente/${pacienteId}`);
   }
 
   getByTerapeuta(terapeutaId: number): Observable<Tratamiento[]> {

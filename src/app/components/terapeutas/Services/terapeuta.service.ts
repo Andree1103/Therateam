@@ -18,9 +18,7 @@ export class TerapeutaService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Terapeuta[]> {
-    return this.api.get<PageResponse<Terapeuta> | Terapeuta[]>(this.PATH, { size: '1000' }).pipe(
-      map(r => Array.isArray(r) ? r : r.content)
-    );
+    return this.api.getTodo<Terapeuta>(this.PATH);
   }
 
   /** Para el listado paginado (server-side): page 0-based, tamaño y filtros por campo separado. */
